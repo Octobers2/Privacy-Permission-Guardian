@@ -5,3 +5,4 @@ dist/
 *.sqlite-journal
 .DS_Store
 *.log
+eval/.cert/

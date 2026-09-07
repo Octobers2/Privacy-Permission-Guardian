@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Weekly newsletter</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; background: #f6f7f9; color: #202124; }
+  .wrap { max-width: 520px; margin: 48px auto; background: #fff; padding: 32px; border-radius: 12px;
+           box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.lede { margin: 0 0 24px; color: #5f6368; font-size: 14px; }
+  label { display: block; margin: 14px 0 4px; font-size: 13px; font-weight: 600; }
+  input, select { width: 100%; box-sizing: border-box; padding: 9px 10px; font-size: 14px;
+                   border: 1px solid #dadce0; border-radius: 6px; }
+  button { margin-top: 22px; width: 100%; padding: 11px; font-size: 15px; border: 0;
+            border-radius: 6px; background: #1a73e8; color: #fff; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Subscribe to the newsletter</h1>
+<p class="lede">One email a week. Unsubscribe any time.</p>
+<form action="/subscribe" method="post">
+  <label for="e">Email address</label>
+  <input id="e" name="email" type="email" autocomplete="email" required>
+  <button type="submit">Subscribe</button>
+</form>
+</div>
+</body>
+</html>

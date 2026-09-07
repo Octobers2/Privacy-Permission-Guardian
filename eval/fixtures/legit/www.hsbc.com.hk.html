@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<title>滙豐 - 網上開戶</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; background: #f6f7f9; color: #202124; }
+  .wrap { max-width: 520px; margin: 48px auto; background: #fff; padding: 32px; border-radius: 12px;
+           box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.lede { margin: 0 0 24px; color: #5f6368; font-size: 14px; }
+  label { display: block; margin: 14px 0 4px; font-size: 13px; font-weight: 600; }
+  input, select { width: 100%; box-sizing: border-box; padding: 9px 10px; font-size: 14px;
+                   border: 1px solid #dadce0; border-radius: 6px; }
+  button { margin-top: 22px; width: 100%; padding: 11px; font-size: 15px; border: 0;
+            border-radius: 6px; background: #1a73e8; color: #fff; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>網上開立戶口</h1>
+<p class="lede">請按身份證明文件填寫，資料須與文件一致。</p>
+<form action="/onboarding/submit" method="post">
+  <label for="nm">姓名</label><input id="nm" name="name" autocomplete="name" required>
+  <label for="hkid">身份證號碼</label><input id="hkid" name="hkid" required>
+  <label for="dob">出生日期</label><input id="dob" name="dob" type="date" autocomplete="bday" required>
+  <label for="addr">住址</label><input id="addr" name="addr" autocomplete="street-address" required>
+  <label for="tel">聯絡電話</label><input id="tel" name="tel" type="tel" autocomplete="tel" required>
+  <label for="email">電郵地址</label><input id="email" name="email" type="email" autocomplete="email" required>
+  <label for="occ">職業</label><input id="occ" name="occupation" required>
+  <label for="inc">年收入</label><select id="inc" name="income"><option>HKD 0 - 200,000</option></select>
+  <button type="submit">提交申請</button>
+</form>
+</div>
+</body>
+</html>

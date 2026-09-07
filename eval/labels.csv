@@ -1,0 +1,9 @@
+file,url,label,notes
+legit/blog.example.com.html,https://blog.example.com/newsletter,legit,Newsletter signup: one email field
+legit/shop.example.com.html,https://shop.example.com/checkout,legit,Real checkout: card details on the merchant's own origin
+legit/www.hsbc.com.hk.html,https://www.hsbc.com.hk/accounts/open/,legit,"Hard case: a genuine bank onboarding form asks for HKID, address, DOB"
+legit/www.wikipedia.org.html,https://www.wikipedia.org/,legit,Search box only
+phishing/secure-paypa1.xyz.html,https://secure-paypa1.xyz/verify,phishing,Homoglyph domain (paypa1) posting card details cross-origin
+phishing/hsbc-verify.top.html,https://hsbc-verify.top/verify,phishing,"Brand name as a token; collects HKID, bank account and banking password"
+phishing/dhl-tracking.click.html,https://dhl-tracking.click/redelivery,phishing,Fake customs fee; brand token plus a suspicious registry
+phishing/login.microsoft-verify.sbs.html,http://login.microsoft-verify.sbs/signin,phishing,Credentials over plain http with no <form> element at all

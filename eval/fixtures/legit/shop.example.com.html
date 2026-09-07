@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Checkout</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; background: #f6f7f9; color: #202124; }
+  .wrap { max-width: 520px; margin: 48px auto; background: #fff; padding: 32px; border-radius: 12px;
+           box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.lede { margin: 0 0 24px; color: #5f6368; font-size: 14px; }
+  label { display: block; margin: 14px 0 4px; font-size: 13px; font-weight: 600; }
+  input, select { width: 100%; box-sizing: border-box; padding: 9px 10px; font-size: 14px;
+                   border: 1px solid #dadce0; border-radius: 6px; }
+  button { margin-top: 22px; width: 100%; padding: 11px; font-size: 15px; border: 0;
+            border-radius: 6px; background: #1a73e8; color: #fff; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Checkout</h1>
+<p class="lede">Step 2 of 3 — payment</p>
+<form action="/checkout/pay" method="post">
+  <label for="nm">Name on card</label><input id="nm" name="holder" autocomplete="cc-name" required>
+  <label for="cc">Card number</label><input id="cc" name="cardnum" autocomplete="cc-number" required>
+  <label for="exp">Expiry</label><input id="exp" name="exp" autocomplete="cc-exp" required>
+  <label for="cvv">CVV</label><input id="cvv" name="cvv" autocomplete="cc-csc" required>
+  <label for="addr">Billing address</label><input id="addr" name="addr" autocomplete="street-address" required>
+  <button type="submit">Pay</button>
+</form>
+</div>
+</body>
+</html>
