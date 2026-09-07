@@ -129,3 +129,60 @@ export function decodePunycodeLabel(label: string): string {
 export function decodePunycodeHostname(hostname: string): string {
   return hostname.split('.').map(decodePunycodeLabel).join('.');
 }
+
+/* ---------------------------------------------------------- homoglyphs */
+
+/**
+ * Characters that render close enough to an ASCII letter to fool a reader.
+ *
+ * Restricted to the scripts that actually show up in homograph attacks
+ * (Cyrillic, Greek, a few Latin extensions) rather than the full Unicode
+ * confusables table — a bigger table means more legitimate domains collapsing
+ * onto a brand, and a false "this is phishing" banner is expensive.
+ */
+const CONFUSABLES: Record<string, string> = {
+  // Cyrillic
+  а: 'a', в: 'b', е: 'e', з: 'e', к: 'k', м: 'm', н: 'h', о: 'o', р: 'p',
+  с: 'c', т: 't', у: 'y', х: 'x', і: 'i', ј: 'j', ѕ: 's', ԁ: 'd', ӏ: 'l',
+  ԛ: 'q', ԝ: 'w', ғ: 'f', ь: 'b', ч: 'y',
+  // Greek
+  ο: 'o', α: 'a', ν: 'v', ρ: 'p', τ: 't', υ: 'u', χ: 'x', ε: 'e', ι: 'i',
+  κ: 'k', μ: 'm', β: 'b', γ: 'y', η: 'n',
+  // Latin extensions and other single-script lookalikes
+  ı: 'i', ł: 'l', đ: 'd', ø: 'o', ɡ: 'g', ɑ: 'a', ѐ: 'e', օ: 'o', ա: 'w',
+};
+
+/** Digits typed in place of the letter they resemble. */
+const DIGIT_SUBSTITUTIONS: Record<string, string> = {
+  '0': 'o', '1': 'l', '3': 'e', '4': 'a', '5': 's', '7': 't', '8': 'b',
+};
+
+/** Letter pairs that read as a single letter at a glance. */
+const LIGATURES: [RegExp, string][] = [
+  [/rn/g, 'm'],
+  [/vv/g, 'w'],
+  [/cl/g, 'd'],
+];
+
+/**
+ * Folds a hostname label onto a canonical form so that visually similar labels
+ * compare equal.
+ *
+ * `paypa1`, `pаypal` (Cyrillic а) and `payPal` all fold to `paypal`. The result
+ * is only ever used for comparison against the brand list — it is never shown
+ * to the user, because the folded form is not a real domain.
+ */
+export function normaliseHomoglyphs(label: string): string {
+  // NFKD splits accents off their base letter and folds full-width forms;
+  // dropping the combining marks then turns "pа́ypal" into "paypal".
+  let out = label
+    .normalize('NFKD')
+    .replace(/\p{Mn}/gu, '')
+    .toLowerCase();
+
+  out = [...out].map((ch) => CONFUSABLES[ch] ?? ch).join('');
+  for (const [pattern, replacement] of LIGATURES) out = out.replace(pattern, replacement);
+  out = [...out].map((ch) => DIGIT_SUBSTITUTIONS[ch] ?? ch).join('');
+
+  return out;
+}

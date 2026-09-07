@@ -1,5 +1,10 @@
 import { describe, expect, test } from 'bun:test';
-import { decodePunycodeHostname, decodePunycodeLabel, levenshtein } from '../src/lookalike.ts';
+import {
+  decodePunycodeHostname,
+  decodePunycodeLabel,
+  levenshtein,
+  normaliseHomoglyphs,
+} from '../src/lookalike.ts';
 
 describe('levenshtein', () => {
   test('is zero for identical strings', () => {
@@ -64,5 +69,37 @@ describe('decodePunycodeLabel', () => {
 
   test('decodes each label of a hostname independently', () => {
     expect(decodePunycodeHostname('www.xn--pypal-4ve.com')).toBe('www.pаypal.com');
+  });
+});
+
+describe('normaliseHomoglyphs', () => {
+  test('folds case', () => {
+    expect(normaliseHomoglyphs('PayPal')).toBe('paypal');
+  });
+
+  test('folds digits typed in place of letters', () => {
+    expect(normaliseHomoglyphs('paypa1')).toBe('paypal');
+    expect(normaliseHomoglyphs('g00gle')).toBe('google');
+    expect(normaliseHomoglyphs('micr0s0ft')).toBe('microsoft');
+  });
+
+  test('folds cyrillic lookalikes onto latin', () => {
+    expect(normaliseHomoglyphs('аррӏе')).toBe('apple');
+    expect(normaliseHomoglyphs('pаypal')).toBe('paypal');
+  });
+
+  test('folds letter pairs that read as one letter', () => {
+    expect(normaliseHomoglyphs('rnicrosoft')).toBe('microsoft');
+    expect(normaliseHomoglyphs('vvhatsapp')).toBe('whatsapp');
+  });
+
+  test('strips accents', () => {
+    expect(normaliseHomoglyphs('pàypal')).toBe('paypal');
+  });
+
+  test('leaves an already canonical label untouched', () => {
+    for (const label of ['paypal', 'hsbc', 'octopus', 'google']) {
+      expect(normaliseHomoglyphs(label)).toBe(label);
+    }
   });
 });
