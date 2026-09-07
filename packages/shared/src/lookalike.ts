@@ -189,7 +189,7 @@ export function normaliseHomoglyphs(label: string): string {
 
 /* ----------------------------------------------------------- detection */
 
-import { parse as parseDomain } from 'tldts';
+import { registrableDomain, registrableLabel } from './domain.ts';
 import brandList from './brands.json' with { type: 'json' };
 
 export interface Brand {
@@ -252,17 +252,17 @@ const GENERIC_LABELS = new Set([
 function indexBrands(brands: Brand[]): IndexedBrand[] {
   const byLabel = new Map<string, IndexedBrand>();
   for (const brand of brands) {
-    const parsed = parseDomain(brand.domain);
-    const label = parsed.domainWithoutSuffix;
-    if (!label || !parsed.domain) continue;
+    const label = registrableLabel(brand.domain);
+    if (!label) continue;
+    const registrable = registrableDomain(brand.domain);
 
     // Several entries collapse onto one label: payme.hsbc.com.hk and
     // hsbc.com.hk both reduce to "hsbc". Prefer the entry that *is* the
     // registrable domain, otherwise the banner ends up telling the user that
     // hsbc-verify.top is impersonating PayMe.
-    const isRegistrableItself = parsed.domain === brand.domain;
+    const isRegistrableItself = registrable === brand.domain;
     const existing = byLabel.get(label);
-    if (!existing || (isRegistrableItself && existing.domain !== parsed.domain)) {
+    if (!existing || (isRegistrableItself && existing.domain !== registrable)) {
       byLabel.set(label, { ...brand, label, folded: normaliseHomoglyphs(label) });
     }
   }
@@ -288,10 +288,9 @@ export function detectLookalike(
   brands: IndexedBrand[] = INDEXED_BRANDS,
 ): LookalikeMatch | null {
   const decoded = decodePunycodeHostname(hostname).toLowerCase();
-  const parsed = parseDomain(decoded);
-  const registrable = parsed.domain;
-  const label = parsed.domainWithoutSuffix;
-  if (!registrable || !label) return null;
+  const label = registrableLabel(decoded);
+  if (!label) return null;
+  const registrable = registrableDomain(decoded);
 
   // The real thing, or one of its subdomains.
   if (brands.some((b) => b.domain === registrable)) return null;

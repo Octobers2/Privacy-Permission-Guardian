@@ -6,10 +6,9 @@
  * API key unset and the machine offline, and it is what makes the numbers in
  * the evaluation reproducible.
  */
-import { detectLookalike, type LookalikeMatch } from './lookalike.ts';
-import { parse as parseDomain } from 'tldts';
+import { BRANDS, detectLookalike, type LookalikeMatch } from './lookalike.ts';
+import { publicSuffixOf, registrableDomain } from './domain.ts';
 import type { FormField, FormObservation, RuleHit, RuleResult, Verdict } from './schemas.ts';
-import { BRANDS } from './lookalike.ts';
 
 /* ------------------------------------------------------ field classification */
 
@@ -124,7 +123,7 @@ export function scoreForm(observation: FormObservation, options: ScoreOptions = 
   const { page, form } = observation;
   const hits: RuleHit[] = [];
 
-  const registrable = parseDomain(page.hostname).domain ?? page.hostname;
+  const registrable = registrableDomain(page.hostname);
   if (options.allowlist?.includes(registrable)) {
     return { score: 0, hits: [], verdict: 'safe' };
   }
@@ -182,7 +181,7 @@ export function scoreForm(observation: FormObservation, options: ScoreOptions = 
     });
   }
 
-  const tld = parseDomain(page.hostname).publicSuffix ?? '';
+  const tld = publicSuffixOf(page.hostname);
   if (SUSPICIOUS_TLDS.has(tld) && has('password')) {
     hits.push({
       id: 'suspicious_tld_login',

@@ -27,7 +27,12 @@ const CUSTOM_COLOURS = [
   { name: 'warning', hex: '#F9A825' },
 ] as const;
 
-const OUT = resolve(import.meta.dir, '../src/ui/theme/md3-tokens.css');
+const OUT_ROOT = resolve(import.meta.dir, '../src/ui/theme/md3-tokens.css');
+/**
+ * The injected banner lives in a shadow root, where `:root` does not reach and
+ * would leak into the host page anyway, so it gets its own `:host` copy.
+ */
+const OUT_HOST = resolve(import.meta.dir, '../src/content/md3-tokens-host.css');
 
 function arg(flag: string, fallback: string): string {
   const i = process.argv.indexOf(flag);
@@ -76,25 +81,31 @@ const source = Hct.fromInt(sourceArgb);
 const light = schemeVars(new SchemeTonalSpot(source, false, 0), sourceArgb, false);
 const dark = schemeVars(new SchemeTonalSpot(source, true, 0), sourceArgb, true);
 
-const css = `/*
+const header = `/*
  * GENERATED FILE — do not edit by hand.
  * Regenerate with: bun run scripts/gen-theme.ts --seed '${seed}'
  *
  * Seed colour: ${seed}
  * Custom semantic colours: ${CUSTOM_COLOURS.map((c) => `${c.name} ${c.hex}`).join(', ')}
  */
+`;
 
-:root {
+function sheet(selector: string): string {
+  return `${header}
+${selector} {
 ${light.join('\n')}
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  ${selector} {
 ${dark.map((l) => '  ' + l).join('\n')}
   }
 }
 `;
+}
 
-writeFileSync(OUT, css);
-console.log(`wrote ${OUT}`);
+writeFileSync(OUT_ROOT, sheet(':root'));
+writeFileSync(OUT_HOST, sheet(':host'));
+console.log(`wrote ${OUT_ROOT}`);
+console.log(`wrote ${OUT_HOST}`);
 console.log(`  ${light.length} light tokens, ${dark.length} dark tokens, seed ${seed}`);
