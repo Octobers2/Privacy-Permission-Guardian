@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Privacy & Permission Guardian",
+  "description": "Summarises a site's privacy policy and warns about suspicious personal-data forms.",
+  "version": "0.1.0",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Privacy & Permission Guardian"
+  },
+  "options_page": "options.html",
+  "background": {
+    "service_worker": "src/background/index.ts",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/index.ts"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "permissions": ["storage", "tabs"],
+  "host_permissions": ["<all_urls>"]
+}
