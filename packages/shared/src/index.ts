@@ -4,3 +4,4 @@ export * from './sanitize.ts';
 export * from './lookalike.ts';
 export * from './extract-form.ts';
 export * from './rules.ts';
+export * from './score.ts';
