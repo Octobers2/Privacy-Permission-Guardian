@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "theme": "bun run scripts/gen-theme.ts",
-    "check": "vite build && bun run ../../eval/run-e2e.ts"
+    "check": "vite build && bun run ../../eval/run-e2e.ts",
+    "icons": "bun run scripts/gen-icons.ts"
   },
   "dependencies": {
     "@material/web": "^2.3.0",
