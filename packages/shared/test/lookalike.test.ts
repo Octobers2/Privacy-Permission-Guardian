@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { levenshtein } from '../src/lookalike.ts';
+import { decodePunycodeHostname, decodePunycodeLabel, levenshtein } from '../src/lookalike.ts';
 
 describe('levenshtein', () => {
   test('is zero for identical strings', () => {
@@ -34,5 +34,35 @@ describe('levenshtein', () => {
 
   test('bails out early on a hopeless length difference', () => {
     expect(levenshtein('ab', 'abcdefghijklmnop', 2)).toBe(3);
+  });
+});
+
+describe('decodePunycodeLabel', () => {
+  test('leaves plain labels alone', () => {
+    expect(decodePunycodeLabel('paypal')).toBe('paypal');
+    expect(decodePunycodeLabel('secure-login')).toBe('secure-login');
+  });
+
+  test('decodes a cyrillic homoglyph domain', () => {
+    // "pаypal" with a Cyrillic а (U+0430) — the classic IDN homograph attack.
+    expect(decodePunycodeLabel('xn--pypal-4ve')).toBe('pаypal');
+  });
+
+  test('decodes a fully non-latin label', () => {
+    expect(decodePunycodeLabel('xn--4gq171p')).toBe('一頁');
+  });
+
+  test('decodes the apple.com homograph', () => {
+    // xn--80ak6aa92e rendered as "apple" in the address bar of every major
+    // browser in 2017; every character is Cyrillic.
+    expect(decodePunycodeLabel('xn--80ak6aa92e')).toBe('аррӏе');
+  });
+
+  test('returns the input unchanged when the encoding is malformed', () => {
+    expect(decodePunycodeLabel('xn--!!!')).toBe('xn--!!!');
+  });
+
+  test('decodes each label of a hostname independently', () => {
+    expect(decodePunycodeHostname('www.xn--pypal-4ve.com')).toBe('www.pаypal.com');
   });
 });

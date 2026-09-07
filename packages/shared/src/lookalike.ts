@@ -48,3 +48,84 @@ export function levenshtein(a: string, b: string, max = Infinity): number {
   const distance = row[b.length]!;
   return distance > max ? max + 1 : distance;
 }
+
+/* ------------------------------------------------------------- punycode */
+
+const PUNY_BASE = 36;
+const PUNY_TMIN = 1;
+const PUNY_TMAX = 26;
+const PUNY_SKEW = 38;
+const PUNY_DAMP = 700;
+const PUNY_INITIAL_BIAS = 72;
+const PUNY_INITIAL_N = 128;
+
+function punyAdapt(delta: number, numPoints: number, firstTime: boolean): number {
+  let d = firstTime ? Math.floor(delta / PUNY_DAMP) : delta >> 1;
+  d += Math.floor(d / numPoints);
+  let k = 0;
+  while (d > ((PUNY_BASE - PUNY_TMIN) * PUNY_TMAX) >> 1) {
+    d = Math.floor(d / (PUNY_BASE - PUNY_TMIN));
+    k += PUNY_BASE;
+  }
+  return k + Math.floor(((PUNY_BASE - PUNY_TMIN + 1) * d) / (d + PUNY_SKEW));
+}
+
+/**
+ * Decodes a single punycode label (RFC 3492), e.g. `xn--pypal-4ve` -> `pаypal`.
+ *
+ * Neither browsers nor Bun expose a decoder, and without one the entire
+ * Cyrillic half of the homoglyph table would be unreachable: an internationalised
+ * domain reaches us already encoded, so `xn--pypal-4ve.com` would otherwise look
+ * nothing like `paypal.com`.
+ *
+ * Returns the input unchanged if it is not punycode or is malformed — a bad
+ * label is the attacker's problem, not a reason to throw inside a content script.
+ */
+export function decodePunycodeLabel(label: string): string {
+  if (!label.toLowerCase().startsWith('xn--')) return label;
+  const encoded = label.slice(4);
+
+  const lastDelimiter = encoded.lastIndexOf('-');
+  const basic = lastDelimiter > 0 ? encoded.slice(0, lastDelimiter) : '';
+  const digits = lastDelimiter > 0 ? encoded.slice(lastDelimiter + 1) : encoded;
+
+  const output = [...basic];
+  let n = PUNY_INITIAL_N;
+  let i = 0;
+  let bias = PUNY_INITIAL_BIAS;
+
+  for (let pos = 0; pos < digits.length; ) {
+    const oldi = i;
+    let w = 1;
+
+    for (let k = PUNY_BASE; ; k += PUNY_BASE) {
+      if (pos >= digits.length) return label;
+
+      const code = digits.charCodeAt(pos++);
+      let digit: number;
+      if (code >= 0x30 && code <= 0x39) digit = code - 0x30 + 26;
+      else if (code >= 0x61 && code <= 0x7a) digit = code - 0x61;
+      else if (code >= 0x41 && code <= 0x5a) digit = code - 0x41;
+      else return label;
+
+      i += digit * w;
+      const t = k <= bias ? PUNY_TMIN : k >= bias + PUNY_TMAX ? PUNY_TMAX : k - bias;
+      if (digit < t) break;
+      w *= PUNY_BASE - t;
+    }
+
+    bias = punyAdapt(i - oldi, output.length + 1, oldi === 0);
+    n += Math.floor(i / (output.length + 1));
+    i %= output.length + 1;
+    if (n > 0x10ffff) return label;
+    output.splice(i, 0, String.fromCodePoint(n));
+    i++;
+  }
+
+  return output.join('');
+}
+
+/** Decodes every punycode label in a hostname. */
+export function decodePunycodeHostname(hostname: string): string {
+  return hostname.split('.').map(decodePunycodeLabel).join('.');
+}
