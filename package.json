@@ -16,6 +16,7 @@
   "devDependencies": {
     "@types/bun": "latest",
     "@types/chrome": "^0.0.287",
+    "linkedom": "^0.18.13",
     "typescript": "^5.7.2"
   },
   "dependencies": {
