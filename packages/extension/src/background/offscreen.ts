@@ -5,7 +5,7 @@
  * script's requests are governed by the page's CSP. An offscreen document is an
  * extension page with both, so that is where fetching and rendering happen.
  */
-import type { ReadPolicyResponse } from '../messages.ts';
+import type { PolicyReadResult } from '../offscreen/index.ts';
 
 const PATH = 'offscreen.html';
 
@@ -37,8 +37,10 @@ async function ensure(): Promise<void> {
   return creating;
 }
 
-export async function readPolicy(urls: string[]): Promise<ReadPolicyResponse | null> {
-  if (urls.length === 0) return null;
+export async function readPolicy(urls: string[]): Promise<PolicyReadResult> {
+  if (urls.length === 0) return { policy: null, failures: [] };
   await ensure();
-  return (await chrome.runtime.sendMessage({ type: 'read-policy', urls })) ?? null;
+  return (
+    (await chrome.runtime.sendMessage({ type: 'read-policy', urls })) ?? { policy: null, failures: [] }
+  );
 }

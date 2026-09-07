@@ -30,6 +30,31 @@ export interface RenderedPolicy {
   truncated: boolean;
 }
 
+/**
+ * Why a candidate could not be used.
+ *
+ * Reported per URL rather than collapsed into one message: "the page links to
+ * nothing", "the link 404s" and "the policy is rendered by JavaScript" send you
+ * to completely different places, and a single "could not read any of them" is
+ * what made this class of failure impossible to diagnose twice already.
+ */
+export type PolicyFailureReason =
+  | 'fetch-failed'
+  | 'http-error'
+  | 'not-html'
+  | 'needs-javascript'
+  | 'too-short';
+
+export interface PolicyFailure {
+  url: string;
+  reason: PolicyFailureReason;
+}
+
+export interface PolicyReadResult {
+  policy: RenderedPolicy | null;
+  failures: PolicyFailure[];
+}
+
 function escapeAttribute(value: string): string {
   return value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
 }
@@ -42,7 +67,10 @@ function escapeAttribute(value: string): string {
  * to reach `contentDocument`, and is only dangerous in combination with
  * `allow-scripts`, which is exactly what is withheld.
  */
-async function renderAndExtract(html: string, baseUrl: string): Promise<{ text: string; truncated: boolean }> {
+async function renderAndExtract(
+  html: string,
+  baseUrl: string,
+): Promise<{ text: string; truncated: boolean; scriptCount: number }> {
   const frame = document.createElement('iframe');
   frame.setAttribute('sandbox', 'allow-same-origin');
   frame.setAttribute('aria-hidden', 'true');
@@ -64,7 +92,9 @@ async function renderAndExtract(html: string, baseUrl: string): Promise<{ text: 
     await new Promise((done) => setTimeout(done, 250));
 
     const doc = frame.contentDocument;
-    if (!doc) return { text: '', truncated: false };
+    if (!doc) return { text: '', truncated: false, scriptCount: 0 };
+    // Counted before the sanitiser removes them.
+    const scriptCount = doc.querySelectorAll('script').length;
     const { text, truncated } = extractVisibleText(pickMainContent(doc), MAX_POLICY_CHARS, (element) => {
       try {
         return frame.contentWindow?.getComputedStyle(element) ?? null;
@@ -72,38 +102,56 @@ async function renderAndExtract(html: string, baseUrl: string): Promise<{ text: 
         return null;
       }
     });
-    return { text, truncated };
+    return { text, truncated, scriptCount };
   } finally {
     frame.remove();
   }
 }
 
-async function readPolicyAt(url: string): Promise<RenderedPolicy | null> {
+/**
+ * Distinguishes an empty page from one whose text has not been rendered yet.
+ *
+ * A large document, plenty of scripts and almost no visible text is a
+ * client-rendered shell — Meta's policy pages are the clearest example. Nothing
+ * is wrong with the fetch; the text simply is not in the HTML, and this sandbox
+ * deliberately does not run the scripts that would put it there.
+ */
+function looksClientRendered(html: string, scriptCount: number, renderedChars: number): boolean {
+  return html.length > 20_000 && scriptCount > 5 && renderedChars < 400;
+}
+
+async function readPolicyAt(url: string): Promise<RenderedPolicy | PolicyFailure> {
   let response: Response;
   try {
     response = await fetch(url, { credentials: 'include', redirect: 'follow' });
   } catch {
-    return null;
+    return { url, reason: 'fetch-failed' };
   }
-  if (!response.ok) return null;
-  if (!(response.headers.get('content-type') ?? '').includes('html')) return null;
+  if (!response.ok) return { url, reason: 'http-error' };
+  if (!(response.headers.get('content-type') ?? '').includes('html')) return { url, reason: 'not-html' };
 
   const html = await response.text();
-  const { text, truncated } = await renderAndExtract(html, response.url || url);
+  const { text, truncated, scriptCount } = await renderAndExtract(html, response.url || url);
 
-  // A "policy page" of two sentences is a cookie wall or a redirect stub.
-  if (text.length < 400) return null;
+  if (text.length < 400) {
+    return {
+      url,
+      reason: looksClientRendered(html, scriptCount, text.length) ? 'needs-javascript' : 'too-short',
+    };
+  }
 
   return { policyUrl: response.url || url, text, truncated };
 }
 
 /** Tries each candidate in order and returns the first that reads like a document. */
-export async function readFirstPolicy(urls: string[]): Promise<RenderedPolicy | null> {
+export async function readFirstPolicy(urls: string[]): Promise<PolicyReadResult> {
+  const failures: PolicyFailure[] = [];
   for (const url of urls) {
-    const found = await readPolicyAt(url);
-    if (found) return found;
+    const result = await readPolicyAt(url);
+    if ('policyUrl' in result) return { policy: result, failures };
+    failures.push(result);
   }
-  return null;
+  return { policy: null, failures };
 }
 
 chrome.runtime.onMessage.addListener((message: { type?: string; urls?: string[] }, _sender, sendResponse) => {

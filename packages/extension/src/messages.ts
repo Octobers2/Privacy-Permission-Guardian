@@ -59,7 +59,8 @@ export type SummaryState =
   | { status: 'idle'; domain: string }
   | { status: 'working'; domain: string }
   | { status: 'ready'; domain: string; cached: boolean; summary: PolicySummary }
-  | { status: 'unavailable'; domain: string; reason: string }
+  /** `links` lets the popup offer the pages it found but could not read. */
+  | { status: 'unavailable'; domain: string; reason: string; links?: string[] }
   | { status: 'error'; domain: string; message: string };
 
 /* ---------------------------------------------------- worker -> content script */
@@ -76,6 +77,18 @@ export interface PolicyCandidatesRequest {
 }
 
 export type PolicyCandidatesResponse = string[];
+
+/** Reads the page the user is actually looking at, scripts already run. */
+export interface ExtractCurrentPageRequest {
+  type: 'extract-current-page';
+}
+
+export interface ExtractCurrentPageResponse {
+  isPolicyPage: boolean;
+  policyUrl: string;
+  text: string;
+  truncated: boolean;
+}
 
 /* ------------------------------------------------ worker -> offscreen page */
 
@@ -97,6 +110,7 @@ export type ExtensionMessage =
   | AnalysePolicyRequest
   | TestConnectionRequest
   | PolicyCandidatesRequest
+  | ExtractCurrentPageRequest
   | ReadPolicyRequest;
 
 export type ConnectionCheckResponse = ConnectionCheck;

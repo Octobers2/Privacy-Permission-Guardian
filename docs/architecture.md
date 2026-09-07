@@ -61,6 +61,11 @@ session）加真渲染引擎。抓返嚟嘅 HTML 放入一個 `sandbox` 但冇
 
 連結搜尋仍然留喺 content script —— 得 live 頁面知道自己個 footer 連去邊。
 
+Content script 仲負責第二條路：如果用戶身處嘅**就係**條款頁
+（`looksLikePolicyPage`），直接讀已經 render 好嘅 live DOM。呢個係唯一
+讀得到 client-rendered 條款頁嘅方法（Meta、Google 都係），因為嗰時網站
+自己嘅 script 已經行完。
+
 ### 3. `packages/shared/` 用 TypeScript，唔用 Python server
 
 因為要支援 BYOK 直連，prompt、zod schema、sanitizer、引文核對、計分

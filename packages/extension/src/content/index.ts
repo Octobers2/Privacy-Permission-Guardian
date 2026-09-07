@@ -5,11 +5,17 @@
  * a banner. No framework, no scoring, no network — the heavy parts all live in
  * the worker so that visiting a page costs almost nothing.
  */
-import type { AssessResponse, ExtensionMessage, PolicyCandidatesResponse } from '../messages.ts';
+import type {
+  AssessResponse,
+  ExtensionMessage,
+  ExtractCurrentPageResponse,
+  PolicyCandidatesResponse,
+} from '../messages.ts';
 import { SETTINGS_STORAGE_KEY } from '../messages.ts';
 import { removeBanner, showBanner } from './banner.ts';
 import { scanDocument, watchDocument } from './form-scanner.ts';
-import { policyCandidates } from './policy-scout.ts';
+import { extractVisibleText, pickMainContent } from '@ppg/shared/sanitize';
+import { looksLikePolicyPage, policyCandidates } from './policy-scout.ts';
 
 const TITLES = {
   danger: '呢個表單好可疑，唔好喺度輸入個人資料',
@@ -67,7 +73,26 @@ chrome.storage.onChanged.addListener((changes, area) => {
 // happens here. Fetching and rendering it happens in the offscreen document,
 // which is not bound by this page's CSP and has a real rendering engine.
 chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendResponse) => {
-  if (message?.type !== 'policy-candidates') return false;
-  sendResponse(policyCandidates() satisfies PolicyCandidatesResponse);
+  if (message?.type === 'policy-candidates') {
+    sendResponse(policyCandidates() satisfies PolicyCandidatesResponse);
+    return false;
+  }
+
+  // Reading the live page is the only way to analyse a policy that is rendered
+  // by JavaScript — Meta, Google and most large sites serve a shell and fill it
+  // in on the client, and the offscreen reader deliberately runs no scripts.
+  // Here the site's own scripts have already run and this is simply the text
+  // the user is looking at.
+  if (message?.type === 'extract-current-page') {
+    const { text, truncated } = extractVisibleText(pickMainContent(document));
+    sendResponse({
+      isPolicyPage: looksLikePolicyPage(),
+      policyUrl: location.origin + location.pathname,
+      text,
+      truncated,
+    } satisfies ExtractCurrentPageResponse);
+    return false;
+  }
+
   return false;
 });

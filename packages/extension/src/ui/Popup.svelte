@@ -55,6 +55,17 @@
     </div>
   {:else if state.status === 'unavailable'}
     <p class="md-typescale-body-medium lede">{state.reason}</p>
+    {#if state.links?.length}
+      <ul class="links">
+        {#each state.links as link (link)}
+          <li>
+            <a href={link} target="_blank" rel="noreferrer noopener" class="md-typescale-body-small">
+              {link.replace(/^https?:\/\//, '')}
+            </a>
+          </li>
+        {/each}
+      </ul>
+    {/if}
     <p class="md-typescale-body-small hint">
       搵唔到就係搵唔到 —— 我哋唔會拎第二版嘢當條款嚟摘要。
     </p>
@@ -164,6 +175,18 @@
     font-size: 34px;
     font-weight: 700;
     line-height: 1;
+  }
+  .links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .links a {
+    color: var(--md-sys-color-primary);
+    word-break: break-all;
   }
   .points {
     display: flex;

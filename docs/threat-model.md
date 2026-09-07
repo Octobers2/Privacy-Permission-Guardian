@@ -80,6 +80,25 @@ Offscreen document 係 extension 頁面：佢嘅請求唔受任何網頁 CSP 管
 見 [evaluation.md](evaluation.md)。真瀏覽器量度：8 種技巧入面 6 種嘅
 payload 根本到唔到模型；8/8 虛構發現喺顯示前被拒絕；0 個 delimiter 逃逸。
 
+### 靠 JavaScript render 嘅條款頁
+
+Meta、Google 等大站嘅條款頁係 client-rendered：抓返嚟嘅 HTML 係一個空殼，
+文字要 script 行完先出現。我哋個 sandbox iframe 刻意唔執行 script，所以
+喺嗰度睇到嘅係空殼（實測：`instagram.com/legal/privacy/` render 出
+190,000 字元，但剝離之後係 0 —— 因為當中絕大部分係 `<script>` 入面嘅
+JSON，而 `body.textContent` 會計埋佢哋）。
+
+登入狀態會令情況更常出現：帶住 cookie 攞到嘅係 app shell，未登入反而
+可能攞到 server-rendered 版本。
+
+**唔會為咗解決佢而喺 iframe 開 `allow-scripts`。** `allow-scripts` 加
+`allow-same-origin` 一齊用，等於畀一份攻擊者控制嘅文件喺我哋嘅 extension
+origin 入面執行 code。
+
+出路係另一條路：如果用戶自己行到條款頁，content script 會直接讀**已經
+render 好嘅 live DOM** —— 網站自己嘅 script 已經行完，而我哋只係讀用戶
+本身睇緊嘅文字。Popup 喺讀唔到嗰陣會列出搵到嘅連結，撳入去再分析就得。
+
 ### 呢個模型處理唔到嘅嘢
 
 **一個被說服保持沉默嘅模型。** 冇任何一層可以令佢開口。緩解係：

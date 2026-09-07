@@ -18,10 +18,11 @@ import {
 import type {
   AssessResponse,
   ExtensionMessage,
+  ExtractCurrentPageResponse,
   PolicyCandidatesResponse,
-  ReadPolicyResponse,
   SummaryState,
 } from '../messages.ts';
+import type { PolicyFailure } from '../offscreen/index.ts';
 import { loadSettings, onSettingsChanged, saveSettings } from '../settings.ts';
 import { readSummary, writeSummary } from './cache.ts';
 import { readPolicy } from './offscreen.ts';
@@ -77,6 +78,35 @@ async function allowlistSite(hostname: string): Promise<void> {
 
 /* ---------------------------------------------------------- policy summary */
 
+/**
+ * Turns per-candidate failures into one sentence that says what to do next.
+ *
+ * The previous version listed every possible cause as a guess. That is what a
+ * message says when nobody measured which one it was, and it sent the user
+ * looking in DevTools at a network tab that could never have shown the
+ * offscreen document's requests.
+ */
+function explainFailures(failures: PolicyFailure[]): string {
+  if (failures.length === 0) return '搵唔到條款文件。';
+
+  const counts = new Map<PolicyFailure['reason'], number>();
+  for (const failure of failures) counts.set(failure.reason, (counts.get(failure.reason) ?? 0) + 1);
+
+  if ((counts.get('needs-javascript') ?? 0) > 0) {
+    return (
+      `搵到 ${failures.length} 條連結，但佢哋嘅條款內容要 JavaScript 先顯示得出 —— ` +
+      '我哋唔會喺沙盒入面執行網站嘅 script。撳下面條連結打開條款頁，喺嗰版再撳「分析呢個網站」就讀到。'
+    );
+  }
+  if ((counts.get('fetch-failed') ?? 0) === failures.length) {
+    return `搵到 ${failures.length} 條連結，但一條都連唔到。檢查下網絡。`;
+  }
+  if ((counts.get('http-error') ?? 0) === failures.length) {
+    return `搵到 ${failures.length} 條連結，但全部都回應錯誤（可能係登入牆或者已經搬咗）。`;
+  }
+  return `搵到 ${failures.length} 條連結，但讀返嚟嘅內容太短，唔似一份條款文件。`;
+}
+
 async function domainOfTab(tabId: number): Promise<string | null> {
   const tab = await chrome.tabs.get(tabId).catch(() => null);
   if (!tab?.url) return null;
@@ -115,8 +145,13 @@ async function analysePolicy(tabId: number): Promise<SummaryState> {
 
   const settings: Settings = await loadSettings();
 
-  let candidates: PolicyCandidatesResponse;
+  // The page the user is on may itself be the policy. Reading it directly is
+  // both cheaper and the only thing that works when the document is rendered by
+  // JavaScript, because here the site's own scripts have already run.
+  let live: ExtractCurrentPageResponse | null = null;
+  let candidates: PolicyCandidatesResponse = [];
   try {
+    live = (await chrome.tabs.sendMessage(tabId, { type: 'extract-current-page' })) ?? null;
     candidates = (await chrome.tabs.sendMessage(tabId, { type: 'policy-candidates' })) ?? [];
   } catch {
     return {
@@ -126,23 +161,29 @@ async function analysePolicy(tabId: number): Promise<SummaryState> {
     };
   }
 
-  if (candidates.length === 0) {
+  let document: { policyUrl: string; text: string; truncated: boolean } | null = null;
+  let failures: PolicyFailure[] = [];
+
+  if (live?.isPolicyPage && live.text.length >= 400) {
+    document = { policyUrl: live.policyUrl, text: live.text, truncated: live.truncated };
+  } else if (candidates.length === 0) {
     return {
       status: 'unavailable',
       domain,
       reason: '呢一頁冇連去私隱政策或者服務條款。',
     };
+  } else {
+    const result = await readPolicy(candidates);
+    document = result.policy;
+    failures = result.failures;
   }
 
-  // Separated from the message above on purpose: "the page links to nothing"
-  // and "every link we tried would not load" send you to different places, and
-  // one message for both is what made the last failure impossible to diagnose.
-  const document: ReadPolicyResponse | null = await readPolicy(candidates);
   if (!document) {
     return {
       status: 'unavailable',
       domain,
-      reason: `搵到 ${candidates.length} 條可能嘅連結，但一條都讀唔到（可能係登入牆、重導向，或者內容太短）。`,
+      reason: explainFailures(failures),
+      links: [...new Set(failures.map((failure) => failure.url))].slice(0, 5),
     };
   }
 

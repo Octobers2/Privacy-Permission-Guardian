@@ -11,7 +11,36 @@
  * Link discovery stays here because it needs the live page's DOM, which is the
  * one thing the offscreen document does not have.
  */
-const POLICY_PATTERN = /privacy|policy|terms|tos\b|legal|條款|私隱|隱私|使用者條款|服務條款/i;
+export const POLICY_PATTERN = /privacy|policy|terms|tos\b|legal|條款|私隱|隱私|使用者條款|服務條款/i;
+
+/**
+ * `URL.pathname` percent-encodes anything outside ASCII, so a Chinese path like
+ * `/私隱政策` arrives as `/%E7%A7%81%E9%9A%B1%E6%94%BF%E7%AD%96` and never
+ * matches the Chinese half of the pattern. Decoding first is what makes the
+ * pattern work on the sites it was written for.
+ */
+function readablePath(url: URL | string): string {
+  const path = typeof url === 'string' ? url : url.pathname;
+  try {
+    return decodeURIComponent(path);
+  } catch {
+    return path;
+  }
+}
+
+/** Whether the page the user is on is itself a policy document. */
+export function looksLikePolicyPage(
+  doc: Document = document,
+  pageUrl: string = location.href,
+): boolean {
+  let path = pageUrl;
+  try {
+    path = readablePath(new URL(pageUrl));
+  } catch {
+    /* fall back to matching the whole string */
+  }
+  return POLICY_PATTERN.test(path) || POLICY_PATTERN.test(doc.title ?? '');
+}
 
 /** Paths worth trying when the page links to nothing useful. */
 const FALLBACK_PATHS = ['/privacy', '/privacy-policy', '/terms', '/legal/privacy', '/policies/privacy'];
@@ -57,14 +86,14 @@ export function findPolicyLinks(doc: Document, pageUrl: string): string[] {
     if (!looksSameSite(resolved.hostname, pageHost)) continue;
 
     const text = (anchor.textContent ?? '').trim();
-    if (!POLICY_PATTERN.test(resolved.pathname) && !POLICY_PATTERN.test(text)) continue;
+    if (!POLICY_PATTERN.test(readablePath(resolved)) && !POLICY_PATTERN.test(text)) continue;
 
     // Footers are where these links actually live; a "terms" mention in body
     // copy is more often prose than a link to the document.
     let score = anchor.closest('footer') ? 2 : 0;
     // "Privacy policy" beats "Terms of service" — it is the document that
     // answers "what do they do with my data?".
-    if (/privacy|私隱|隱私/i.test(resolved.pathname + text)) score += 1;
+    if (/privacy|私隱|隱私/i.test(readablePath(resolved) + text)) score += 1;
 
     scored.push({ url: resolved.origin + resolved.pathname, score });
   }

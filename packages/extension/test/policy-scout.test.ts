@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { parseHTML } from 'linkedom';
-import { findPolicyLinks, policyCandidates } from '../src/content/policy-scout.ts';
+import { findPolicyLinks, looksLikePolicyPage, policyCandidates } from '../src/content/policy-scout.ts';
 
 function domOf(body: string): Document {
   return parseHTML(`<!doctype html><html><body>${body}</body></html>`).document as unknown as Document;
@@ -86,5 +86,45 @@ describe('policyCandidates', () => {
     const doc = domOf('<footer><a href="/privacy">Privacy</a></footer>');
     const candidates = policyCandidates(doc, PAGE);
     expect(candidates.filter((url) => url === 'https://shop.example.com/privacy')).toHaveLength(1);
+  });
+});
+
+describe('looksLikePolicyPage', () => {
+  test('recognises a policy page by its path', () => {
+    for (const url of [
+      'https://policies.google.com/privacy',
+      'https://privacycenter.instagram.com/policy/',
+      'https://example.com/legal/terms-of-service',
+      'https://example.com.hk/私隱政策',
+    ]) {
+      expect(looksLikePolicyPage(domOf(''), url)).toBe(true);
+    }
+  });
+
+  test('recognises one by its title when the path says nothing', () => {
+    const doc = parseHTML('<!doctype html><html><head><title>Privacy Policy</title></head><body></body></html>')
+      .document as unknown as Document;
+    expect(looksLikePolicyPage(doc, 'https://example.com/p/12345')).toBe(true);
+  });
+
+  test('does not mistake an ordinary page for one', () => {
+    // Reading the live page is only right when the page *is* the document; on
+    // an ordinary page it would summarise whatever the user happened to be on.
+    for (const url of ['https://www.instagram.com/', 'https://shop.example.com/checkout']) {
+      expect(looksLikePolicyPage(domOf(''), url)).toBe(false);
+    }
+  });
+});
+
+describe('percent-encoded paths', () => {
+  test('finds a link whose path is written in Chinese', () => {
+    // URL.pathname percent-encodes non-ASCII, so a naive match never fires on
+    // exactly the sites this pattern lists Chinese keywords for.
+    const doc = domOf('<footer><a href="/私隱政策">按此</a></footer>');
+    // The returned URL stays encoded, which is what has to be fetched; only the
+    // matching needs the decoded form.
+    expect(findPolicyLinks(doc, PAGE)).toEqual([
+      'https://shop.example.com/%E7%A7%81%E9%9A%B1%E6%94%BF%E7%AD%96',
+    ]);
   });
 });
