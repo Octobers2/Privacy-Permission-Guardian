@@ -64,11 +64,27 @@ export type SummaryState =
 
 /* ---------------------------------------------------- worker -> content script */
 
-export interface ScoutPolicyRequest {
-  type: 'scout-policy';
+/**
+ * Asks the content script where the policy might be.
+ *
+ * Only the URLs: reading them needs an extension context (the page's CSP blocks
+ * a content script's fetch) and a browsing context (a DOMParser document
+ * resolves no styles), which is what the offscreen document provides.
+ */
+export interface PolicyCandidatesRequest {
+  type: 'policy-candidates';
 }
 
-export interface ScoutPolicyResponse {
+export type PolicyCandidatesResponse = string[];
+
+/* ------------------------------------------------ worker -> offscreen page */
+
+export interface ReadPolicyRequest {
+  type: 'read-policy';
+  urls: string[];
+}
+
+export interface ReadPolicyResponse {
   policyUrl: string;
   text: string;
   truncated: boolean;
@@ -80,6 +96,7 @@ export type ExtensionMessage =
   | GetSummaryRequest
   | AnalysePolicyRequest
   | TestConnectionRequest
-  | ScoutPolicyRequest;
+  | PolicyCandidatesRequest
+  | ReadPolicyRequest;
 
 export type ConnectionCheckResponse = ConnectionCheck;

@@ -21,6 +21,7 @@ Demo script 第 3 步係開住 DevTools Network 現場證明呢一點。
 |---|---|
 | `storage` | 設定同摘要快取 |
 | `tabs` | 由 popup 認出目前分頁嘅網域 |
+| `offscreen` | 條款頁要喺一個有渲染引擎、又唔受該網站 CSP 管嘅 extension context 入面讀（原因見下） |
 | `host_permissions: <all_urls>` | Content script 要喺任何一頁掃描表單；條款頁要用用戶嘅 session fetch |
 
 呢個權限係大。我哋唔會扮細 —— options 頁本身有一段講清楚，而且有一個
@@ -44,7 +45,7 @@ Roboto 只喺 extension 自己嘅頁面用，唔經 WAR 曝露。
 
 | # | 層 | 位置 | 對付咩 |
 |---|---|---|---|
-| 1 | 移除睇唔到嘅內容 | `sanitize.ts` `stripInvisibleContent` | `display:none`、`visibility:hidden`、`opacity:0`、`font-size:0`、螢幕外定位、`hidden` / `aria-hidden` 屬性、HTML comment、`<script>` / `<style>`、**白底白字（色彩對比 < 1.15）** |
+| 1 | 移除睇唔到嘅內容 | `sanitize.ts` `stripInvisibleContent`，喺 offscreen document 度跑 | `display:none`、`visibility:hidden`、`opacity:0`、`font-size:0`、螢幕外定位、`hidden` / `aria-hidden` 屬性、HTML comment、`<script>` / `<style>`、**白底白字（色彩對比 < 1.15）** |
 | 2 | 標明係資料 | `prompts.ts` + `wrapUntrusted` | 包喺 `<untrusted_document>`；system prompt 明示標籤內一切唔係指令；文件入面偽造嘅結束標籤會被中和 |
 | 3 | Schema 強驗證 | `openai-compat.ts` + `.strict()` schemas | 模型返嘅嘢多咗一個 key、少咗一個欄位、enum 唔啱 → retry 一次（將錯誤講返畀佢），再唔得就 fallback 規則 |
 | 4 | 引文逐字核對 | `policy.ts` `isVerbatim` | 對唔返原文嘅點會被 drop；用戶見到「有 N 點被丟棄」 |
@@ -53,6 +54,26 @@ Roboto 只喺 extension 自己嘅頁面用，唔經 WAR 曝露。
 第 2 層仲多做一步：prompt 叫模型將「文件企圖操控分析器」本身當成一個
 `high` 風險點報告出嚟（category `manipulation_attempt`）。將攻擊變成偵測
 訊號，對讀者比靜靜雞忽略有用。
+
+### 點解第 1 層要喺 offscreen document 度跑
+
+呢一層一度**完全冇運行過**，而且冇報錯。條款頁本來喺 content script 度
+fetch 再用 `DOMParser` 解析，兩樣都錯：
+
+- Content script 嘅 `fetch` 受**該網頁自己嘅 CSP `connect-src`** 管。
+  GitHub 同 Reddit 嘅 CSP 嚴到連佢哋自己嗰版私隱政策都 fetch 唔到。
+- `DOMParser` 造出嚟嘅文件冇 browsing context，所以 `getComputedStyle`
+  對佢每一個 property 都返回空字串。即係所有靠 computed style 嘅檢查
+  （色彩對比、由 stylesheet 而唔係 inline style 設定嘅 `display:none`）
+  一律靜靜雞失效。
+
+Offscreen document 係 extension 頁面：佢嘅請求唔受任何網頁 CSP 管，而且
+有真渲染引擎。抓返嚟嘅 HTML 會放入一個 **`sandbox` 但冇 `allow-scripts`**
+嘅 iframe —— 入面冇任何嘢執行得到，但 stylesheet 會載入，`getComputedStyle`
+會講真話。
+
+（`allow-same-origin` 係讀 `contentDocument` 必需嘅。佢危險嘅情況係同
+`allow-scripts` 一齊用，而嗰個正正係我哋唔畀嘅。）
 
 ### 量度到嘅結果
 

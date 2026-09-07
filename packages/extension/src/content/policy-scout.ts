@@ -1,28 +1,29 @@
 /**
- * Finds and reads the site's privacy policy or terms of service.
+ * Finds where the site's privacy policy or terms of service lives.
  *
- * The fetch happens here rather than in the service worker or on the managed
- * backend, and that is a deliberate choice: a server-side fetch runs into
- * Cloudflare checks, bot blocking and geographic redirects, and would often
- * retrieve a different page from the one the user is actually being asked to
- * agree to. Fetching from the content script uses the user's own session, so
- * the text analysed is the text they would see.
+ * Only the finding happens here. Reading the document used to as well, and it
+ * was wrong twice over: a content script's `fetch` is subject to the page's
+ * CSP, so sites like GitHub and Reddit blocked the request to their own privacy
+ * page; and a `DOMParser` document has no browsing context, so every
+ * style-based check in the sanitiser silently did nothing. Both are fixed by
+ * doing the reading in the offscreen document — see `src/offscreen/index.ts`.
+ *
+ * Link discovery stays here because it needs the live page's DOM, which is the
+ * one thing the offscreen document does not have.
  */
-import { extractVisibleText, pickMainContent } from '@ppg/shared/sanitize';
-
 const POLICY_PATTERN = /privacy|policy|terms|tos\b|legal|條款|私隱|隱私|使用者條款|服務條款/i;
 
 /** Paths worth trying when the page links to nothing useful. */
 const FALLBACK_PATHS = ['/privacy', '/privacy-policy', '/terms', '/legal/privacy', '/policies/privacy'];
-
-const MAX_POLICY_CHARS = 24_000;
 
 /**
  * Same-site without the public suffix list.
  *
  * Pulling `tldts` in here would add roughly 250 kB to a bundle that loads on
  * every page, to answer a question that "same host, or sharing the last two
- * labels" gets right for the sites this runs on.
+ * labels" gets right for the sites this runs on. It is what lets
+ * `docs.github.com` count as GitHub's own policy while a link to an unrelated
+ * domain does not.
  */
 function looksSameSite(a: string, b: string): boolean {
   if (a === b) return true;
@@ -75,61 +76,25 @@ export function findPolicyLinks(doc: Document, pageUrl: string): string[] {
     .filter((url) => (seen.has(url) ? false : (seen.add(url), true)));
 }
 
-export interface PolicyDocument {
-  policyUrl: string;
-  text: string;
-  truncated: boolean;
-}
-
-async function readPolicyAt(url: string): Promise<PolicyDocument | null> {
-  let response: Response;
-  try {
-    response = await fetch(url, { credentials: 'include', redirect: 'follow' });
-  } catch {
-    return null;
-  }
-  if (!response.ok) return null;
-  if (!(response.headers.get('content-type') ?? '').includes('html')) return null;
-
-  const html = await response.text();
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  const { text, truncated } = extractVisibleText(pickMainContent(doc), MAX_POLICY_CHARS);
-
-  // A "policy page" of two sentences is a cookie wall or a redirect stub.
-  if (text.length < 400) return null;
-
-  return { policyUrl: response.url || url, text, truncated };
-}
-
 /**
- * Returns the site's policy text, or null when there is nothing to read.
- *
- * Null is a real answer here and is shown as "搵唔到條款" rather than being
- * papered over: summarising a page that turned out to be a cookie banner would
- * be worse than admitting the document could not be found.
+ * Every URL worth trying, best first: links found on the page, then the paths
+ * sites conventionally use when they do not link to them from here.
  */
-export async function scoutPolicy(
+export function policyCandidates(
   doc: Document = document,
   pageUrl: string = location.href,
-): Promise<PolicyDocument | null> {
-  const candidates = findPolicyLinks(doc, pageUrl);
+): string[] {
+  const found = findPolicyLinks(doc, pageUrl);
 
-  for (const url of candidates.slice(0, 3)) {
-    const found = await readPolicyAt(url);
-    if (found) return found;
-  }
-
+  const fallbacks: string[] = [];
   for (const path of FALLBACK_PATHS) {
-    let url: string;
     try {
-      url = new URL(path, pageUrl).toString();
+      fallbacks.push(new URL(path, pageUrl).toString());
     } catch {
-      continue;
+      /* an unparseable page url has nothing to resolve against */
     }
-    if (candidates.includes(url)) continue;
-    const found = await readPolicyAt(url);
-    if (found) return found;
   }
 
-  return null;
+  const seen = new Set<string>();
+  return [...found, ...fallbacks].filter((url) => (seen.has(url) ? false : (seen.add(url), true)));
 }

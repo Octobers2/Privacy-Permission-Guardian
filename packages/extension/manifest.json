@@ -32,7 +32,8 @@
   ],
   "permissions": [
     "storage",
-    "tabs"
+    "tabs",
+    "offscreen"
   ],
   "host_permissions": [
     "<all_urls>"

@@ -25,7 +25,7 @@ Bun · TypeScript · Svelte 5 · Vite + CRXJS · Material Design 3 · Hono · zo
 
 Deliberately few dependencies: `bun test`, `bun:sqlite` and Bun's TypeScript
 support are built in, and the content script — the only code that runs on every
-page the user visits — is **23 KB** with nothing else behind it.
+page the user visits — is **18.5 KB** with nothing else behind it.
 
 ## Quick start
 
@@ -54,7 +54,7 @@ so it accepts requests from the extension.
 
 | | |
 |---|---|
-| `bun test` | Unit tests (177 across 15 files) |
+| `bun test` | Unit tests (187 across 15 files) |
 | `bun run build` | Build the extension |
 | `bun run dev` | Build with HMR |
 | `bun run server` | Managed backend |

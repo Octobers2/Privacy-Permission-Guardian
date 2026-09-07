@@ -18,11 +18,13 @@ import {
 import type {
   AssessResponse,
   ExtensionMessage,
-  ScoutPolicyResponse,
+  PolicyCandidatesResponse,
+  ReadPolicyResponse,
   SummaryState,
 } from '../messages.ts';
 import { loadSettings, onSettingsChanged, saveSettings } from '../settings.ts';
 import { readSummary, writeSummary } from './cache.ts';
+import { readPolicy } from './offscreen.ts';
 import { checkConnection, summarisePolicy } from './llm-router.ts';
 
 const BAND_COLOURS = { low: '#1e8e3e', moderate: '#e37400', high: '#c5221f' } as const;
@@ -113,9 +115,9 @@ async function analysePolicy(tabId: number): Promise<SummaryState> {
 
   const settings: Settings = await loadSettings();
 
-  let document: ScoutPolicyResponse | null;
+  let candidates: PolicyCandidatesResponse;
   try {
-    document = await chrome.tabs.sendMessage(tabId, { type: 'scout-policy' });
+    candidates = (await chrome.tabs.sendMessage(tabId, { type: 'policy-candidates' })) ?? [];
   } catch {
     return {
       status: 'unavailable',
@@ -124,11 +126,23 @@ async function analysePolicy(tabId: number): Promise<SummaryState> {
     };
   }
 
+  if (candidates.length === 0) {
+    return {
+      status: 'unavailable',
+      domain,
+      reason: '呢一頁冇連去私隱政策或者服務條款。',
+    };
+  }
+
+  // Separated from the message above on purpose: "the page links to nothing"
+  // and "every link we tried would not load" send you to different places, and
+  // one message for both is what made the last failure impossible to diagnose.
+  const document: ReadPolicyResponse | null = await readPolicy(candidates);
   if (!document) {
     return {
       status: 'unavailable',
       domain,
-      reason: '喺呢個網站搵唔到私隱政策或者服務條款。',
+      reason: `搵到 ${candidates.length} 條可能嘅連結，但一條都讀唔到（可能係登入牆、重導向，或者內容太短）。`,
     };
   }
 

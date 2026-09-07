@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { parseHTML } from 'linkedom';
-import { findPolicyLinks } from '../src/content/policy-scout.ts';
+import { findPolicyLinks, policyCandidates } from '../src/content/policy-scout.ts';
 
 function domOf(body: string): Document {
   return parseHTML(`<!doctype html><html><body>${body}</body></html>`).document as unknown as Document;
@@ -59,5 +59,32 @@ describe('findPolicyLinks', () => {
 
   test('returns nothing when the page links to no policy', () => {
     expect(findPolicyLinks(domOf('<a href="/cart">Cart</a>'), PAGE)).toEqual([]);
+  });
+});
+
+describe('policyCandidates', () => {
+  test('puts links found on the page ahead of guessed paths', () => {
+    const doc = domOf('<footer><a href="/legal/privacy">Privacy</a></footer>');
+    const candidates = policyCandidates(doc, PAGE);
+    expect(candidates[0]).toBe('https://shop.example.com/legal/privacy');
+    expect(candidates).toContain('https://shop.example.com/privacy-policy');
+  });
+
+  test('still offers the conventional paths when the page links to nothing', () => {
+    // Plenty of sites only link their policy from a page the user is not on.
+    const candidates = policyCandidates(domOf('<a href="/cart">Cart</a>'), PAGE);
+    expect(candidates).toEqual([
+      'https://shop.example.com/privacy',
+      'https://shop.example.com/privacy-policy',
+      'https://shop.example.com/terms',
+      'https://shop.example.com/legal/privacy',
+      'https://shop.example.com/policies/privacy',
+    ]);
+  });
+
+  test('does not offer the same url twice', () => {
+    const doc = domOf('<footer><a href="/privacy">Privacy</a></footer>');
+    const candidates = policyCandidates(doc, PAGE);
+    expect(candidates.filter((url) => url === 'https://shop.example.com/privacy')).toHaveLength(1);
   });
 });

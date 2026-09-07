@@ -11,7 +11,7 @@
  *
  * It prints the exact Chromium flags to use.
  */
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadFixtures, type Fixture } from './fixtures.ts';
 
@@ -57,6 +57,16 @@ function ensureCertificate(hostnames: string[]): { cert: string; key: string } {
 export const MOCK_LLM_HOST = 'mock-llm.test';
 
 /**
+ * The last user message the mock received.
+ *
+ * Exposed at `GET /last-prompt` so the injection evaluation can ask what
+ * actually reached the model after the real extension had sanitised it —
+ * rather than re-running the sanitiser in the harness and measuring something
+ * production does not do.
+ */
+let lastPrompt = '';
+
+/**
  * A stand-in for an OpenAI-compatible endpoint.
  *
  * It does not pretend to be a model. It reads the document out of the prompt
@@ -68,6 +78,7 @@ export const MOCK_LLM_HOST = 'mock-llm.test';
 async function mockCompletion(request: Request): Promise<Response> {
   const body = (await request.json()) as { messages: { role: string; content: string }[] };
   const user = body.messages.find((message) => message.role === 'user')?.content ?? '';
+  lastPrompt = user;
   const document = /<untrusted_document>\n([\s\S]*)\n<\/untrusted_document>/.exec(user)?.[1] ?? '';
 
   const sentences = document
@@ -120,6 +131,14 @@ const HTML = { 'content-type': 'text/html; charset=utf-8' };
  */
 export const INJECTION_HOST = 'injection.test';
 
+/** One host per injection fixture, so each can be visited as a real site. */
+export function injectionHosts(): string[] {
+  return readdirSync(resolve(import.meta.dir, 'fixtures', 'injection'))
+    .filter((name) => name.endsWith('.html'))
+    .map((name) => `inj-${name.slice(0, 2)}.test`)
+    .sort();
+}
+
 function fileFor(host: string, pathname: string): string | null {
   // The injection fixtures are one directory of standalone pages rather than a
   // site, so they get a host of their own where the path picks the file.
@@ -141,7 +160,41 @@ function fileFor(host: string, pathname: string): string | null {
 async function respond(request: Request): Promise<Response> {
   const url = new URL(request.url);
 
-  if (url.hostname === MOCK_LLM_HOST) return mockCompletion(request);
+  if (url.hostname === MOCK_LLM_HOST) {
+    if (url.pathname === '/last-prompt') {
+      return new Response(JSON.stringify({ prompt: lastPrompt }), {
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (url.pathname === '/reset') {
+      lastPrompt = '';
+      return new Response('{}', { headers: { 'content-type': 'application/json' } });
+    }
+    return mockCompletion(request);
+  }
+
+  // Each injection fixture gets its own site: a landing page that links to it
+  // as the privacy policy, so the whole production path runs — link discovery,
+  // offscreen fetch, rendering, sanitising — instead of the harness calling the
+  // sanitiser directly and measuring something the extension never does.
+  const injectionSite = /^inj-(\d+)\.test$/.exec(url.hostname);
+  if (injectionSite) {
+    const number = injectionSite[1]!;
+    if (url.pathname === '/privacy') {
+      const match = readdirSync(resolve(import.meta.dir, 'fixtures', 'injection')).find((name) =>
+        name.startsWith(`${number}-`),
+      );
+      if (!match) return new Response(`no injection fixture ${number}`, { status: 404 });
+      return new Response(Bun.file(resolve(import.meta.dir, 'fixtures', 'injection', match)), {
+        headers: HTML,
+      });
+    }
+    return new Response(
+      `<!doctype html><html><body><h1>Fixture ${number}</h1>` +
+        `<footer><a href="/privacy">Privacy Policy</a></footer></body></html>`,
+      { headers: HTML },
+    );
+  }
 
   const path = fileFor(url.hostname, url.pathname);
   if (!path) {
@@ -162,6 +215,7 @@ const httpsHosts = [
   ...fixtures.filter((f) => f.protocol === 'https:').map((f) => f.hostname),
   MOCK_LLM_HOST,
   INJECTION_HOST,
+  ...injectionHosts(),
 ];
 const httpHosts = fixtures.filter((f) => f.protocol === 'http:').map((f) => f.hostname);
 

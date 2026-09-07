@@ -6,6 +6,9 @@ import manifest from './manifest.json' with { type: 'json' };
 export default defineConfig({
   plugins: [svelte(), crx({ manifest })],
   build: {
+    // The offscreen document is loaded by URL from the worker rather than being
+    // referenced in the manifest, so CRXJS cannot discover it on its own.
+    rollupOptions: { input: { offscreen: 'offscreen.html' } },
     target: 'esnext',
     // Extension review (and our own threat model) is easier when the shipped
     // bundle is readable, and we are not optimising for download size here.

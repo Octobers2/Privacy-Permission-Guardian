@@ -5,11 +5,11 @@
  * a banner. No framework, no scoring, no network — the heavy parts all live in
  * the worker so that visiting a page costs almost nothing.
  */
-import type { AssessResponse, ExtensionMessage, ScoutPolicyResponse } from '../messages.ts';
+import type { AssessResponse, ExtensionMessage, PolicyCandidatesResponse } from '../messages.ts';
 import { SETTINGS_STORAGE_KEY } from '../messages.ts';
 import { removeBanner, showBanner } from './banner.ts';
 import { scanDocument, watchDocument } from './form-scanner.ts';
-import { scoutPolicy } from './policy-scout.ts';
+import { policyCandidates } from './policy-scout.ts';
 
 const TITLES = {
   danger: '呢個表單好可疑，唔好喺度輸入個人資料',
@@ -63,10 +63,11 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && changes[SETTINGS_STORAGE_KEY]) void assess(scanDocument());
 });
 
-// The worker has no DOM and no access to the user's session, so reading the
-// site's policy has to happen here and the text is handed back.
+// Only the live page knows where its own policy is linked from, so the search
+// happens here. Fetching and rendering it happens in the offscreen document,
+// which is not bound by this page's CSP and has a real rendering engine.
 chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendResponse) => {
-  if (message?.type !== 'scout-policy') return false;
-  void scoutPolicy().then((found: ScoutPolicyResponse | null) => sendResponse(found));
-  return true;
+  if (message?.type !== 'policy-candidates') return false;
+  sendResponse(policyCandidates() satisfies PolicyCandidatesResponse);
+  return false;
 });

@@ -39,18 +39,27 @@ Content script 抽 DOM、畫橫額；service worker 做評分、快取同模型�
 入面一個 browser session 載入一次，可以接受；喺用戶去嘅每一個網站都載入，
 就同「輕量私隱工具」呢個前提直接矛盾。
 
-Content script 淨低 DOM 抽取同繪圖，實測 **23.2 KB**。呢件事回歸過兩次
+Content script 淨低 DOM 抽取同繪圖，實測 **18.5 KB**。呢件事回歸過兩次
 （一次係 import 咗規則引擎，一次係 `@ppg/shared` 未聲明 `sideEffects: false`），
 兩次都冇報錯 —— 插件照行，只係靜靜雞肥咗。所以 `eval/bundle-budget.ts`
 喺 e2e 度守住個 60 KB 預算。
 
-### 2. 條款頁由 extension fetch，唔係 server
+### 2. 條款頁喺 offscreen document 讀，唔係 server、亦唔係 content script
 
 Server-side fetch 會撞 Cloudflare、bot 攔截同地區重導向，攞返嚟嘅好可能
-唔係用戶被要求同意嗰一版。Content script 用緊用戶自己嘅 session。
+唔係用戶被要求同意嗰一版。
 
-另一半原因：**MV3 service worker 冇 `DOMParser`**，所以 HTML 解析無論如何
-都要喺頁面度做。
+但喺 content script 讀都係錯，而且錯咗兩重：佢個 `fetch` 受**該網頁自己
+嘅 CSP** 管（GitHub、Reddit 連自己嗰版私隱政策都 fetch 唔到），而
+`DOMParser` 文件冇 browsing context，`getComputedStyle` 全部返空字串 ——
+所有靠 computed style 嘅剝離檢查靜靜雞失效。
+
+Offscreen document 兩樣都有：extension 權限（唔受網頁 CSP 管、帶用戶
+session）加真渲染引擎。抓返嚟嘅 HTML 放入一個 `sandbox` 但冇
+`allow-scripts` 嘅 iframe：冇嘢執行得到，但 stylesheet 載入到，
+`getComputedStyle` 講真話。
+
+連結搜尋仍然留喺 content script —— 得 live 頁面知道自己個 footer 連去邊。
 
 ### 3. `packages/shared/` 用 TypeScript，唔用 Python server
 
@@ -79,10 +88,12 @@ DOMContentLoaded / MutationObserver
 
 ```
 用戶撳 popup 「分析呢個網站」
-  → worker: chrome.tabs.sendMessage({ type: 'scout-policy' })
-      content: findPolicyLinks(document)        content/policy-scout.ts
-               → fetch(policyUrl, credentials:'include')
-               → DOMParser → pickMainContent → extractVisibleText
+  → worker: chrome.tabs.sendMessage({ type: 'policy-candidates' })
+      content: policyCandidates(document)       content/policy-scout.ts
+  → worker: readPolicy(urls)                    background/offscreen.ts
+      offscreen: fetch(url, credentials:'include')
+                 → sandboxed iframe（冇 allow-scripts）→ 真 computed style
+                 → pickMainContent → extractVisibleText
                                                shared/sanitize.ts  ← 防禦第 1 層
   → sha256Hex(text) → 查快取（domain + hash + PROMPT_VERSION）
   → buildPolicyPrompt → wrapUntrusted           shared/prompts.ts   ← 第 2 層
@@ -101,7 +112,8 @@ DOMContentLoaded / MutationObserver
 |---|---|
 | `packages/shared/src/` | schemas、rules、lookalike、sanitize、prompts、openai-compat、policy、score、domain、extract-form |
 | `packages/extension/src/content/` | form-scanner、policy-scout、banner（唯一喺人哋頁面跑嘅 code） |
-| `packages/extension/src/background/` | service worker、llm-router、cache |
+| `packages/extension/src/background/` | service worker、llm-router、cache、offscreen 管理 |
+| `packages/extension/src/offscreen/` | 條款頁嘅 fetch 同渲染（唯一有渲染引擎又唔受網頁 CSP 管嘅地方） |
 | `packages/extension/src/ui/` | Popup、Options、MD3 components、生成嘅 token |
 | `packages/server/src/` | Hono app、bun:sqlite 快取 |
 | `eval/` | fixtures、labels.csv、三個 harness、CDP client、fixture server |
