@@ -182,6 +182,14 @@ console.log('\n=== policy summary, end to end ===');
   console.log(`  ${cached ? 'ok  ' : 'FAIL'} the second request is served from the cache`);
   if (!cached) failures.push('policy pipeline: the summary was not cached');
 
+  // The "test connection" button, against the same mock endpoint.
+  const check = await options.evaluate<any>(
+    `chrome.runtime.sendMessage({ type: 'test-connection' })`,
+  );
+  const connectionOk = check?.ok === true && check.model === 'mock';
+  console.log(`  ${connectionOk ? 'ok  ' : 'FAIL'} the connection test reaches the configured endpoint`);
+  if (!connectionOk) failures.push(`connection test: ${JSON.stringify(check)}`);
+
   await options.evaluate(`chrome.storage.local.clear()`);
   await options.close();
   await siteTab.close();

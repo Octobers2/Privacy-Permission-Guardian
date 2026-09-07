@@ -2,6 +2,7 @@
   import '@material/web/button/filled-button.js';
   import '@material/web/button/text-button.js';
   import '@material/web/radio/radio.js';
+  import type { ConnectionCheck } from '@ppg/shared';
   import { DEFAULT_SETTINGS, LLM_MODES, registrableDomain, type Settings } from '@ppg/shared';
   import { loadSettings, saveSettings } from '../settings.ts';
   import Section from './components/Section.svelte';
@@ -12,6 +13,8 @@
   let loaded = $state(false);
   let savedAt = $state(0);
   let newAllowlistEntry = $state('');
+  let connection = $state<ConnectionCheck | null>(null);
+  let testing = $state(false);
 
   const MODE_LABELS: Record<(typeof LLM_MODES)[number], { title: string; detail: string }> = {
     managed: {
@@ -32,6 +35,16 @@
   async function persist(patch: Partial<Settings>): Promise<void> {
     settings = await saveSettings(patch);
     savedAt = Date.now();
+  }
+
+  async function testConnection(): Promise<void> {
+    testing = true;
+    connection = null;
+    try {
+      connection = await chrome.runtime.sendMessage({ type: 'test-connection' });
+    } finally {
+      testing = false;
+    }
   }
 
   function addAllowlistEntry(): void {
@@ -107,9 +120,14 @@
           bind:value={settings.managedUrl}
           supportingText="本機 Hono server 嘅位址"
         />
-        <md-filled-button onclick={() => persist({ managedUrl: settings.managedUrl })}>
-          儲存
-        </md-filled-button>
+        <div class="actions">
+          <md-filled-button onclick={() => persist({ managedUrl: settings.managedUrl })}>
+            儲存
+          </md-filled-button>
+          <md-text-button disabled={testing} onclick={testConnection}>
+            {testing ? '測試緊…' : '測試連線'}
+          </md-text-button>
+        </div>
       {:else}
         <TextField label="Base URL" bind:value={settings.baseUrl} supportingText="例如 https://api.openai.com/v1" />
         <TextField
@@ -119,12 +137,24 @@
           supportingText="只存喺呢部機嘅 chrome.storage.local，唔會同步去其他裝置"
         />
         <TextField label="Model" bind:value={settings.model} supportingText="例如 gpt-4o-mini" />
-        <md-filled-button
-          onclick={() =>
-            persist({ baseUrl: settings.baseUrl, apiKey: settings.apiKey, model: settings.model })}
-        >
-          儲存
-        </md-filled-button>
+        <div class="actions">
+          <md-filled-button
+            onclick={() =>
+              persist({ baseUrl: settings.baseUrl, apiKey: settings.apiKey, model: settings.model })}
+          >
+            儲存
+          </md-filled-button>
+          <md-text-button disabled={testing} onclick={testConnection}>
+            {testing ? '測試緊…' : '測試連線'}
+          </md-text-button>
+        </div>
+      {/if}
+      {#if connection}
+        <p class="md-typescale-body-medium result" data-ok={connection.ok} aria-live="polite">
+          {connection.ok ? '✓' : '✗'}
+          {connection.message}
+          {#if connection.ok}<span class="hint">（{connection.latencyMs} ms）</span>{/if}
+        </p>
       {/if}
     </Section>
 
@@ -237,6 +267,24 @@
     border: none;
     padding: 0;
     color: var(--md-sys-color-on-surface-variant);
+  }
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .result {
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 8px;
+  }
+  .result[data-ok='true'] {
+    background: var(--md-sys-color-success-container);
+    color: var(--md-sys-color-on-success-container);
+  }
+  .result[data-ok='false'] {
+    background: var(--md-sys-color-error-container);
+    color: var(--md-sys-color-on-error-container);
   }
   .add-row {
     display: flex;
