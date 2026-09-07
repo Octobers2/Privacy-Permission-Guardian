@@ -25,6 +25,15 @@ export function unpackedExtensionId(distPath: string): string {
   return [...hex].map((c) => String.fromCharCode(97 + parseInt(c, 16))).join('');
 }
 
+export interface Tab {
+  targetId: string;
+  sessionId: string;
+  /** Console errors and exceptions seen since the tab opened. */
+  problems: string[];
+  evaluate<T>(expression: string): Promise<T>;
+  close(): Promise<void>;
+}
+
 export interface LaunchOptions {
   extensionDir?: string;
   hostResolverRules?: string;
@@ -110,10 +119,13 @@ export class Browser {
   }
 
   /**
-   * Opens a tab, waits for it to settle, and returns whatever `expression`
-   * evaluates to plus anything the page logged as an error.
+   * Opens a tab and leaves it open.
+   *
+   * Some checks need two tabs alive at once — the extension's own page has to
+   * be able to see the fixture tab in `chrome.tabs.query`, which it cannot do
+   * if the fixture was closed first.
    */
-  async visit<T>(url: string, expression: string, settleMs = 1_500): Promise<{ value: T; problems: string[] }> {
+  async openTab(url: string, settleMs = 1_500): Promise<Tab> {
     const { targetId } = await this.send('Target.createTarget', { url: 'about:blank' });
     const { sessionId } = await this.send('Target.attachToTarget', { targetId, flatten: true });
 
@@ -128,7 +140,9 @@ export class Browser {
         problems.push(details.exception?.description ?? details.text);
       }
       if (message.method === 'Log.entryAdded' && message.params.entry.level === 'error') {
-        problems.push(message.params.entry.text);
+        // Every fixture 404s on /favicon.ico; that says nothing about the
+        // extension and would drown out the errors that matter.
+        if (!/favicon/.test(message.params.entry.url ?? '')) problems.push(message.params.entry.text);
       }
     };
     this.listeners.add(listener);
@@ -139,16 +153,35 @@ export class Browser {
     await this.send('Page.navigate', { url }, sessionId);
     await Bun.sleep(settleMs);
 
-    const evaluated = await this.send(
-      'Runtime.evaluate',
-      { expression, returnByValue: true, awaitPromise: true },
+    return {
+      targetId,
       sessionId,
-    );
+      problems,
+      evaluate: async <T>(expression: string): Promise<T> => {
+        const evaluated = await this.send(
+          'Runtime.evaluate',
+          { expression, returnByValue: true, awaitPromise: true },
+          sessionId,
+        );
+        if (evaluated.exceptionDetails) {
+          const detail = evaluated.exceptionDetails;
+          throw new Error(detail.exception?.description ?? detail.text);
+        }
+        return evaluated.result?.value as T;
+      },
+      close: async () => {
+        this.listeners.delete(listener);
+        await this.send('Target.closeTarget', { targetId });
+      },
+    };
+  }
 
-    this.listeners.delete(listener);
-    await this.send('Target.closeTarget', { targetId });
-
-    return { value: evaluated.result?.value as T, problems };
+  /** Opens a tab, evaluates once, and closes it. */
+  async visit<T>(url: string, expression: string, settleMs = 1_500): Promise<{ value: T; problems: string[] }> {
+    const tab = await this.openTab(url, settleMs);
+    const value = await tab.evaluate<T>(expression);
+    await tab.close();
+    return { value, problems: tab.problems };
   }
 
   close(): void {

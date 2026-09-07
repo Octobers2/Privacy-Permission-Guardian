@@ -82,6 +82,10 @@
       <fieldset>
         <legend class="md-typescale-label-large">連接方式</legend>
         {#each LLM_MODES as mode (mode)}
+          <!--
+            svelte-ignore a11y_label_has_associated_control
+            Same as Switch.svelte: md-radio is form-associated.
+          -->
           <label class="radio-row">
             <md-radio
               name="mode"

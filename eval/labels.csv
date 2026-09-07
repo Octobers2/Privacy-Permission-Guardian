@@ -7,3 +7,4 @@ phishing/secure-paypa1.xyz.html,https://secure-paypa1.xyz/verify,phishing,Homogl
 phishing/hsbc-verify.top.html,https://hsbc-verify.top/verify,phishing,"Brand name as a token; collects HKID, bank account and banking password"
 phishing/dhl-tracking.click.html,https://dhl-tracking.click/redelivery,phishing,Fake customs fee; brand token plus a suspicious registry
 phishing/login.microsoft-verify.sbs.html,http://login.microsoft-verify.sbs/signin,phishing,Credentials over plain http with no <form> element at all
+sites/www.datahungry.example/index.html,https://www.datahungry.example/,legit,Policy-summary fixture: a homepage whose footer links to a deliberately greedy privacy policy

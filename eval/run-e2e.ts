@@ -14,8 +14,11 @@
 import { resolve } from 'node:path';
 import { Browser } from './chromium.ts';
 import { CONTENT_SCRIPT_BUDGET_BYTES, contentScriptWeight } from './bundle-budget.ts';
+import { readFileSync } from 'node:fs';
+import { parseHTML } from 'linkedom';
+import { extractVisibleText, isVerbatim, pickMainContent } from '@ppg/shared/sanitize';
 import { loadFixtures } from './fixtures.ts';
-import { hostResolverRules } from './serve-fixtures.ts';
+import { hostResolverRules, MOCK_LLM_HOST } from './serve-fixtures.ts';
 
 const DIST = resolve(import.meta.dir, '../packages/extension/dist');
 
@@ -65,17 +68,28 @@ const browser = await Browser.launch({
 
 console.log('\n=== extension pages ===');
 for (const page of ['popup.html', 'options.html']) {
-  const { value, problems } = await browser.visit<{ heading: string; upgraded: boolean }>(
+  const { value, problems } = await browser.visit<{ heading: string; upgraded: number; pending: number }>(
     `chrome-extension://${browser.extensionId}/${page}`,
-    `(() => ({
-      heading: document.querySelector('h1')?.textContent ?? '',
-      upgraded: !!document.querySelector('md-filled-button, md-switch')?.shadowRoot,
-    }))()`,
+    `(() => {
+      const elements = [...document.querySelectorAll('*')].filter((el) => el.tagName.startsWith('MD-'));
+      return {
+        heading: document.querySelector('h1')?.textContent ?? '',
+        upgraded: elements.filter((el) => el.shadowRoot).length,
+        pending: elements.filter((el) => !el.shadowRoot).length,
+      };
+    })()`,
   );
-  const ok = value?.upgraded && problems.length === 0;
-  console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${page}  "${value?.heading}"  lit-upgraded=${value?.upgraded}`);
+  // The popup's contents depend on which tab is active, so rather than
+  // demanding a particular component, require that every Material element the
+  // page *did* render was upgraded. A CSP violation would leave them all inert.
+  const ok = value?.heading && value.pending === 0 && problems.length === 0;
+  console.log(
+    `  ${ok ? 'ok  ' : 'FAIL'} ${page}  "${value?.heading}"  material elements: ${value?.upgraded ?? 0} upgraded, ${value?.pending ?? 0} inert`,
+  );
   for (const problem of problems) console.log(`       console error: ${problem}`);
-  if (!ok) failures.push(`${page}: ${problems.join('; ') || 'material component did not upgrade'}`);
+  if (!ok) {
+    failures.push(`${page}: ${problems.join('; ') || `${value?.pending} material elements failed to upgrade`}`);
+  }
 }
 
 console.log('\n=== fixtures ===');
@@ -100,22 +114,99 @@ for (const fixture of loadFixtures()) {
   if (!correct) failures.push(`${fixture.hostname}: labelled ${fixture.label} but got ${summary}`);
 }
 
+console.log('\n=== policy summary, end to end ===');
+{
+  const optionsUrl = `chrome-extension://${browser.extensionId}/options.html`;
+  const site = 'https://www.datahungry.example/';
+
+  // Point the extension at the mock endpoint the fixture server exposes, so the
+  // whole pipeline runs without an API key: scout the policy link, fetch it,
+  // sanitise, prompt, validate, verify quotes, score, cache.
+  await browser.visit(
+    optionsUrl,
+    `chrome.storage.local.set({ settings: {
+      mode: 'direct',
+      baseUrl: 'https://${MOCK_LLM_HOST}/v1',
+      apiKey: 'test-key',
+      model: 'mock',
+    } })`,
+    300,
+  );
+
+  // Rebuild the text the extension would have extracted, using the same
+  // production code, so the check compares like with like. Comparing against
+  // the raw HTML fails for any quote that spans a tag boundary.
+  const policyDoc = parseHTML(
+    readFileSync(resolve(import.meta.dir, 'fixtures/sites/www.datahungry.example/privacy.html'), 'utf8'),
+  ).document as unknown as Document;
+  const policySource = extractVisibleText(pickMainContent(policyDoc)).text;
+
+  const siteTab = await browser.openTab(site);
+  const options = await browser.openTab(optionsUrl);
+
+  const summary = await options.evaluate<any>(`(async () => {
+    const [tab] = await chrome.tabs.query({ url: '${site}*' });
+    return chrome.runtime.sendMessage({ type: 'analyse-policy', tabId: tab.id });
+  })()`);
+
+  const checks: [string, boolean][] = [
+    ['the policy was found and summarised', summary?.status === 'ready'],
+    ['two verifiable points survived', summary?.summary?.points?.length === 2],
+    ['the invented quote was dropped', summary?.summary?.droppedPoints === 1],
+    ['the score came from the surviving severities', summary?.summary?.riskScore === 37],
+    [
+      'every surviving quote appears verbatim in the policy file',
+      // Checked against the fixture on disk rather than against sentences this
+      // test picked in advance: the point is that the extension verified them,
+      // not that the mock happened to choose the ones we guessed.
+      (summary?.summary?.points ?? []).length > 0 &&
+        (summary?.summary?.points ?? []).every((point: any) => isVerbatim(point.quote, policySource)),
+    ],
+  ];
+
+  for (const [label, passed] of checks) {
+    console.log(`  ${passed ? 'ok  ' : 'FAIL'} ${label}`);
+    if (!passed) failures.push(`policy pipeline: ${label}`);
+  }
+  for (const point of summary?.summary?.points ?? []) {
+    console.log(`         · ${point.title} — 「${point.quote.slice(0, 60)}…」`);
+  }
+  if (summary?.status !== 'ready') console.log(`       got: ${JSON.stringify(summary)}`);
+
+  // A second run must come from the cache rather than the endpoint.
+  const again = await options.evaluate<any>(`(async () => {
+    const [tab] = await chrome.tabs.query({ url: '${site}*' });
+    return chrome.runtime.sendMessage({ type: 'analyse-policy', tabId: tab.id });
+  })()`);
+  const cached = again?.cached === true;
+  console.log(`  ${cached ? 'ok  ' : 'FAIL'} the second request is served from the cache`);
+  if (!cached) failures.push('policy pipeline: the summary was not cached');
+
+  await options.evaluate(`chrome.storage.local.clear()`);
+  await options.close();
+  await siteTab.close();
+}
+
 console.log('\n=== global pause ===');
 {
   const optionsUrl = `chrome-extension://${browser.extensionId}/options.html`;
 
   const toggled = await browser.visit<{ paused: unknown }>(
     optionsUrl,
+    // Clicking the label rather than the switch: md-switch is a form-associated
+    // custom element, so wrapping it in a <label> should associate. Svelte's
+    // a11y check cannot see that and is suppressed at the source, which makes
+    // this the test that keeps the suppression honest.
     `(async () => {
-      document.querySelector('md-switch').click();
+      document.querySelector('label.row').click();
       await new Promise((done) => setTimeout(done, 400));
       const stored = await chrome.storage.local.get('settings');
       return { paused: stored.settings?.paused ?? null };
     })()`,
   );
   const pausedOk = toggled.value?.paused === true;
-  console.log(`  ${pausedOk ? 'ok  ' : 'FAIL'} toggling the switch writes paused=true`);
-  if (!pausedOk) failures.push('options page: the pause switch did not persist');
+  console.log(`  ${pausedOk ? 'ok  ' : 'FAIL'} clicking the switch label writes paused=true`);
+  if (!pausedOk) failures.push('options page: clicking the pause label did not toggle and persist');
 
   const phishing = loadFixtures().find((f) => f.label === 'phishing')!;
   const silenced = await browser.visit<Banner | null>(phishing.url, READ_BANNER);
