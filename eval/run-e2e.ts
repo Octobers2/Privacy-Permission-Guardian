@@ -82,6 +82,33 @@ for (const fixture of loadFixtures()) {
   if (!correct) failures.push(`${fixture.hostname}: labelled ${fixture.label} but got ${summary}`);
 }
 
+console.log('\n=== global pause ===');
+{
+  const optionsUrl = `chrome-extension://${browser.extensionId}/options.html`;
+
+  const toggled = await browser.visit<{ paused: unknown }>(
+    optionsUrl,
+    `(async () => {
+      document.querySelector('md-switch').click();
+      await new Promise((done) => setTimeout(done, 400));
+      const stored = await chrome.storage.local.get('settings');
+      return { paused: stored.settings?.paused ?? null };
+    })()`,
+  );
+  const pausedOk = toggled.value?.paused === true;
+  console.log(`  ${pausedOk ? 'ok  ' : 'FAIL'} toggling the switch writes paused=true`);
+  if (!pausedOk) failures.push('options page: the pause switch did not persist');
+
+  const phishing = loadFixtures().find((f) => f.label === 'phishing')!;
+  const silenced = await browser.visit<Banner | null>(phishing.url, READ_BANNER);
+  const silencedOk = silenced.value === null;
+  console.log(`  ${silencedOk ? 'ok  ' : 'FAIL'} no banner on ${phishing.hostname} while paused`);
+  if (!silencedOk) failures.push('paused mode still drew a banner');
+
+  // Leave the profile in its default state so a rerun starts clean.
+  await browser.visit(optionsUrl, `chrome.storage.local.remove('settings')`, 300);
+}
+
 browser.close();
 
 console.log('\n=== verdict ===');
