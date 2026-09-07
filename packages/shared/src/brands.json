@@ -1,0 +1,887 @@
+[
+  {
+    "name": "PayPal",
+    "domain": "paypal.com",
+    "category": "payments"
+  },
+  {
+    "name": "Stripe",
+    "domain": "stripe.com",
+    "category": "payments"
+  },
+  {
+    "name": "Wise",
+    "domain": "wise.com",
+    "category": "payments"
+  },
+  {
+    "name": "Payoneer",
+    "domain": "payoneer.com",
+    "category": "payments"
+  },
+  {
+    "name": "Visa",
+    "domain": "visa.com",
+    "category": "payments"
+  },
+  {
+    "name": "Mastercard",
+    "domain": "mastercard.com",
+    "category": "payments"
+  },
+  {
+    "name": "American Express",
+    "domain": "americanexpress.com",
+    "category": "payments"
+  },
+  {
+    "name": "Alipay",
+    "domain": "alipay.com",
+    "category": "payments"
+  },
+  {
+    "name": "AlipayHK",
+    "domain": "alipayhk.com",
+    "category": "payments"
+  },
+  {
+    "name": "WeChat Pay",
+    "domain": "wechatpay.com",
+    "category": "payments"
+  },
+  {
+    "name": "Octopus",
+    "domain": "octopus.com.hk",
+    "category": "payments"
+  },
+  {
+    "name": "PayMe",
+    "domain": "payme.hsbc.com.hk",
+    "category": "payments"
+  },
+  {
+    "name": "FPS",
+    "domain": "fps.hkicl.com.hk",
+    "category": "payments"
+  },
+  {
+    "name": "Klarna",
+    "domain": "klarna.com",
+    "category": "payments"
+  },
+  {
+    "name": "Revolut",
+    "domain": "revolut.com",
+    "category": "payments"
+  },
+  {
+    "name": "Venmo",
+    "domain": "venmo.com",
+    "category": "payments"
+  },
+  {
+    "name": "Zelle",
+    "domain": "zellepay.com",
+    "category": "payments"
+  },
+  {
+    "name": "HSBC",
+    "domain": "hsbc.com.hk",
+    "category": "bank-hk"
+  },
+  {
+    "name": "Hang Seng Bank",
+    "domain": "hangseng.com",
+    "category": "bank-hk"
+  },
+  {
+    "name": "Bank of China (HK)",
+    "domain": "bochk.com",
+    "category": "bank-hk"
+  },
+  {
+    "name": "Standard Chartered HK",
+    "domain": "sc.com",
+    "category": "bank-hk"
+  },
+  {
+    "name": "Bank of East Asia",
+    "domain": "hkbea.com",
+    "category": "bank-hk"
+  },
+  {
+    "name": "DBS HK",
+    "domain": "dbs.com.hk",
+    "category": "bank-hk"
+  },
+  {
+    "name": "Citibank HK",
+    "domain": "citibank.com.hk",
+    "category": "bank-hk"
+  },
+  {
+    "name": "ICBC Asia",
+    "domain": "icbcasia.com",
+    "category": "bank-hk"
+  },
+  {
+    "name": "China CITIC Bank International",
+    "domain": "cncbinternational.com",
+    "category": "bank-hk"
+  },
+  {
+    "name": "Public Bank HK",
+    "domain": "publicbank.com.hk",
+    "category": "bank-hk"
+  },
+  {
+    "name": "Chiyu Bank",
+    "domain": "chiyubank.com",
+    "category": "bank-hk"
+  },
+  {
+    "name": "ZA Bank",
+    "domain": "za.group",
+    "category": "bank-hk"
+  },
+  {
+    "name": "Mox Bank",
+    "domain": "mox.com",
+    "category": "bank-hk"
+  },
+  {
+    "name": "WeLab Bank",
+    "domain": "welab.bank",
+    "category": "bank-hk"
+  },
+  {
+    "name": "Chase",
+    "domain": "chase.com",
+    "category": "bank-global"
+  },
+  {
+    "name": "Bank of America",
+    "domain": "bankofamerica.com",
+    "category": "bank-global"
+  },
+  {
+    "name": "Wells Fargo",
+    "domain": "wellsfargo.com",
+    "category": "bank-global"
+  },
+  {
+    "name": "Citibank",
+    "domain": "citibank.com",
+    "category": "bank-global"
+  },
+  {
+    "name": "Barclays",
+    "domain": "barclays.co.uk",
+    "category": "bank-global"
+  },
+  {
+    "name": "Lloyds",
+    "domain": "lloydsbank.com",
+    "category": "bank-global"
+  },
+  {
+    "name": "Santander",
+    "domain": "santander.com",
+    "category": "bank-global"
+  },
+  {
+    "name": "Deutsche Bank",
+    "domain": "db.com",
+    "category": "bank-global"
+  },
+  {
+    "name": "BNP Paribas",
+    "domain": "bnpparibas.com",
+    "category": "bank-global"
+  },
+  {
+    "name": "UBS",
+    "domain": "ubs.com",
+    "category": "bank-global"
+  },
+  {
+    "name": "Commonwealth Bank",
+    "domain": "commbank.com.au",
+    "category": "bank-global"
+  },
+  {
+    "name": "MUFG",
+    "domain": "mufg.jp",
+    "category": "bank-global"
+  },
+  {
+    "name": "DBS",
+    "domain": "dbs.com",
+    "category": "bank-global"
+  },
+  {
+    "name": "OCBC",
+    "domain": "ocbc.com",
+    "category": "bank-global"
+  },
+  {
+    "name": "UOB",
+    "domain": "uob.com.sg",
+    "category": "bank-global"
+  },
+  {
+    "name": "Google",
+    "domain": "google.com",
+    "category": "bigtech"
+  },
+  {
+    "name": "Gmail",
+    "domain": "gmail.com",
+    "category": "bigtech"
+  },
+  {
+    "name": "YouTube",
+    "domain": "youtube.com",
+    "category": "bigtech"
+  },
+  {
+    "name": "Microsoft",
+    "domain": "microsoft.com",
+    "category": "bigtech"
+  },
+  {
+    "name": "Outlook",
+    "domain": "outlook.com",
+    "category": "bigtech"
+  },
+  {
+    "name": "Office 365",
+    "domain": "office.com",
+    "category": "bigtech"
+  },
+  {
+    "name": "Apple",
+    "domain": "apple.com",
+    "category": "bigtech"
+  },
+  {
+    "name": "iCloud",
+    "domain": "icloud.com",
+    "category": "bigtech"
+  },
+  {
+    "name": "Amazon",
+    "domain": "amazon.com",
+    "category": "bigtech"
+  },
+  {
+    "name": "Meta",
+    "domain": "meta.com",
+    "category": "bigtech"
+  },
+  {
+    "name": "Facebook",
+    "domain": "facebook.com",
+    "category": "bigtech"
+  },
+  {
+    "name": "Instagram",
+    "domain": "instagram.com",
+    "category": "bigtech"
+  },
+  {
+    "name": "WhatsApp",
+    "domain": "whatsapp.com",
+    "category": "bigtech"
+  },
+  {
+    "name": "X",
+    "domain": "x.com",
+    "category": "bigtech"
+  },
+  {
+    "name": "Twitter",
+    "domain": "twitter.com",
+    "category": "bigtech"
+  },
+  {
+    "name": "LinkedIn",
+    "domain": "linkedin.com",
+    "category": "bigtech"
+  },
+  {
+    "name": "TikTok",
+    "domain": "tiktok.com",
+    "category": "bigtech"
+  },
+  {
+    "name": "Snapchat",
+    "domain": "snapchat.com",
+    "category": "bigtech"
+  },
+  {
+    "name": "Telegram",
+    "domain": "telegram.org",
+    "category": "bigtech"
+  },
+  {
+    "name": "Discord",
+    "domain": "discord.com",
+    "category": "bigtech"
+  },
+  {
+    "name": "Reddit",
+    "domain": "reddit.com",
+    "category": "bigtech"
+  },
+  {
+    "name": "Pinterest",
+    "domain": "pinterest.com",
+    "category": "bigtech"
+  },
+  {
+    "name": "Yahoo",
+    "domain": "yahoo.com",
+    "category": "bigtech"
+  },
+  {
+    "name": "Naver",
+    "domain": "naver.com",
+    "category": "bigtech"
+  },
+  {
+    "name": "Line",
+    "domain": "line.me",
+    "category": "bigtech"
+  },
+  {
+    "name": "WeChat",
+    "domain": "wechat.com",
+    "category": "bigtech"
+  },
+  {
+    "name": "QQ",
+    "domain": "qq.com",
+    "category": "bigtech"
+  },
+  {
+    "name": "Baidu",
+    "domain": "baidu.com",
+    "category": "bigtech"
+  },
+  {
+    "name": "Amazon Web Services",
+    "domain": "amazonaws.com",
+    "category": "cloud-dev"
+  },
+  {
+    "name": "Azure",
+    "domain": "azure.com",
+    "category": "cloud-dev"
+  },
+  {
+    "name": "Google Cloud",
+    "domain": "cloud.google.com",
+    "category": "cloud-dev"
+  },
+  {
+    "name": "GitHub",
+    "domain": "github.com",
+    "category": "cloud-dev"
+  },
+  {
+    "name": "GitLab",
+    "domain": "gitlab.com",
+    "category": "cloud-dev"
+  },
+  {
+    "name": "Bitbucket",
+    "domain": "bitbucket.org",
+    "category": "cloud-dev"
+  },
+  {
+    "name": "Cloudflare",
+    "domain": "cloudflare.com",
+    "category": "cloud-dev"
+  },
+  {
+    "name": "DigitalOcean",
+    "domain": "digitalocean.com",
+    "category": "cloud-dev"
+  },
+  {
+    "name": "Heroku",
+    "domain": "heroku.com",
+    "category": "cloud-dev"
+  },
+  {
+    "name": "Vercel",
+    "domain": "vercel.com",
+    "category": "cloud-dev"
+  },
+  {
+    "name": "Netlify",
+    "domain": "netlify.com",
+    "category": "cloud-dev"
+  },
+  {
+    "name": "npm",
+    "domain": "npmjs.com",
+    "category": "cloud-dev"
+  },
+  {
+    "name": "Docker",
+    "domain": "docker.com",
+    "category": "cloud-dev"
+  },
+  {
+    "name": "Atlassian",
+    "domain": "atlassian.com",
+    "category": "cloud-dev"
+  },
+  {
+    "name": "Slack",
+    "domain": "slack.com",
+    "category": "cloud-dev"
+  },
+  {
+    "name": "Zoom",
+    "domain": "zoom.us",
+    "category": "cloud-dev"
+  },
+  {
+    "name": "Notion",
+    "domain": "notion.so",
+    "category": "cloud-dev"
+  },
+  {
+    "name": "Figma",
+    "domain": "figma.com",
+    "category": "cloud-dev"
+  },
+  {
+    "name": "Dropbox",
+    "domain": "dropbox.com",
+    "category": "cloud-dev"
+  },
+  {
+    "name": "Box",
+    "domain": "box.com",
+    "category": "cloud-dev"
+  },
+  {
+    "name": "OneDrive",
+    "domain": "onedrive.com",
+    "category": "cloud-dev"
+  },
+  {
+    "name": "eBay",
+    "domain": "ebay.com",
+    "category": "commerce"
+  },
+  {
+    "name": "Alibaba",
+    "domain": "alibaba.com",
+    "category": "commerce"
+  },
+  {
+    "name": "AliExpress",
+    "domain": "aliexpress.com",
+    "category": "commerce"
+  },
+  {
+    "name": "Taobao",
+    "domain": "taobao.com",
+    "category": "commerce"
+  },
+  {
+    "name": "JD",
+    "domain": "jd.com",
+    "category": "commerce"
+  },
+  {
+    "name": "Shopee",
+    "domain": "shopee.com",
+    "category": "commerce"
+  },
+  {
+    "name": "Lazada",
+    "domain": "lazada.com",
+    "category": "commerce"
+  },
+  {
+    "name": "HKTVmall",
+    "domain": "hktvmall.com",
+    "category": "commerce"
+  },
+  {
+    "name": "Shopify",
+    "domain": "shopify.com",
+    "category": "commerce"
+  },
+  {
+    "name": "Etsy",
+    "domain": "etsy.com",
+    "category": "commerce"
+  },
+  {
+    "name": "Walmart",
+    "domain": "walmart.com",
+    "category": "commerce"
+  },
+  {
+    "name": "Target",
+    "domain": "target.com",
+    "category": "commerce"
+  },
+  {
+    "name": "Costco",
+    "domain": "costco.com",
+    "category": "commerce"
+  },
+  {
+    "name": "IKEA",
+    "domain": "ikea.com",
+    "category": "commerce"
+  },
+  {
+    "name": "Uniqlo",
+    "domain": "uniqlo.com",
+    "category": "commerce"
+  },
+  {
+    "name": "Zalora",
+    "domain": "zalora.com.hk",
+    "category": "commerce"
+  },
+  {
+    "name": "DHL",
+    "domain": "dhl.com",
+    "category": "logistics"
+  },
+  {
+    "name": "FedEx",
+    "domain": "fedex.com",
+    "category": "logistics"
+  },
+  {
+    "name": "UPS",
+    "domain": "ups.com",
+    "category": "logistics"
+  },
+  {
+    "name": "SF Express",
+    "domain": "sf-express.com",
+    "category": "logistics"
+  },
+  {
+    "name": "Hongkong Post",
+    "domain": "hongkongpost.hk",
+    "category": "logistics"
+  },
+  {
+    "name": "Royal Mail",
+    "domain": "royalmail.com",
+    "category": "logistics"
+  },
+  {
+    "name": "USPS",
+    "domain": "usps.com",
+    "category": "logistics"
+  },
+  {
+    "name": "Australia Post",
+    "domain": "auspost.com.au",
+    "category": "logistics"
+  },
+  {
+    "name": "Japan Post",
+    "domain": "japanpost.jp",
+    "category": "logistics"
+  },
+  {
+    "name": "Deppon",
+    "domain": "deppon.com",
+    "category": "logistics"
+  },
+  {
+    "name": "Cathay Pacific",
+    "domain": "cathaypacific.com",
+    "category": "travel"
+  },
+  {
+    "name": "HK Express",
+    "domain": "hkexpress.com",
+    "category": "travel"
+  },
+  {
+    "name": "Singapore Airlines",
+    "domain": "singaporeair.com",
+    "category": "travel"
+  },
+  {
+    "name": "Emirates",
+    "domain": "emirates.com",
+    "category": "travel"
+  },
+  {
+    "name": "British Airways",
+    "domain": "britishairways.com",
+    "category": "travel"
+  },
+  {
+    "name": "Booking.com",
+    "domain": "booking.com",
+    "category": "travel"
+  },
+  {
+    "name": "Airbnb",
+    "domain": "airbnb.com",
+    "category": "travel"
+  },
+  {
+    "name": "Agoda",
+    "domain": "agoda.com",
+    "category": "travel"
+  },
+  {
+    "name": "Trip.com",
+    "domain": "trip.com",
+    "category": "travel"
+  },
+  {
+    "name": "Expedia",
+    "domain": "expedia.com",
+    "category": "travel"
+  },
+  {
+    "name": "MTR",
+    "domain": "mtr.com.hk",
+    "category": "travel"
+  },
+  {
+    "name": "Klook",
+    "domain": "klook.com",
+    "category": "travel"
+  },
+  {
+    "name": "Inland Revenue Department",
+    "domain": "ird.gov.hk",
+    "category": "gov-hk"
+  },
+  {
+    "name": "Immigration Department",
+    "domain": "immd.gov.hk",
+    "category": "gov-hk"
+  },
+  {
+    "name": "Hong Kong Police",
+    "domain": "police.gov.hk",
+    "category": "gov-hk"
+  },
+  {
+    "name": "Transport Department",
+    "domain": "td.gov.hk",
+    "category": "gov-hk"
+  },
+  {
+    "name": "Housing Authority",
+    "domain": "housingauthority.gov.hk",
+    "category": "gov-hk"
+  },
+  {
+    "name": "Hospital Authority",
+    "domain": "ha.org.hk",
+    "category": "gov-hk"
+  },
+  {
+    "name": "iAM Smart",
+    "domain": "iamsmart.gov.hk",
+    "category": "gov-hk"
+  },
+  {
+    "name": "Consumer Council",
+    "domain": "consumer.org.hk",
+    "category": "gov-hk"
+  },
+  {
+    "name": "Companies Registry",
+    "domain": "cr.gov.hk",
+    "category": "gov-hk"
+  },
+  {
+    "name": "csl",
+    "domain": "hkcsl.com",
+    "category": "telecom-hk"
+  },
+  {
+    "name": "SmarTone",
+    "domain": "smartone.com",
+    "category": "telecom-hk"
+  },
+  {
+    "name": "China Mobile HK",
+    "domain": "hk.chinamobile.com",
+    "category": "telecom-hk"
+  },
+  {
+    "name": "3 Hong Kong",
+    "domain": "three.com.hk",
+    "category": "telecom-hk"
+  },
+  {
+    "name": "HKBN",
+    "domain": "hkbn.net",
+    "category": "telecom-hk"
+  },
+  {
+    "name": "Netvigator",
+    "domain": "netvigator.com",
+    "category": "telecom-hk"
+  },
+  {
+    "name": "PCCW",
+    "domain": "pccw.com",
+    "category": "telecom-hk"
+  },
+  {
+    "name": "Netflix",
+    "domain": "netflix.com",
+    "category": "streaming"
+  },
+  {
+    "name": "Spotify",
+    "domain": "spotify.com",
+    "category": "streaming"
+  },
+  {
+    "name": "Disney+",
+    "domain": "disneyplus.com",
+    "category": "streaming"
+  },
+  {
+    "name": "HBO Max",
+    "domain": "max.com",
+    "category": "streaming"
+  },
+  {
+    "name": "Steam",
+    "domain": "steampowered.com",
+    "category": "streaming"
+  },
+  {
+    "name": "PlayStation",
+    "domain": "playstation.com",
+    "category": "streaming"
+  },
+  {
+    "name": "Xbox",
+    "domain": "xbox.com",
+    "category": "streaming"
+  },
+  {
+    "name": "Nintendo",
+    "domain": "nintendo.com",
+    "category": "streaming"
+  },
+  {
+    "name": "Twitch",
+    "domain": "twitch.tv",
+    "category": "streaming"
+  },
+  {
+    "name": "Viu",
+    "domain": "viu.com",
+    "category": "streaming"
+  },
+  {
+    "name": "Binance",
+    "domain": "binance.com",
+    "category": "crypto"
+  },
+  {
+    "name": "Coinbase",
+    "domain": "coinbase.com",
+    "category": "crypto"
+  },
+  {
+    "name": "Kraken",
+    "domain": "kraken.com",
+    "category": "crypto"
+  },
+  {
+    "name": "OKX",
+    "domain": "okx.com",
+    "category": "crypto"
+  },
+  {
+    "name": "Crypto.com",
+    "domain": "crypto.com",
+    "category": "crypto"
+  },
+  {
+    "name": "MetaMask",
+    "domain": "metamask.io",
+    "category": "crypto"
+  },
+  {
+    "name": "Ledger",
+    "domain": "ledger.com",
+    "category": "crypto"
+  },
+  {
+    "name": "Trezor",
+    "domain": "trezor.io",
+    "category": "crypto"
+  },
+  {
+    "name": "Bybit",
+    "domain": "bybit.com",
+    "category": "crypto"
+  },
+  {
+    "name": "Tether",
+    "domain": "tether.to",
+    "category": "crypto"
+  },
+  {
+    "name": "HKU",
+    "domain": "hku.hk",
+    "category": "education-hk"
+  },
+  {
+    "name": "CUHK",
+    "domain": "cuhk.edu.hk",
+    "category": "education-hk"
+  },
+  {
+    "name": "HKUST",
+    "domain": "ust.hk",
+    "category": "education-hk"
+  },
+  {
+    "name": "PolyU",
+    "domain": "polyu.edu.hk",
+    "category": "education-hk"
+  },
+  {
+    "name": "CityU",
+    "domain": "cityu.edu.hk",
+    "category": "education-hk"
+  },
+  {
+    "name": "HKBU",
+    "domain": "hkbu.edu.hk",
+    "category": "education-hk"
+  },
+  {
+    "name": "EdUHK",
+    "domain": "eduhk.hk",
+    "category": "education-hk"
+  },
+  {
+    "name": "HKMU",
+    "domain": "hkmu.edu.hk",
+    "category": "education-hk"
+  }
+]
