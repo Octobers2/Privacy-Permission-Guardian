@@ -9,11 +9,23 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+/**
+ * Where a fixture came from.
+ *
+ * This distinction is the difference between a measurement and a circular one.
+ * `synthetic` fixtures were written by us, and we wrote them while looking at
+ * the rules — scoring well on them says almost nothing. `collected` fixtures
+ * are snapshots of pages nobody on this project authored, and only those
+ * belong in a headline number.
+ */
+export type FixtureSource = 'synthetic' | 'collected';
+
 export interface Fixture {
   file: string;
   url: string;
   label: 'legit' | 'phishing';
   notes: string;
+  source: FixtureSource;
   hostname: string;
   protocol: 'http:' | 'https:';
   path: string;
@@ -57,6 +69,7 @@ export function loadFixtures(): Fixture[] {
       url: record.url!,
       label: record.label as Fixture['label'],
       notes: record.notes ?? '',
+      source: (record.source as FixtureSource) || 'synthetic',
       hostname: url.hostname,
       protocol: url.protocol as Fixture['protocol'],
       path: url.pathname,

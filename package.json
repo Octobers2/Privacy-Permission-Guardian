@@ -13,7 +13,8 @@
     "eval:rules": "bun run eval/run-rules-eval.ts",
     "eval:injection": "bun run eval/run-injection-eval.ts",
     "e2e": "bun run --filter @ppg/extension build && bun run eval/run-e2e.ts",
-    "fixtures": "bun run eval/serve-fixtures.ts"
+    "fixtures": "bun run eval/serve-fixtures.ts",
+    "fixtures:check": "bun run eval/sanitize-fixture.ts --check eval/fixtures/phishing/*.html eval/fixtures/legit/*.html"
   },
   "devDependencies": {
     "@types/bun": "latest",
