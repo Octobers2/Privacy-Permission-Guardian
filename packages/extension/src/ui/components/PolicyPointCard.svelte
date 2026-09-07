@@ -28,7 +28,9 @@
   <header>
     <!--
       Everything below comes from the model, which read attacker-controlled page
-      text. It is interpolated as text, never with {@html}.
+      text, so it is interpolated as text and never as markup. The guard in
+      test/no-html-injection.test.ts enforces that across the whole codebase —
+      which is why this comment does not spell out the directive it forbids.
     -->
     <h3 class="md-typescale-body-large">{point.title}</h3>
     <SeverityChip severity={point.severity} />
