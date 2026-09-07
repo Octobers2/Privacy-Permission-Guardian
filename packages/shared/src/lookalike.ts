@@ -186,3 +186,147 @@ export function normaliseHomoglyphs(label: string): string {
 
   return out;
 }
+
+/* ----------------------------------------------------------- detection */
+
+import { parse as parseDomain } from 'tldts';
+import brandList from './brands.json' with { type: 'json' };
+
+export interface Brand {
+  name: string;
+  domain: string;
+  category: string;
+}
+
+export interface LookalikeMatch {
+  brand: Brand;
+  /**
+   * - `homoglyph`  the label folds onto the brand exactly (paypa1, pаypal)
+   * - `typo`       a near miss within the length-scaled edit budget (payppal)
+   * - `impersonation`  the brand appears as a label or token somewhere in the
+   *   hostname while the registrable domain belongs to somebody else
+   *   (paypal.secure-login.xyz, hsbc-verify.top)
+   */
+  kind: 'homoglyph' | 'typo' | 'impersonation';
+  distance: number;
+  /** The part of the hostname that triggered the match, for the banner text. */
+  matched: string;
+}
+
+interface IndexedBrand extends Brand {
+  label: string;
+  folded: string;
+}
+
+/**
+ * Edit budget scaled to label length.
+ *
+ * A flat "distance <= 2" would be reckless for short labels: `visa` is one edit
+ * from `vista`, `visas` and `viva`, all of which are real words. But a flat
+ * "only compare labels of 5+ characters" — the obvious alternative — would give
+ * *no* typo protection to HSBC, Visa, DHL, eBay, MTR or IRD, which are among
+ * the most impersonated names in this list.
+ *
+ * So short labels rely on homoglyph folding (which still catches `hsbс` with a
+ * Cyrillic с, and `v1sa`) plus the token rule below, and only longer labels get
+ * a real edit budget.
+ */
+function editBudget(labelLength: number): number {
+  if (labelLength <= 5) return 0;
+  if (labelLength <= 8) return 1;
+  return 2;
+}
+
+/**
+ * Brand labels that are also ordinary words, excluded from the token rule.
+ *
+ * `max`, `box` and `line` appear in plenty of innocent hostnames, and a banner
+ * claiming `line.example.com` impersonates LINE would train the user to ignore
+ * every warning we ever show. They still get homoglyph and typo checks on the
+ * registrable label itself.
+ */
+const GENERIC_LABELS = new Set([
+  'max', 'box', 'line', 'meta', 'target', 'three', 'trip', 'wise', 'mox', 'viu',
+]);
+
+function indexBrands(brands: Brand[]): IndexedBrand[] {
+  const byLabel = new Map<string, IndexedBrand>();
+  for (const brand of brands) {
+    const parsed = parseDomain(brand.domain);
+    const label = parsed.domainWithoutSuffix;
+    if (!label || !parsed.domain) continue;
+
+    // Several entries collapse onto one label: payme.hsbc.com.hk and
+    // hsbc.com.hk both reduce to "hsbc". Prefer the entry that *is* the
+    // registrable domain, otherwise the banner ends up telling the user that
+    // hsbc-verify.top is impersonating PayMe.
+    const isRegistrableItself = parsed.domain === brand.domain;
+    const existing = byLabel.get(label);
+    if (!existing || (isRegistrableItself && existing.domain !== parsed.domain)) {
+      byLabel.set(label, { ...brand, label, folded: normaliseHomoglyphs(label) });
+    }
+  }
+  return [...byLabel.values()];
+}
+
+export const BRANDS: Brand[] = brandList as Brand[];
+const INDEXED_BRANDS = indexBrands(BRANDS);
+
+/** Splits a hostname into the tokens a human would read as separate words. */
+function hostnameTokens(hostname: string): string[] {
+  return hostname.split(/[.\-_]/).filter(Boolean);
+}
+
+/**
+ * Reports the brand a hostname appears to be impersonating, or null.
+ *
+ * Returns null immediately when the hostname genuinely belongs to the brand, so
+ * `mail.google.com` and `support.microsoft.com` never produce a hit.
+ */
+export function detectLookalike(
+  hostname: string,
+  brands: IndexedBrand[] = INDEXED_BRANDS,
+): LookalikeMatch | null {
+  const decoded = decodePunycodeHostname(hostname).toLowerCase();
+  const parsed = parseDomain(decoded);
+  const registrable = parsed.domain;
+  const label = parsed.domainWithoutSuffix;
+  if (!registrable || !label) return null;
+
+  // The real thing, or one of its subdomains.
+  if (brands.some((b) => b.domain === registrable)) return null;
+
+  const foldedLabel = normaliseHomoglyphs(label);
+
+  for (const brand of brands) {
+    if (foldedLabel === brand.folded) {
+      return { brand, kind: 'homoglyph', distance: 0, matched: label };
+    }
+  }
+
+  for (const brand of brands) {
+    const budget = editBudget(brand.folded.length);
+    if (budget === 0) continue;
+    const distance = levenshtein(foldedLabel, brand.folded, budget);
+    if (distance <= budget) {
+      return { brand, kind: 'typo', distance, matched: label };
+    }
+  }
+
+  // The brand name sitting somewhere else in the hostname: as a subdomain
+  // (paypal.secure-login.xyz) or as a word inside the registrable label
+  // (hsbc-verify.top). Whole tokens only — substring matching would flag
+  // amazonaws.com as impersonating Amazon.
+  const tokens = hostnameTokens(decoded).map(normaliseHomoglyphs);
+  for (const brand of brands) {
+    // Three characters is the floor: dropping to it is what catches
+    // ird-gov.hk, dhl-tracking.xyz and ups-delivery.top, which are the shape
+    // most real phishing hostnames take.
+    if (brand.folded.length < 3 || GENERIC_LABELS.has(brand.folded)) continue;
+    if (tokens.includes(brand.folded)) {
+      return { brand, kind: 'impersonation', distance: 0, matched: brand.label };
+    }
+  }
+
+  return null;
+}

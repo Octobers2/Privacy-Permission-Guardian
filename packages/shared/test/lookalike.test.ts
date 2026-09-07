@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   decodePunycodeHostname,
   decodePunycodeLabel,
+  detectLookalike,
   levenshtein,
   normaliseHomoglyphs,
 } from '../src/lookalike.ts';
@@ -101,5 +102,70 @@ describe('normaliseHomoglyphs', () => {
     for (const label of ['paypal', 'hsbc', 'octopus', 'google']) {
       expect(normaliseHomoglyphs(label)).toBe(label);
     }
+  });
+});
+
+describe('detectLookalike', () => {
+  test('does not flag the real brand or its subdomains', () => {
+    for (const host of ['paypal.com', 'www.paypal.com', 'mail.google.com', 'support.microsoft.com', 'hsbc.com.hk']) {
+      expect(detectLookalike(host)).toBeNull();
+    }
+  });
+
+  test('catches a digit swapped for a letter', () => {
+    const match = detectLookalike('paypa1.com');
+    expect(match?.kind).toBe('homoglyph');
+    expect(match?.brand.domain).toBe('paypal.com');
+  });
+
+  test('catches a punycode-encoded cyrillic homograph', () => {
+    const match = detectLookalike('xn--pypal-4ve.com');
+    expect(match?.kind).toBe('homoglyph');
+    expect(match?.brand.domain).toBe('paypal.com');
+  });
+
+  test('catches a one-character typo on a long label', () => {
+    const match = detectLookalike('payppal.com');
+    expect(match?.kind).toBe('typo');
+    expect(match?.distance).toBe(1);
+  });
+
+  test('catches the brand sitting in a subdomain of somebody else', () => {
+    const match = detectLookalike('paypal.secure-login.xyz');
+    expect(match?.kind).toBe('impersonation');
+    expect(match?.brand.domain).toBe('paypal.com');
+  });
+
+  test('catches the brand as a word inside the registrable label', () => {
+    expect(detectLookalike('hsbc-verify.top')?.brand.name).toBe('HSBC');
+    expect(detectLookalike('dhl-tracking.xyz')?.brand.name).toBe('DHL');
+    expect(detectLookalike('ird-gov.hk')?.brand.domain).toBe('ird.gov.hk');
+  });
+
+  test('names the bank rather than one of its products', () => {
+    // hsbc.com.hk and payme.hsbc.com.hk both reduce to the label "hsbc"; the
+    // banner has to say HSBC, not PayMe.
+    expect(detectLookalike('hsbc-verify.top')?.brand.domain).toBe('hsbc.com.hk');
+  });
+
+  test('does not flag a brand name that is merely a substring', () => {
+    expect(detectLookalike('amazonaws.com')).toBeNull();
+    expect(detectLookalike('my.backups.example.com')).toBeNull();
+  });
+
+  test('does not flag ordinary words that happen to be brand labels', () => {
+    for (const host of ['max.example.com', 'line.example.com', 'box.internal.example.com']) {
+      expect(detectLookalike(host)).toBeNull();
+    }
+  });
+
+  test('does not flag short labels one edit from a brand', () => {
+    // "vista" is one insertion from "visa"; a flat edit budget would warn here.
+    expect(detectLookalike('vista.com')).toBeNull();
+  });
+
+  test('returns null for hostnames with no registrable domain', () => {
+    expect(detectLookalike('localhost')).toBeNull();
+    expect(detectLookalike('127.0.0.1')).toBeNull();
   });
 });
