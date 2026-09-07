@@ -1,0 +1,14 @@
+{
+  "name": "@ppg/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "start": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "@ppg/shared": "workspace:*",
+    "hono": "^4.6.15"
+  }
+}

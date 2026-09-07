@@ -1,0 +1,24 @@
+{
+  "name": "@ppg/extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "theme": "bun run scripts/gen-theme.ts"
+  },
+  "dependencies": {
+    "@material/web": "^2.3.0",
+    "@mozilla/readability": "^0.5.0",
+    "@ppg/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.0.0-beta.28",
+    "@material/material-color-utilities": "^0.3.0",
+    "@sveltejs/vite-plugin-svelte": "^5.0.3",
+    "svelte": "^5.16.0",
+    "svelte-check": "^4.1.1",
+    "vite": "^6.0.7"
+  }
+}

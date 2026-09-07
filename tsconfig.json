@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": ["bun", "chrome"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@ppg/shared": ["packages/shared/src/index.ts"],
+      "@ppg/shared/*": ["packages/shared/src/*"]
+    }
+  },
+  "include": ["packages/*/src/**/*", "packages/*/test/**/*", "eval/**/*", "packages/*/scripts/**/*"]
+}

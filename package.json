@@ -1,0 +1,24 @@
+{
+  "name": "privacy-permission-guardian",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "bun test",
+    "dev": "bun run --filter '@ppg/extension' dev",
+    "build": "bun run --filter '@ppg/extension' build",
+    "server": "bun run --filter '@ppg/server' dev",
+    "eval:rules": "bun run eval/run-rules-eval.ts",
+    "eval:injection": "bun run eval/run-injection-eval.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/chrome": "^0.0.287",
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "@ppg/shared": "workspace:*"
+  }
+}
