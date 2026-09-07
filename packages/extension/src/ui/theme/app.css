@@ -1,0 +1,27 @@
+/* Colour roles (generated — see scripts/gen-theme.ts). */
+@import './md3-tokens.css';
+/* MD3 type scale classes: .md-typescale-body-medium, -title-large, etc. */
+@import '@material/web/typography/md-typescale-styles.css';
+
+/*
+ * No webfont is loaded. Google Fonts is unreachable under the MV3 CSP, and a
+ * bundled CJK face would cost several megabytes for a UI this small, so we ask
+ * for Roboto if the system already has it and fall back to the platform UI face.
+ */
+:root {
+  --ppg-font-stack: Roboto, 'Noto Sans HK', 'PingFang HK', 'Microsoft JhengHei',
+    system-ui, -apple-system, sans-serif;
+  --md-ref-typeface-brand: var(--ppg-font-stack);
+  --md-ref-typeface-plain: var(--ppg-font-stack);
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  font-family: var(--ppg-font-stack);
+  background: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface);
+}

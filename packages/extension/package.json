@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "theme": "bun run scripts/gen-theme.ts"
+    "theme": "bun run scripts/gen-theme.ts",
+    "check": "vite build && bun run scripts/check-extension.ts"
   },
   "dependencies": {
     "@material/web": "^2.3.0",
