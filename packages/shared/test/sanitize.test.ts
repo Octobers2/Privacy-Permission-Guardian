@@ -4,6 +4,7 @@ import {
   extractVisibleText,
   isVerbatim,
   normaliseWhitespace,
+  pickMainContent,
   stripInvisibleContent,
   wrapUntrusted,
 } from '../src/sanitize.ts';
@@ -124,5 +125,27 @@ describe('isVerbatim', () => {
 
   test('rejects a fragment too short to mean anything', () => {
     expect(isVerbatim('we', source)).toBe(false);
+  });
+});
+
+describe('pickMainContent', () => {
+  test('prefers a main element that holds the bulk of the page', () => {
+    const doc = domOf(`
+      <nav>Home About Contact</nav>
+      <main>${'Policy prose. '.repeat(50)}</main>
+      <footer>© 2026</footer>`);
+    expect(pickMainContent(doc).tagName.toLowerCase()).toBe('main');
+  });
+
+  test('ignores a main element that only wraps a skip link', () => {
+    const doc = domOf(`
+      <main><a href="#x">Skip to content</a></main>
+      <div>${'The actual policy text. '.repeat(50)}</div>`);
+    expect(pickMainContent(doc).tagName.toLowerCase()).toBe('body');
+  });
+
+  test('falls back to the body when nothing is marked up', () => {
+    const doc = domOf('<p>Just a paragraph</p>');
+    expect(pickMainContent(doc).tagName.toLowerCase()).toBe('body');
   });
 });

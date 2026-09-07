@@ -183,3 +183,34 @@ export function isVerbatim(quote: string, source: string): boolean {
   if (needle.length < 8) return false;
   return canonical(source).includes(needle);
 }
+
+/**
+ * Picks the element most likely to hold the document's actual prose.
+ *
+ * A deliberate stand-in for Readability. The extension has to parse HTML in the
+ * content script — MV3 service workers have no `DOMParser` — and Readability
+ * would put roughly 100 kB into a bundle that loads on every page the user
+ * visits. For a policy page, where the whole body is essentially the document,
+ * the gain does not justify that: this picks up `<main>`/`<article>` when the
+ * site marks them up, and otherwise falls back to the body, which is what
+ * Readability would mostly return here anyway.
+ */
+export function pickMainContent(doc: Document): Element {
+  const body = doc.body ?? doc.documentElement;
+  const candidates = [...doc.querySelectorAll('main, article, [role="main"], #content, #main, .content')];
+
+  let best: Element | null = null;
+  let bestLength = 0;
+  for (const candidate of candidates) {
+    const length = (candidate.textContent ?? '').length;
+    if (length > bestLength) {
+      best = candidate;
+      bestLength = length;
+    }
+  }
+
+  // Only trust the candidate if it holds most of the page. A `<main>` wrapping
+  // a "skip to content" link should not replace the whole document.
+  const bodyLength = (body?.textContent ?? '').length;
+  return best && bestLength > bodyLength * 0.4 ? best : body;
+}
