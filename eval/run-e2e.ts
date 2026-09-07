@@ -13,6 +13,7 @@
  */
 import { resolve } from 'node:path';
 import { Browser } from './chromium.ts';
+import { CONTENT_SCRIPT_BUDGET_BYTES, contentScriptWeight } from './bundle-budget.ts';
 import { loadFixtures } from './fixtures.ts';
 import { hostResolverRules } from './serve-fixtures.ts';
 
@@ -37,15 +38,32 @@ interface Banner {
   reasons: string[];
 }
 
+const failures: string[] = [];
+
+console.log('=== per-page cost ===');
+{
+  const weight = contentScriptWeight(DIST);
+  for (const file of weight.files) console.log(`  ${file.file.padEnd(40)} ${file.bytes.toLocaleString().padStart(9)}`);
+  const withinBudget = weight.total <= CONTENT_SCRIPT_BUDGET_BYTES;
+  console.log(
+    `  ${withinBudget ? 'ok  ' : 'FAIL'} content script loads ${weight.total.toLocaleString()} bytes on every page` +
+      ` (budget ${CONTENT_SCRIPT_BUDGET_BYTES.toLocaleString()})`,
+  );
+  if (!withinBudget) {
+    failures.push(
+      `content script is ${weight.total.toLocaleString()} bytes, over the ${CONTENT_SCRIPT_BUDGET_BYTES.toLocaleString()} budget` +
+        ' — something heavy got imported into the page again',
+    );
+  }
+}
+
 const browser = await Browser.launch({
   extensionDir: DIST,
   hostResolverRules: hostResolverRules(),
   ignoreCertificateErrors: true,
 });
 
-const failures: string[] = [];
-
-console.log('=== extension pages ===');
+console.log('\n=== extension pages ===');
 for (const page of ['popup.html', 'options.html']) {
   const { value, problems } = await browser.visit<{ heading: string; upgraded: boolean }>(
     `chrome-extension://${browser.extensionId}/${page}`,

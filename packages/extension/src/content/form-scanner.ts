@@ -5,7 +5,8 @@
  * This file only decides *when* to look and avoids reporting the same page
  * layout twice.
  */
-import { extractForms, type FormObservation } from '@ppg/shared';
+import { extractForms } from '@ppg/shared/extract-form';
+import type { FormObservation } from '@ppg/shared/schemas';
 
 /**
  * Identifies the page's forms by their shape, so a re-render that rebuilds the

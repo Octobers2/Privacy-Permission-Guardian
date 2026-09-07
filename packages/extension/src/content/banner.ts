@@ -12,7 +12,7 @@
  *    output ends up in the same list, and model output is derived from
  *    attacker-controlled page text.
  */
-import type { RuleHit, Verdict } from '@ppg/shared';
+import type { Verdict } from '@ppg/shared/schemas';
 import tokens from './md3-tokens-host.css?inline';
 
 const HOST_ID = 'ppg-banner-host';

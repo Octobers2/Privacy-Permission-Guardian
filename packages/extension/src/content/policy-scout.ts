@@ -8,7 +8,7 @@
  * agree to. Fetching from the content script uses the user's own session, so
  * the text analysed is the text they would see.
  */
-import { extractVisibleText, pickMainContent } from '@ppg/shared';
+import { extractVisibleText, pickMainContent } from '@ppg/shared/sanitize';
 
 const POLICY_PATTERN = /privacy|policy|terms|tos\b|legal|條款|私隱|隱私|使用者條款|服務條款/i;
 
