@@ -227,8 +227,11 @@ export const DEFAULT_SETTINGS: Settings = {
   apiKey: '',
   model: 'gpt-4o-mini',
   temperature: 0,
-  maxTokens: 1_200,
-  timeoutMs: 30_000,
+  // `max_tokens` is a cap, not a target: raising it costs nothing for an
+  // ordinary model, and a reasoning model spends most of its allowance thinking
+  // before it writes a single character of the answer.
+  maxTokens: 4_000,
+  timeoutMs: 60_000,
   paused: false,
   allowlist: [],
   llmThreshold: 30,

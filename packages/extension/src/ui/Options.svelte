@@ -149,6 +149,33 @@
           </md-text-button>
         </div>
       {/if}
+      <details>
+        <summary class="md-typescale-label-large">進階</summary>
+        <div class="advanced">
+          <TextField
+            label="Max tokens"
+            type="number"
+            value={String(settings.maxTokens)}
+            supportingText="上限而唔係目標，調高對普通模型零成本。推理模型（Qwen3、DeepSeek-R1 之類）思考會食走大部分額度，建議 4000 以上。"
+            onchange={(value) => persist({ maxTokens: Number(value) || DEFAULT_SETTINGS.maxTokens })}
+          />
+          <TextField
+            label="Temperature"
+            type="number"
+            value={String(settings.temperature)}
+            supportingText="0 = 每次結果一致。摘要同判斷都唔需要創意。"
+            onchange={(value) => persist({ temperature: Number(value) })}
+          />
+          <TextField
+            label="Timeout (ms)"
+            type="number"
+            value={String(settings.timeoutMs)}
+            supportingText="本機模型或者長條款，可能要調高。"
+            onchange={(value) => persist({ timeoutMs: Number(value) || DEFAULT_SETTINGS.timeoutMs })}
+          />
+        </div>
+      </details>
+
       {#if connection}
         <p class="md-typescale-body-medium result" data-ok={connection.ok} aria-live="polite">
           {connection.ok ? '✓' : '✗'}
@@ -285,6 +312,20 @@
   .result[data-ok='false'] {
     background: var(--md-sys-color-error-container);
     color: var(--md-sys-color-on-error-container);
+  }
+  details {
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+    padding-top: 12px;
+  }
+  summary {
+    cursor: pointer;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+  .advanced {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-top: 16px;
   }
   .add-row {
     display: flex;

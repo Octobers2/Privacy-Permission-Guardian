@@ -31,6 +31,7 @@ export type LlmErrorKind =
   | 'timeout'
   | 'network'
   | 'server'
+  | 'token_limit'
   | 'invalid_response';
 
 /** Carries a message meant to be shown to the user, not logged and forgotten. */
@@ -53,7 +54,10 @@ const HUMAN_MESSAGES: Record<LlmErrorKind, string> = {
   network:
     '連唔到呢個 endpoint。檢查下 base URL；如果係本機 Ollama，記得設定 OLLAMA_ORIGINS=chrome-extension://*。',
   server: 'Endpoint 內部錯誤。通常係對方嘅問題，等陣再試。',
-  invalid_response: '模型回覆嘅格式唔啱，已經改用規則引擎嘅結果。',
+  token_limit:
+    '模型未答完就用晒 token 額度。如果你用緊推理模型（Qwen3、DeepSeek-R1 之類），' +
+    '思考過程會食走大部分額度 —— 喺進階設定將 max tokens 調高（推理模型建議 4000 以上）。',
+  invalid_response: '模型回覆嘅唔係有效 JSON。',
 };
 
 export function humanMessageFor(error: unknown): string {
@@ -71,6 +75,21 @@ function errorKindForStatus(status: number): LlmErrorKind {
 /** `https://api.openai.com/v1/` and `https://api.openai.com/v1` both work. */
 function endpointUrl(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/+$/, '')}/${path}`;
+}
+
+/**
+ * Removes inline reasoning from a completion.
+ *
+ * Reasoning models split into two camps: some return their thinking in a
+ * separate `reasoning_content` field (handled in `postChat`), others emit it
+ * inline wrapped in `<think>` tags and expect the client to drop it. A
+ * `<think>` with no closing tag means the response was cut off mid-thought, so
+ * there is no answer in there at all.
+ */
+export function stripReasoning(content: string): string {
+  const closed = content.replace(/<think>[\s\S]*?<\/think>/gi, '');
+  if (/<think>/i.test(closed)) return '';
+  return closed.trim();
 }
 
 /**
@@ -110,11 +129,17 @@ export interface ChatOptions {
   signal?: AbortSignal;
 }
 
+interface Completion {
+  content: string;
+  /** The endpoint stopped because it ran out of budget, not because it finished. */
+  truncated: boolean;
+}
+
 async function postChat(
   config: EndpointConfig,
   messages: ChatMessage[],
   options: ChatOptions,
-): Promise<string> {
+): Promise<Completion> {
   const doFetch = options.fetchImpl ?? fetch;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), config.timeoutMs);
@@ -154,13 +179,32 @@ async function postChat(
   }
 
   const payload = (await response.json()) as {
-    choices?: { message?: { content?: string } }[];
+    choices?: {
+      finish_reason?: string;
+      message?: { content?: string; reasoning_content?: string };
+    }[];
   };
-  const content = payload.choices?.[0]?.message?.content;
-  if (typeof content !== 'string' || content.trim() === '') {
+
+  const choice = payload.choices?.[0];
+  const truncated = choice?.finish_reason === 'length';
+  const content = stripReasoning(choice?.message?.content ?? '');
+
+  if (content === '') {
+    // A reasoning model that spent its whole budget thinking returns an empty
+    // `content` with the thinking in `reasoning_content`. Reporting that as a
+    // format error sends the user looking in entirely the wrong place.
+    const thought = choice?.message?.reasoning_content;
+    if (truncated || (typeof thought === 'string' && thought.trim() !== '')) {
+      throw new LlmError(
+        'token_limit',
+        `the model produced no answer within ${config.maxTokens} tokens` +
+          (thought ? ' (its reasoning used the whole budget)' : ''),
+      );
+    }
     throw new LlmError('invalid_response', 'the endpoint returned no message content');
   }
-  return content;
+
+  return { content, truncated };
 }
 
 /** Retried once; anything the user has to fix themselves is not. */
@@ -199,9 +243,9 @@ export async function chatJson<T>(
   let lastProblem = '';
 
   for (let attempt = 0; attempt < 2; attempt++) {
-    let content: string;
+    let completion: Completion;
     try {
-      content = await postChat(config, messages, options);
+      completion = await postChat(config, messages, options);
     } catch (error) {
       if (attempt === 0 && isRetryable(error)) {
         await new Promise((done) => setTimeout(done, 800));
@@ -210,10 +254,20 @@ export async function chatJson<T>(
       throw error;
     }
 
+    const { content, truncated } = completion;
+
     let parsed: unknown;
     try {
       parsed = extractJson(content);
     } catch (error) {
+      // Unparseable *and* cut short is a budget problem, not a format problem,
+      // and retrying with the same budget would fail the same way.
+      if (truncated) {
+        throw new LlmError(
+          'token_limit',
+          `the answer was cut off after ${config.maxTokens} tokens and is not valid JSON`,
+        );
+      }
       lastProblem = error instanceof Error ? error.message : String(error);
       messages.push(
         { role: 'assistant', content: content.slice(0, 500) },
@@ -248,9 +302,10 @@ export interface ConnectionCheck {
 /**
  * The "test connection" button.
  *
- * Sends the smallest possible completion rather than hitting `/models`: some
- * gateways expose `/models` without a key, so a green tick there would say
- * nothing about whether the key works or the model name is real.
+ * Sends a real completion rather than hitting `/models`: some gateways expose
+ * `/models` without a key, so a green tick there would say nothing about
+ * whether the key works, the model name is real, or the model can actually
+ * produce JSON within the configured token budget.
  */
 export async function testConnection(
   config: EndpointConfig,
@@ -259,8 +314,12 @@ export async function testConnection(
 ): Promise<ConnectionCheck> {
   const started = now();
   try {
-    const content = await postChat(
-      { ...config, maxTokens: 32, temperature: 0 },
+    // Deliberately the configured budget rather than a token or two. A tiny cap
+    // would pass for a plain model and fail for a reasoning one, which is the
+    // opposite of what a connection test is for: it should fail here, with an
+    // actionable message, rather than during the first real summary.
+    const { content } = await postChat(
+      { ...config, temperature: 0 },
       [
         { role: 'system', content: 'Reply with the JSON object {"ok":true} and nothing else.' },
         { role: 'user', content: 'ping' },

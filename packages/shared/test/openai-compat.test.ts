@@ -1,6 +1,14 @@
 import { describe, expect, test } from 'bun:test';
 import { z } from 'zod';
-import { chatJson, extractJson, LlmError, testConnection, type EndpointConfig } from '../src/openai-compat.ts';
+import {
+  chatJson,
+  extractJson,
+  humanMessageFor,
+  LlmError,
+  stripReasoning,
+  testConnection,
+  type EndpointConfig,
+} from '../src/openai-compat.ts';
 
 const CONFIG: EndpointConfig = {
   baseUrl: 'https://api.example.com/v1/',
@@ -158,4 +166,77 @@ describe('testConnection', () => {
     expect(check.ok).toBe(false);
     expect(check.message).toContain('API key');
   });
+});
+
+describe('reasoning models', () => {
+  /** Shapes a llama.cpp / vLLM style response, thinking in its own field. */
+  function reasoningCompletion(
+    content: string,
+    reasoning: string,
+    finishReason: 'stop' | 'length' = 'stop',
+  ): Response {
+    return new Response(
+      JSON.stringify({
+        choices: [{ finish_reason: finishReason, message: { role: 'assistant', content, reasoning_content: reasoning } }],
+      }),
+      { headers: { 'content-type': 'application/json' } },
+    );
+  }
+
+  test('reports an exhausted budget as a budget problem, not a format problem', async () => {
+    // The exact response a Qwen3 build returns when max_tokens is too small:
+    // the whole allowance went on thinking and content came back empty.
+    const { impl } = mockFetch([
+      reasoningCompletion('', "Here's a thinking process:\n\n1. Analyze User Input", 'length'),
+    ]);
+    const error = await chatJson(CONFIG, PROMPT, Schema, { fetchImpl: impl }).catch((e) => e);
+
+    expect(error).toBeInstanceOf(LlmError);
+    expect(error.kind).toBe('token_limit');
+    expect(humanMessageFor(error)).toContain('max tokens');
+  });
+
+  test('accepts an answer that came after the reasoning', async () => {
+    const { impl } = mockFetch([reasoningCompletion('{"verdict":"safe"}', 'thinking…')]);
+    const result = await chatJson(CONFIG, PROMPT, Schema, { fetchImpl: impl });
+    expect(result.value).toEqual({ verdict: 'safe' });
+  });
+
+  test('does not retry a truncated, unparseable answer with the same budget', async () => {
+    const { impl, calls } = mockFetch([completion('{"verdi', 200)]);
+    const truncated = new Response(
+      JSON.stringify({ choices: [{ finish_reason: 'length', message: { content: '{"verdi' } }] }),
+      { headers: { 'content-type': 'application/json' } },
+    );
+    const second = mockFetch([truncated]);
+    const error = await chatJson(CONFIG, PROMPT, Schema, { fetchImpl: second.impl }).catch((e) => e);
+
+    expect(error.kind).toBe('token_limit');
+    // Asking again with the same cap would fail identically.
+    expect(second.calls).toHaveLength(1);
+    void calls;
+  });
+});
+
+describe('stripReasoning', () => {
+  test('drops an inline think block', () => {
+    expect(stripReasoning('<think>weighing options</think>\n{"a":1}')).toBe('{"a":1}');
+  });
+
+  test('treats an unclosed think block as no answer at all', () => {
+    // The response was cut off mid-thought; there is nothing after it.
+    expect(stripReasoning('<think>weighing opt')).toBe('');
+  });
+
+  test('leaves an ordinary completion untouched', () => {
+    expect(stripReasoning('{"a":1}')).toBe('{"a":1}');
+  });
+});
+
+test('the connection test uses the configured budget, not a token or two', async () => {
+  // A 32-token cap passes for a plain model and fails for a reasoning one,
+  // which is the opposite of what a connection test is for.
+  const { impl, calls } = mockFetch([completion('{"ok":true}')]);
+  await testConnection({ ...CONFIG, maxTokens: 4_000 }, { fetchImpl: impl });
+  expect(calls[0]!.body.max_tokens).toBe(4_000);
 });

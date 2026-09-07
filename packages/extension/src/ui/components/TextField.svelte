@@ -7,10 +7,22 @@
     type?: 'text' | 'password' | 'number' | 'url';
     supportingText?: string;
     placeholder?: string;
+    /**
+     * Called when the field loses focus. Given for settings that persist on
+     * their own; omitted for fields the page saves with an explicit button,
+     * which is how the API key avoids a storage write per keystroke.
+     */
+    onchange?: (value: string) => void;
   }
 
-  let { label, value = $bindable(), type = 'text', supportingText = '', placeholder = '' }: Props =
-    $props();
+  let {
+    label,
+    value = $bindable(),
+    type = 'text',
+    supportingText = '',
+    placeholder = '',
+    onchange,
+  }: Props = $props();
 
   let element = $state<HTMLElement & { value: string }>();
 
@@ -29,6 +41,7 @@
   {placeholder}
   supporting-text={supportingText}
   oninput={(event: Event) => (value = (event.target as HTMLInputElement).value)}
+  onchange={(event: Event) => onchange?.((event.target as HTMLInputElement).value)}
 ></md-outlined-text-field>
 
 <style>
