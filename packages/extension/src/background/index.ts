@@ -25,6 +25,7 @@ import type {
 import type { PolicyFailure } from '../offscreen/index.ts';
 import { loadSettings, onSettingsChanged, saveSettings } from '../settings.ts';
 import { readSummary, writeSummary } from './cache.ts';
+import { readInBackgroundTab } from './background-tab.ts';
 import { readPolicy } from './offscreen.ts';
 import { checkConnection, summarisePolicy } from './llm-router.ts';
 
@@ -94,8 +95,8 @@ function explainFailures(failures: PolicyFailure[]): string {
 
   if ((counts.get('needs-javascript') ?? 0) > 0) {
     return (
-      `搵到 ${failures.length} 條連結，但佢哋嘅條款內容要 JavaScript 先顯示得出 —— ` +
-      '我哋唔會喺沙盒入面執行網站嘅 script。撳下面條連結打開條款頁，喺嗰版再撳「分析呢個網站」就讀到。'
+      `搵到 ${failures.length} 條連結。佢哋嘅內容要 JavaScript 先顯示得出，我哋喺背景開咗嗰版等佢自己 render，` +
+      '但仍然讀唔到足夠內容（可能係登入牆，或者 render 得太耐）。可以自己撳下面條連結打開再分析。'
     );
   }
   if ((counts.get('fetch-failed') ?? 0) === failures.length) {
@@ -176,6 +177,24 @@ async function analysePolicy(tabId: number): Promise<SummaryState> {
     const result = await readPolicy(candidates);
     document = result.policy;
     failures = result.failures;
+
+    // Everything readable without running scripts has been tried. What is left
+    // is the client-rendered case, and the only way to read those is to let the
+    // site render itself — in its own origin, in a tab the user never sees.
+    if (!document) {
+      const needsJavascript = failures.filter((failure) => failure.reason === 'needs-javascript');
+      for (const failure of needsJavascript.slice(0, 3)) {
+        const rendered = await readInBackgroundTab(failure.url);
+        if (rendered) {
+          document = {
+            policyUrl: rendered.policyUrl,
+            text: rendered.text,
+            truncated: rendered.truncated,
+          };
+          break;
+        }
+      }
+    }
   }
 
   if (!document) {

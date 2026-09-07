@@ -61,10 +61,15 @@ session）加真渲染引擎。抓返嚟嘅 HTML 放入一個 `sandbox` 但冇
 
 連結搜尋仍然留喺 content script —— 得 live 頁面知道自己個 footer 連去邊。
 
-Content script 仲負責第二條路：如果用戶身處嘅**就係**條款頁
-（`looksLikePolicyPage`），直接讀已經 render 好嘅 live DOM。呢個係唯一
-讀得到 client-rendered 條款頁嘅方法（Meta、Google 都係），因為嗰時網站
-自己嘅 script 已經行完。
+讀取係一條三級階梯（詳見 threat-model.md）：
+
+1. 用戶身處嘅就係條款頁 → 讀 live DOM
+2. Offscreen sandbox iframe（唔執行任何 script）→ 大部分網站喺呢級搞掂
+3. 背景分頁 → 畀網站喺自己 origin render，然後讀。Client-rendered 嘅
+   條款頁（Meta、TikTok 等）只有呢級讀得到。分頁 `active: false`，
+   用戶見唔到，讀完即關。
+
+全程自動，唔會叫用戶自己去開條款頁 —— 幫佢讀正正就係呢個工具存在嘅理由。
 
 ### 3. `packages/shared/` 用 TypeScript，唔用 Python server
 

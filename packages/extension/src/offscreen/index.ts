@@ -111,13 +111,18 @@ async function renderAndExtract(
 /**
  * Distinguishes an empty page from one whose text has not been rendered yet.
  *
- * A large document, plenty of scripts and almost no visible text is a
+ * A document of real size that carries scripts but shows almost no text is a
  * client-rendered shell — Meta's policy pages are the clearest example. Nothing
  * is wrong with the fetch; the text simply is not in the HTML, and this sandbox
  * deliberately does not run the scripts that would put it there.
+ *
+ * The thresholds are loose on purpose. Being wrong here costs one background
+ * tab that opens and closes without the user seeing it; being too strict costs
+ * the feature entirely on the largest sites, which is the failure that was
+ * reported.
  */
 function looksClientRendered(html: string, scriptCount: number, renderedChars: number): boolean {
-  return html.length > 20_000 && scriptCount > 5 && renderedChars < 400;
+  return html.length > 2_000 && scriptCount >= 1 && renderedChars < 400;
 }
 
 async function readPolicyAt(url: string): Promise<RenderedPolicy | PolicyFailure> {

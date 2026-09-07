@@ -195,6 +195,48 @@ console.log('\n=== policy summary, end to end ===');
   await siteTab.close();
 }
 
+console.log('\n=== client-rendered policy ===');
+{
+  // The reported failure: large sites serve a shell and fill it in on the
+  // client, so a reader that runs no scripts sees a spinner. The extension has
+  // to fall back to letting the site render itself in a background tab —
+  // without asking the user to go and open the page.
+  const optionsUrl = `chrome-extension://${browser.extensionId}/options.html`;
+  const site = 'https://spa-policy.example/';
+
+  // The previous section clears storage, so point at the mock endpoint again.
+  await browser.visit(
+    optionsUrl,
+    `chrome.storage.local.set({ settings: {
+      mode: 'direct', baseUrl: 'https://${MOCK_LLM_HOST}/v1', apiKey: 'k', model: 'mock' } })`,
+    300,
+  );
+
+  const siteTab = await browser.openTab(site);
+  const options = await browser.openTab(optionsUrl);
+
+  const summary = await options.evaluate<any>(`(async () => {
+    const [tab] = await chrome.tabs.query({ url: '${site}*' });
+    return chrome.runtime.sendMessage({ type: 'analyse-policy', tabId: tab.id });
+  })()`);
+
+  const read = summary?.status === 'ready';
+  console.log(`  ${read ? 'ok  ' : 'FAIL'} a policy that only exists after its own script runs is still read`);
+  if (!read) failures.push(`client-rendered policy: ${JSON.stringify(summary).slice(0, 200)}`);
+
+  // The background tab must not be left behind.
+  const leftOpen = await options.evaluate<number>(
+    `chrome.tabs.query({ url: '${site}*' }).then((tabs) => tabs.length)`,
+  );
+  const cleanedUp = leftOpen === 1;
+  console.log(`  ${cleanedUp ? 'ok  ' : 'FAIL'} the background tab was closed again (${leftOpen} tab open)`);
+  if (!cleanedUp) failures.push(`client-rendered policy: ${leftOpen} tabs left open`);
+
+  await options.evaluate(`chrome.storage.local.clear()`);
+  await options.close();
+  await siteTab.close();
+}
+
 console.log('\n=== global pause ===');
 {
   const optionsUrl = `chrome-extension://${browser.extensionId}/options.html`;

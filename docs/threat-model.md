@@ -95,9 +95,22 @@ JSON，而 `body.textContent` 會計埋佢哋）。
 `allow-same-origin` 一齊用，等於畀一份攻擊者控制嘅文件喺我哋嘅 extension
 origin 入面執行 code。
 
-出路係另一條路：如果用戶自己行到條款頁，content script 會直接讀**已經
-render 好嘅 live DOM** —— 網站自己嘅 script 已經行完，而我哋只係讀用戶
-本身睇緊嘅文字。Popup 喺讀唔到嗰陣會列出搵到嘅連結，撳入去再分析就得。
+出路係一條升級階梯，每一級都比上一級多執行少少嘢：
+
+1. **用戶身處嘅就係條款頁** → 直接讀已經 render 好嘅 live DOM。零額外請求。
+2. **Offscreen sandbox iframe**（冇 `allow-scripts`）→ 抓返嚟渲染，攞到
+   真 computed style，但乜都唔執行。大部分網站喺呢級搞掂。
+3. **背景分頁** → 網站自己嘅 script 喺**佢自己嘅 origin** 行，就好似用戶
+   撳咗條連結一樣，然後 content script 讀 render 好嘅 DOM。分頁
+   `active: false`，用戶見唔到，讀完即刻關（`finally` 保證）。
+
+第 3 級睇落最激進，實際上**對我哋嘅 origin 曝露最少** —— 完全冇攻擊者
+控制嘅內容接近 extension origin，唔似第 2 級要喺 extension 頁面入面
+render。佢排喺最後係因為佢會執行網站嘅 script 同埋開分頁，唔係因為佢
+危險。
+
+用戶完全唔使做嘢：全程自動。只有三級都失敗（例如登入牆）先會列出連結
+畀佢自己撳。
 
 ### 呢個模型處理唔到嘅嘢
 

@@ -8,3 +8,4 @@ phishing/hsbc-verify.top.html,https://hsbc-verify.top/verify,phishing,"Brand nam
 phishing/dhl-tracking.click.html,https://dhl-tracking.click/redelivery,phishing,Fake customs fee; brand token plus a suspicious registry,synthetic
 phishing/login.microsoft-verify.sbs.html,http://login.microsoft-verify.sbs/signin,phishing,Credentials over plain http with no <form> element at all,synthetic
 sites/www.datahungry.example/index.html,https://www.datahungry.example/,legit,Policy-summary fixture: a homepage whose footer links to a deliberately greedy privacy policy,synthetic
+sites/spa-policy.example/index.html,https://spa-policy.example/,legit,Client-rendered policy: the text only exists after the page's own script runs,synthetic
