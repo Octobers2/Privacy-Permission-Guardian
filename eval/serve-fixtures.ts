@@ -118,7 +118,16 @@ const HTML = { 'content-type': 'text/html; charset=utf-8' };
  * tested with one file — and those live under `fixtures/sites/<hostname>/`,
  * where the path picks the file.
  */
+export const INJECTION_HOST = 'injection.test';
+
 function fileFor(host: string, pathname: string): string | null {
+  // The injection fixtures are one directory of standalone pages rather than a
+  // site, so they get a host of their own where the path picks the file.
+  if (host === INJECTION_HOST) {
+    const page = pathname.replace(/^\/+|\/+$/g, '') || 'index';
+    return resolve(import.meta.dir, 'fixtures', 'injection', `${page}.html`);
+  }
+
   const fixture = byHostname.get(host);
   if (!fixture) return null;
 
@@ -149,7 +158,11 @@ async function respond(request: Request): Promise<Response> {
   return new Response(file, { headers: HTML });
 }
 
-const httpsHosts = [...fixtures.filter((f) => f.protocol === 'https:').map((f) => f.hostname), MOCK_LLM_HOST];
+const httpsHosts = [
+  ...fixtures.filter((f) => f.protocol === 'https:').map((f) => f.hostname),
+  MOCK_LLM_HOST,
+  INJECTION_HOST,
+];
 const httpHosts = fixtures.filter((f) => f.protocol === 'http:').map((f) => f.hostname);
 
 if (httpsHosts.length) {

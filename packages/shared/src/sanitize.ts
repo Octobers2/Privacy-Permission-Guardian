@@ -48,6 +48,66 @@ function defaultStyleReader(): StyleReader {
   };
 }
 
+/** Parses `rgb(…)` / `rgba(…)`, which is what getComputedStyle always returns. */
+function parseRgb(value: string): [number, number, number, number] | null {
+  const match = /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+))?/i.exec(value);
+  if (!match) return null;
+  return [Number(match[1]), Number(match[2]), Number(match[3]), match[4] === undefined ? 1 : Number(match[4])];
+}
+
+function relativeLuminance([r, g, b]: [number, number, number, number]): number {
+  const channel = (value: number) => {
+    const c = value / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+}
+
+/**
+ * The first opaque background colour up the tree, or null if nothing sets one.
+ *
+ * Null matters: a page that paints its background with an image or a gradient
+ * has no colour to compare against, and guessing white there would let us
+ * delete white text that a reader can see perfectly well.
+ */
+function resolvedBackground(element: Element, readStyle: StyleReader): [number, number, number, number] | null {
+  let node: Element | null = element;
+  while (node) {
+    const style = readStyle(node);
+    if (style) {
+      if (style.backgroundImage && style.backgroundImage !== 'none') return null;
+      const colour = parseRgb(style.backgroundColor ?? '');
+      if (colour && colour[3] > 0.9) return colour;
+    }
+    node = node.parentElement;
+  }
+  return null;
+}
+
+/**
+ * Text painted in its own background colour.
+ *
+ * White-on-white is the one hiding technique that is invisible to a reader *and*
+ * survives every attribute-level check, so it is worth the extra work. The
+ * threshold is deliberately at the very bottom of the contrast scale: 1.0 is
+ * identical colours, and WCAG's minimum for body text is 4.5. Anything above
+ * 1.15 might be a design choice, and deleting it would remove real content.
+ */
+function isInvisibleByColour(element: Element, readStyle: StyleReader): boolean {
+  const style = readStyle(element);
+  if (!style) return false;
+  if (!(element.textContent ?? '').trim()) return false;
+
+  const foreground = parseRgb(style.color ?? '');
+  if (!foreground || foreground[3] < 0.1) return foreground !== null;
+
+  const background = resolvedBackground(element, readStyle);
+  if (!background) return false;
+
+  const [lighter, darker] = [relativeLuminance(foreground), relativeLuminance(background)].sort((a, b) => b - a);
+  return (lighter! + 0.05) / (darker! + 0.05) < 1.15;
+}
+
 function isHidden(element: Element, readStyle: StyleReader): boolean {
   if (element.hasAttribute('hidden')) return true;
   if (element.getAttribute('aria-hidden') === 'true') return true;
@@ -60,6 +120,7 @@ function isHidden(element: Element, readStyle: StyleReader): boolean {
   if (computed.display === 'none' || computed.visibility === 'hidden') return true;
   if (computed.opacity === '0') return true;
   if (parseFloat(computed.fontSize || '16') === 0) return true;
+  if (isInvisibleByColour(element, readStyle)) return true;
 
   return false;
 }

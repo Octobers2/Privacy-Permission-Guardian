@@ -149,3 +149,66 @@ describe('pickMainContent', () => {
     expect(pickMainContent(doc).tagName.toLowerCase()).toBe('body');
   });
 });
+
+describe('colour-based hiding', () => {
+  /** A stand-in for getComputedStyle, since linkedom has no layout engine. */
+  function styleReaderFrom(styles: Record<string, Partial<CSSStyleDeclaration>>) {
+    return (element: Element) =>
+      (styles[element.getAttribute('data-style') ?? ''] ?? null) as CSSStyleDeclaration | null;
+  }
+
+  test('removes text painted in its own background colour', () => {
+    const doc = domOf(`
+      <div data-style="page">
+        <p data-style="visible">We sell your data.</p>
+        <p data-style="pale">${INJECTION}</p>
+      </div>`);
+    stripInvisibleContent(
+      doc,
+      styleReaderFrom({
+        page: { backgroundColor: 'rgb(255, 255, 255)', color: 'rgb(0,0,0)', backgroundImage: 'none' },
+        visible: { color: 'rgb(32, 33, 36)', backgroundColor: 'rgba(0, 0, 0, 0)', backgroundImage: 'none' },
+        pale: { color: 'rgb(255, 255, 255)', backgroundColor: 'rgba(0, 0, 0, 0)', backgroundImage: 'none' },
+      }),
+    );
+    expect(doc.body.textContent).toContain('We sell your data.');
+    expect(doc.body.textContent).not.toContain('Ignore all previous');
+  });
+
+  test('keeps white text on a dark background', () => {
+    const doc = domOf('<div data-style="dark"><p data-style="light">Legitimate hero copy</p></div>');
+    stripInvisibleContent(
+      doc,
+      styleReaderFrom({
+        dark: { backgroundColor: 'rgb(17, 17, 17)', color: 'rgb(255,255,255)', backgroundImage: 'none' },
+        light: { color: 'rgb(255, 255, 255)', backgroundColor: 'rgba(0, 0, 0, 0)', backgroundImage: 'none' },
+      }),
+    );
+    expect(doc.body.textContent).toContain('Legitimate hero copy');
+  });
+
+  test('keeps white text when the background is an image', () => {
+    // There is no colour to compare against; guessing would delete real content.
+    const doc = domOf('<div data-style="hero"><p data-style="light">Over a photo</p></div>');
+    stripInvisibleContent(
+      doc,
+      styleReaderFrom({
+        hero: { backgroundColor: 'rgba(0,0,0,0)', backgroundImage: 'url(hero.jpg)' },
+        light: { color: 'rgb(255, 255, 255)', backgroundColor: 'rgba(0, 0, 0, 0)', backgroundImage: 'none' },
+      }),
+    );
+    expect(doc.body.textContent).toContain('Over a photo');
+  });
+
+  test('removes fully transparent text', () => {
+    const doc = domOf('<div data-style="page"><p data-style="ghost">' + INJECTION + '</p></div>');
+    stripInvisibleContent(
+      doc,
+      styleReaderFrom({
+        page: { backgroundColor: 'rgb(255,255,255)', backgroundImage: 'none' },
+        ghost: { color: 'rgba(0, 0, 0, 0)', backgroundColor: 'rgba(0,0,0,0)', backgroundImage: 'none' },
+      }),
+    );
+    expect(doc.body.textContent).not.toContain('Ignore all previous');
+  });
+});
