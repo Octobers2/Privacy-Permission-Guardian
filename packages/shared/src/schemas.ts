@@ -99,6 +99,84 @@ export const PolicySummarizeRequestSchema = z
   .strict();
 export type PolicySummarizeRequest = z.infer<typeof PolicySummarizeRequestSchema>;
 
+/* --------------------------------------------- managed backend: rendering */
+
+/**
+ * Asks the backend to open these URLs in a real browser and read the first one
+ * that looks like a document.
+ *
+ * A list rather than one URL because the candidates are ordered guesses and the
+ * server is the thing that can try them cheaply — one round trip instead of
+ * five, and the caller does not have to interpret each failure to decide
+ * whether to try the next.
+ */
+export const PolicyRenderRequestSchema = z
+  .object({
+    urls: z.array(z.string().url()).min(1).max(5),
+  })
+  .strict();
+export type PolicyRenderRequest = z.infer<typeof PolicyRenderRequestSchema>;
+
+export const RENDER_FAILURE_REASONS = [
+  'blocked-host',
+  'fetch-failed',
+  'http-error',
+  'not-html',
+  'too-short',
+  'render-unavailable',
+] as const;
+
+export const PolicyRenderResponseSchema = z
+  .object({
+    policy: z
+      .object({
+        policyUrl: z.string().url(),
+        text: z.string(),
+        truncated: z.boolean(),
+      })
+      .strict()
+      .nullable(),
+    failures: z
+      .array(
+        z.object({ url: z.string(), reason: z.enum(RENDER_FAILURE_REASONS) }).strict(),
+      ),
+  })
+  .strict();
+export type PolicyRenderResponse = z.infer<typeof PolicyRenderResponseSchema>;
+
+/* ------------------------------------------------- managed backend: login */
+
+export const LoginRequestSchema = z
+  .object({
+    username: z.string().min(1).max(64),
+    password: z.string().min(1).max(256),
+  })
+  .strict();
+export type LoginRequest = z.infer<typeof LoginRequestSchema>;
+
+export const LoginResponseSchema = z
+  .object({
+    token: z.string().min(1),
+    /** Epoch milliseconds. The extension does not use it; a human reading the response does. */
+    expiresAt: z.number().int().positive(),
+  })
+  .strict();
+export type LoginResponse = z.infer<typeof LoginResponseSchema>;
+
+/** What `/api/status` answers — the managed half of a connection test. */
+export const ManagedStatusSchema = z
+  .object({
+    ok: z.boolean(),
+    model: z.string(),
+    baseUrl: z.string(),
+    hasKey: z.boolean(),
+    promptVersion: z.string(),
+    cachedSummaries: z.number().int().min(0),
+    username: z.string(),
+  })
+  .strict();
+export type ManagedStatus = z.infer<typeof ManagedStatusSchema>;
+
 /* ---------------------------------------------------- feature B: form risk */
 
 /**
@@ -203,6 +281,16 @@ export const SettingsSchema = z
     mode: LlmModeSchema,
     /** Managed mode: our own Hono server. */
     managedUrl: z.string(),
+    /**
+     * Managed mode credentials.
+     *
+     * The server holds the API key and drives a browser, so it is not an open
+     * relay; these are what `auth.txt` on the server side is checked against.
+     * Kept in `chrome.storage.local` for the same reason as `apiKey` — see
+     * `packages/extension/src/settings.ts`.
+     */
+    managedUsername: z.string(),
+    managedPassword: z.string(),
     /** Direct mode: any OpenAI-compatible endpoint. */
     baseUrl: z.string(),
     apiKey: z.string(),
@@ -223,6 +311,8 @@ export type Settings = z.infer<typeof SettingsSchema>;
 export const DEFAULT_SETTINGS: Settings = {
   mode: 'managed',
   managedUrl: 'http://localhost:8787',
+  managedUsername: '',
+  managedPassword: '',
   baseUrl: 'https://api.openai.com/v1',
   apiKey: '',
   model: 'gpt-4o-mini',

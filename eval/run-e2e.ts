@@ -12,7 +12,7 @@
  * Exits non-zero when a fixture is judged wrongly or any page logs an error.
  */
 import { resolve } from 'node:path';
-import { Browser } from './chromium.ts';
+import { Browser } from '../packages/server/src/chromium.ts';
 import { CONTENT_SCRIPT_BUDGET_BYTES, contentScriptWeight } from './bundle-budget.ts';
 import { readFileSync } from 'node:fs';
 import { parseHTML } from 'linkedom';

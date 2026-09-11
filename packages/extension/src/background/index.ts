@@ -27,7 +27,7 @@ import { loadSettings, onSettingsChanged, saveSettings } from '../settings.ts';
 import { readSummary, writeSummary } from './cache.ts';
 import { readInBackgroundTab } from './background-tab.ts';
 import { readPolicy } from './offscreen.ts';
-import { checkConnection, summarisePolicy } from './llm-router.ts';
+import { checkConnection, renderPolicy, summarisePolicy, type RenderUnavailable } from './llm-router.ts';
 
 const BAND_COLOURS = { low: '#1e8e3e', moderate: '#e37400', high: '#c5221f' } as const;
 
@@ -87,7 +87,19 @@ async function allowlistSite(hostname: string): Promise<void> {
  * looking in DevTools at a network tab that could never have shown the
  * offscreen document's requests.
  */
-function explainFailures(failures: PolicyFailure[]): string {
+function explainFailures(failures: PolicyFailure[], serverReason: RenderUnavailable | null): string {
+  // The server is tried first in managed mode, so when it could not even be
+  // asked, that is the thing to fix — and it is the one the user can fix.
+  if (serverReason === 'no-credentials') {
+    return 'Managed 模式未填帳號密碼，所以要由你部機自己讀條款頁 —— 而呢版讀唔到。喺設定頁填返帳號密碼會好好多。';
+  }
+  if (serverReason === 'rejected') {
+    return 'Managed server 唔認得設定頁嗰組帳號密碼，所以冇幫手 render 條款頁，而你部機自己又讀唔到。';
+  }
+  if (serverReason === 'unreachable') {
+    return '連唔到 managed server（開咗 bun run server 未？），而你部機自己讀唔到呢啲條款頁。';
+  }
+
   if (failures.length === 0) return '搵唔到條款文件。';
 
   const counts = new Map<PolicyFailure['reason'], number>();
@@ -164,6 +176,7 @@ async function analysePolicy(tabId: number): Promise<SummaryState> {
 
   let document: { policyUrl: string; text: string; truncated: boolean } | null = null;
   let failures: PolicyFailure[] = [];
+  let serverReason: RenderUnavailable | null = null;
 
   if (live?.isPolicyPage && live.text.length >= 400) {
     document = { policyUrl: live.policyUrl, text: live.text, truncated: live.truncated };
@@ -174,35 +187,65 @@ async function analysePolicy(tabId: number): Promise<SummaryState> {
       reason: '呢一頁冇連去私隱政策或者服務條款。',
     };
   } else {
-    const result = await readPolicy(candidates);
-    document = result.policy;
-    failures = result.failures;
+    // The server first, in managed mode. It runs a real browser, so the pages
+    // that need one — anything rendered on the client, which by now is most of
+    // the large sites — are readable on the first try instead of after two
+    // failed attempts here. It costs this machine nothing and opens no tab.
+    const rendered = await renderPolicy(settings, candidates);
+    if (rendered.ok) {
+      document = rendered.response.policy;
+      // Its failures speak the same vocabulary as the offscreen reader's, apart
+      // from two only it can produce; both are reported the same way.
+      failures = rendered.response.failures.map((failure) => ({
+        url: failure.url,
+        reason: failure.reason === 'blocked-host' || failure.reason === 'render-unavailable'
+          ? 'fetch-failed'
+          : failure.reason,
+      }));
+    } else {
+      serverReason = rendered.reason;
+    }
 
-    // Everything readable without running scripts has been tried. What is left
-    // is the client-rendered case, and the only way to read those is to let the
-    // site render itself — in its own origin, in a tab the user never sees.
+    // The browser's own ladder: still the only path in BYOK mode, still the
+    // only one with the user's session, and the fallback whenever the server
+    // could not help. Rung 1 fetches and renders without running any script.
     if (!document) {
-      const needsJavascript = failures.filter((failure) => failure.reason === 'needs-javascript');
-      for (const failure of needsJavascript.slice(0, 3)) {
-        const rendered = await readInBackgroundTab(failure.url);
-        if (rendered) {
-          document = {
-            policyUrl: rendered.policyUrl,
-            text: rendered.text,
-            truncated: rendered.truncated,
-          };
-          break;
+      const read = await readPolicy(candidates);
+      document = read.policy;
+      if (read.failures.length > 0) failures = read.failures;
+
+      // Rung 2: what is left is the client-rendered case, and the only way to
+      // read those here is to let the site render itself — in its own origin,
+      // in a tab the user never sees.
+      if (!document) {
+        const needsJavascript = read.failures.filter(
+          (failure) => failure.reason === 'needs-javascript',
+        );
+        for (const failure of needsJavascript.slice(0, 3)) {
+          const inTab = await readInBackgroundTab(failure.url);
+          if (inTab) {
+            document = {
+              policyUrl: inTab.policyUrl,
+              text: inTab.text,
+              truncated: inTab.truncated,
+            };
+            break;
+          }
         }
       }
     }
+
+    // The server did read it, or a fallback did; either way there is nothing to
+    // explain about the server.
+    if (document) serverReason = null;
   }
 
   if (!document) {
     return {
       status: 'unavailable',
       domain,
-      reason: explainFailures(failures),
-      links: [...new Set(failures.map((failure) => failure.url))].slice(0, 5),
+      reason: explainFailures(failures, serverReason),
+      links: [...new Set([...failures.map((failure) => failure.url), ...candidates])].slice(0, 5),
     };
   }
 

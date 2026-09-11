@@ -11,6 +11,17 @@ bun run --filter @ppg/extension build      # → packages/extension/dist/
 bun run eval/serve-fixtures.ts             # 開住，會印低面要用嘅 flag
 ```
 
+如果要 demo managed 模式，仲要開個帳號同開 server（demo 之前做，唔好
+現場先 bcrypt）：
+
+```bash
+bun run auth add demo                      # 打兩次密碼
+bun run server                             # 會印「users 1」
+```
+
+之後喺 options 頁（Managed）填 server URL、帳號、密碼，撳「測試連線」，
+應該見到「已經認得「demo」」。
+
 `chrome://extensions` → 開 Developer mode → Load unpacked → 揀
 `packages/extension/dist/`。
 
@@ -88,7 +99,18 @@ Options 頁：由 Managed 切去 Direct (BYOK) → 撳「測試連線」→ ✓ 
 返去重新分析 → 結果一樣。
 
 **指住講**：兩個模式跑同一份 prompt、同一個 schema、同一個引文核對，
-因為佢哋都喺 `packages/shared/`。分別只係邊個攞住條 key。
+因為佢哋都喺 `packages/shared/`。分別只係邊個攞住條 key —— 同埋 managed
+嗰邊多咗一部 headless Chromium 幫手 render 靠 JS 先出文字嘅條款頁。
+
+想順手 demo 埋「唔係 open relay」：喺 Managed 模式將密碼清空 → 撳
+「測試連線」→ 出嘅係「未填帳號密碼」而唔係連線錯誤。或者 terminal 度：
+
+```bash
+curl -s localhost:8787/api/status                      # 401
+curl -s -X POST localhost:8787/api/policy/render \
+  -H 'content-type: application/json' \
+  -d '{"urls":["https://example.com/privacy"]}'        # 401
+```
 
 ## 6. 暫停同主題　（約 30 秒）
 
@@ -106,6 +128,7 @@ Options → 撳「全域暫停」→ 返去釣魚 fixture，橫額即刻消失�
 | 模型 API 掛 / 冇網 | 第 2、3、6 步完全唔使網絡，照做。第 1 步用預先 warm 好嘅快取。 |
 | Fixture server 未開 | 所有 `*.invalid` / `*.test` 域名會 404。先開返 `bun run eval/serve-fixtures.ts`。 |
 | 插件冇反應 | `chrome://extensions` 撳 reload；content script 要頁面重新載入先注入。 |
+| Managed 出「帳號或者密碼唔啱」 | `bun run auth list` 睇下個名喺唔喺；`bun run auth add <name>` 可以直接覆蓋密碼，唔使重啟 server。 |
 | 完全開唔到 | `bun run e2e` 一次過跑晒六步嘅自動化版本，可以直接 show terminal 輸出。 |
 
 ## 自動化版本

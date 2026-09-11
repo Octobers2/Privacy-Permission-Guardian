@@ -19,7 +19,9 @@
   const MODE_LABELS: Record<(typeof LLM_MODES)[number], { title: string; detail: string }> = {
     managed: {
       title: 'Managed backend',
-      detail: '經本機跑嘅 server 呼叫模型。API key 留喺 server，唔會入插件。',
+      detail:
+        '經 server 呼叫模型，同埋由佢用真瀏覽器打開條款頁（JS 先 render 嘅網站要靠呢樣）。' +
+        'API key 留喺 server，要帳號密碼先用得。',
     },
     direct: {
       title: 'Direct (BYOK)',
@@ -120,8 +122,26 @@
           bind:value={settings.managedUrl}
           supportingText="本機 Hono server 嘅位址"
         />
+        <TextField
+          label="帳號"
+          bind:value={settings.managedUsername}
+          supportingText="Server 嗰邊行 `bun run auth add <username>` 開嘅帳號"
+        />
+        <TextField
+          label="密碼"
+          type="password"
+          bind:value={settings.managedPassword}
+          supportingText="同 API key 一樣，只存喺呢部機嘅 chrome.storage.local，唔會同步"
+        />
         <div class="actions">
-          <md-filled-button onclick={() => persist({ managedUrl: settings.managedUrl })}>
+          <md-filled-button
+            onclick={() =>
+              persist({
+                managedUrl: settings.managedUrl,
+                managedUsername: settings.managedUsername,
+                managedPassword: settings.managedPassword,
+              })}
+          >
             儲存
           </md-filled-button>
           <md-text-button disabled={testing} onclick={testConnection}>
@@ -214,6 +234,10 @@
           全部細節喺 <code>docs/threat-model.md</code>。
         </li>
         <li>網站有辦法偵測到你裝咗呢個插件（MV3 content script 嘅已知限制）。</li>
+        <li>
+          用 managed 模式嘅時候，條款頁嘅<strong>網址</strong>會傳去你填嗰個 server，由佢用真瀏覽器
+          打開嚟讀。佢用嘅唔係你嘅登入狀態，所以要登入先睇到嘅條款頁仍然由你部機自己讀。
+        </li>
       </ul>
     </Section>
 

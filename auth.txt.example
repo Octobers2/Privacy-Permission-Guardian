@@ -1,0 +1,13 @@
+# Privacy & Permission Guardian — managed backend credentials.
+#
+# Copy this file to `auth.txt` (same directory) and add real users with:
+#
+#     bun run auth add <username>
+#
+# One `username:bcrypt-hash` per line. The username is everything before the
+# first colon; the hash never contains one. `auth.txt` itself is gitignored —
+# a list of hashes in a public repository is an offline cracking exercise.
+#
+# The line below is an example. Its password is "change-me-please", and it will
+# not be accepted: the server rejects any hash it finds in this example file.
+demo:$2b$10$vS/A4Jds3d3bO1x/a3/lNe5Z0E7ZN1BORvn5EPBtUQbmzUe2YGGj2

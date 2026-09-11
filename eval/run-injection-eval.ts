@@ -31,7 +31,7 @@ import { parseHTML } from 'linkedom';
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { extractVisibleText, pickMainContent } from '@ppg/shared';
-import { Browser } from './chromium.ts';
+import { Browser } from '../packages/server/src/chromium.ts';
 import { hostResolverRules, MOCK_LLM_HOST } from './serve-fixtures.ts';
 
 const DIR = resolve(import.meta.dir, 'fixtures/injection');

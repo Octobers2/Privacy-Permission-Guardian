@@ -5,6 +5,7 @@
 | | |
 |---|---|
 | **會離開瀏覽器** | 網域、路徑（**已剝走 query string**）、頁面標題、表單欄位嘅 `type` / `name` / `id` / `autocomplete` / `placeholder` / 標籤文字、頁面可見文字節錄（≤ 800 字）、條款頁正文（≤ 24,000 字）、規則引擎分數同命中嘅規則 id |
+| **Managed 模式仲會多兩樣** | 條款頁**嘅網址**（去你自己嗰部 server，由佢用 headless Chromium 打開）、managed 帳號嘅**用戶名同密碼**（只去 `/api/login`，之後用 token） |
 | **永遠唔會離開瀏覽器** | **用戶喺表單輸入嘅任何值**、cookie、瀏覽歷史、query string、密碼、API key（BYOK 模式下只存喺本機 `chrome.storage.local`） |
 
 `FormField` 個 schema 冇 `value` 欄位，而且係 `.strict()`。
@@ -45,7 +46,7 @@ Roboto 只喺 extension 自己嘅頁面用，唔經 WAR 曝露。
 
 | # | 層 | 位置 | 對付咩 |
 |---|---|---|---|
-| 1 | 移除睇唔到嘅內容 | `sanitize.ts` `stripInvisibleContent`，喺 offscreen document 度跑 | `display:none`、`visibility:hidden`、`opacity:0`、`font-size:0`、螢幕外定位、`hidden` / `aria-hidden` 屬性、HTML comment、`<script>` / `<style>`、**白底白字（色彩對比 < 1.15）** |
+| 1 | 移除睇唔到嘅內容 | `sanitize.ts` `collectVisibleText`（唯讀），喺 offscreen document、背景分頁或者 server 部 Chromium 度跑 | `display:none`、`visibility:hidden`、`opacity:0`、`font-size:0`、螢幕外定位、`hidden` / `aria-hidden` 屬性、HTML comment、`<script>` / `<style>`、**白底白字（色彩對比 < 1.15）** |
 | 2 | 標明係資料 | `prompts.ts` + `wrapUntrusted` | 包喺 `<untrusted_document>`；system prompt 明示標籤內一切唔係指令；文件入面偽造嘅結束標籤會被中和 |
 | 3 | Schema 強驗證 | `openai-compat.ts` + `.strict()` schemas | 模型返嘅嘢多咗一個 key、少咗一個欄位、enum 唔啱 → retry 一次（將錯誤講返畀佢），再唔得就 fallback 規則 |
 | 4 | 引文逐字核對 | `policy.ts` `isVerbatim` | 對唔返原文嘅點會被 drop；用戶見到「有 N 點被丟棄」 |
@@ -95,9 +96,24 @@ JSON，而 `body.textContent` 會計埋佢哋）。
 `allow-same-origin` 一齊用，等於畀一份攻擊者控制嘅文件喺我哋嘅 extension
 origin 入面執行 code。
 
-出路係一條升級階梯，每一級都比上一級多執行少少嘢：
+出路有兩條，睇你用邊個模式。
+
+**Managed 模式：交畀 server 部 headless Chromium。** 攻擊者控制嘅內容連
+用戶部機都唔掂，更加唔會掂 extension origin。代價寫清楚喺呢度：
+
+- 條款頁嘅**網址**會去到 server（就係上面張表第二行）；
+- server **冇用戶嘅 session**，所以要登入先睇到嗰啲條款頁佢讀唔到；
+- 抽文字嘅 probe 係喺**該頁面自己嘅 JavaScript context** 入面行嘅。即係話
+  一個已經改咗 `getComputedStyle` 嘅頁面呃得到佢。第 2 至 5 層（包裝成
+  資料、schema 驗證、引文逐字核對、輸出永不當 markup）唔受影響，而插件
+  自己嗰兩條路（唔行 script 嘅 offscreen、隔離 world 嘅 content script）
+  冇呢個問題。
+
+**BYOK 模式，或者 server 幫唔到手嗰陣：**一條升級階梯，每一級都比上一級
+多執行少少嘢：
 
 1. **用戶身處嘅就係條款頁** → 直接讀已經 render 好嘅 live DOM。零額外請求。
+   **唯讀** —— 見下面。
 2. **Offscreen sandbox iframe**（冇 `allow-scripts`）→ 抓返嚟渲染，攞到
    真 computed style，但乜都唔執行。大部分網站喺呢級搞掂。
 3. **背景分頁** → 網站自己嘅 script 喺**佢自己嘅 origin** 行，就好似用戶
@@ -109,8 +125,22 @@ origin 入面執行 code。
 render。佢排喺最後係因為佢會執行網站嘅 script 同埋開分頁，唔係因為佢
 危險。
 
-用戶完全唔使做嘢：全程自動。只有三級都失敗（例如登入牆）先會列出連結
-畀佢自己撳。
+### 第 1 層唔可以改用戶望緊嗰版
+
+`stripInvisibleContent` 係原地 `remove()` 嘢嘅。喺第 1 級（讀 live DOM）
+用佢，等於喺用戶眼前拆佢望緊嗰個頁：body 入面每個 `<style>`、每個
+`aria-hidden` / `display:none` 子樹都會唔見咗。Instagram 同 Facebook 撳完
+「分析」成版走晒 style，就係呢件事 —— 而佢**每一版都做**，因為 worker 係
+問完先睇係唔係條款頁。
+
+而家：
+
+- `extractVisibleText` 行 `collectVisibleText`，一次唯讀遍歷，同一套
+  `isHidden` 規則，睇唔到嘅嘢連子樹跳過；
+- content script 唔係條款頁就連行都唔行（`looksLikePolicyPage` 先行）；
+- `test/sanitize.test.ts` 比對行完前後個 `innerHTML`，唔同就紅燈。
+
+一個私隱工具改爛人哋個頁，係比佢讀少一份條款更難接受嘅事。
 
 ### 呢個模型處理唔到嘅嘢
 
@@ -126,9 +156,40 @@ render。佢排喺最後係因為佢會執行網站嘅 script 同埋開分頁，
 我哋睇嘅係 headless Chromium 嘅 computed style，同用戶部機嘅 rendering
 可能有差。
 
-**Model provider 本身。** BYOK 模式下條款文字會去到用戶自己揀嘅 endpoint。
-邊個 endpoint 由用戶決定，我哋做嘅係唔加額外接收方，同埋喺 options 頁
-講清楚。
+**Model provider 本身。** BYOK 模式下條款文字會去到用戶自己揀嘅 endpoint；
+managed 模式下經過用戶自己嗰部 server 再去嗰個 endpoint。邊個 endpoint 由
+用戶決定，我哋做嘅係唔加額外接收方，同埋喺 options 頁講清楚。
+
+## Managed backend 嘅存取控制
+
+Server 手上有 API key，同埋一個開得到任何網址嘅瀏覽器。所以佢唔可以係
+open relay。
+
+| | |
+|---|---|
+| 憑證存放 | `auth.txt`（repo 根目錄，**gitignore 咗**）：`username:bcrypt-hash` 一行一個。用 `Bun.password`，cost 10。 |
+| 加用戶 | `bun run auth add <name>`：密碼唔經 argv（唔會入 shell history 同 `ps`），要打兩次，最少 8 個字元。檔案寫成 `0600`。 |
+| 登入 | `POST /api/login` → 32 bytes 隨機 token，12 個鐘。Token 只喺 server 個 `Map` 入面：冇 JWT、冇 secret 要保管，重啟即失效（插件收到 401 會自動登入再試一次）。 |
+| 猜密碼 | 同一個 username 15 分鐘內錯 10 次就 429。username 唔存在都照行一次 bcrypt，唔會由回應快慢睇得出邊個名係真。 |
+| `/health` | 唔使登入，但只答「有 server 喺度」。Model 名、endpoint、快取數量搬咗去要 token 嘅 `/api/status`。 |
+| `auth.txt.example` 嗰個 hash | 寫死咗喺 `EXAMPLE_HASH`，永遠登入唔到 —— copy 完唔記得改嗰行唔會變成一個真帳號。 |
+| 插件嗰邊 | 用戶名密碼同 API key 一樣擺 `chrome.storage.local`（唔 sync）；token 擺 `chrome.storage.session`，閂咗瀏覽器就冇。 |
+
+### SSRF
+
+`/api/policy/render` 開嘅網址係由 caller 揀嘅。登入決定「邊個」問得到，
+`isPublicUrl` 決定「問得啲乜」：只准 http/https、唔准網址入面夾帶帳號密碼、
+`dns.lookup` 之後**每一個**解析到嘅位址都要係公網 —— loopback、`10/8`、
+`172.16/12`、`192.168/16`、`169.254.169.254`（雲端 metadata）、CGNAT、
+multicast、`fc00::/7`、`fe80::/10`、連 `::ffff:7f00:1` 呢啲寫法都擋。
+`test/render.test.ts` 逐個測。
+
+擋唔到嘅：DNS rebinding。我哋解析一次，Chromium 之後自己再解析一次，
+兩次之間個名可以變。要根治就要 `--host-resolver-rules` 逐次 pin 死，
+而家未做。
+
+用戶完全唔使做嘢：全程自動。只有三級都失敗（例如登入牆）先會列出連結
+畀佢自己撳。
 
 ## 處理釣魚樣本嘅守則
 

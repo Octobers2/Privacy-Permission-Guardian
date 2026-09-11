@@ -23,9 +23,11 @@ and the server side that fails if one is ever added.
 
 Bun · TypeScript · Svelte 5 · Vite + CRXJS · Material Design 3 · Hono · zod
 
-Deliberately few dependencies: `bun test`, `bun:sqlite` and Bun's TypeScript
-support are built in, and the content script — the only code that runs on every
-page the user visits — is **18.5 KB** with nothing else behind it.
+Deliberately few dependencies: `bun test`, `bun:sqlite`, `Bun.password` and
+Bun's TypeScript support are built in, the headless browser is driven over the
+DevTools protocol by ~250 lines rather than by Puppeteer, and the content
+script — the only code that runs on every page the user visits — is **25 KB**
+with nothing else behind it.
 
 ## Quick start
 
@@ -38,26 +40,42 @@ bun run build          # → packages/extension/dist/
 `packages/extension/dist/`.
 
 The form warnings work immediately. For the policy summary, open the options
-page and either point it at your own OpenAI-compatible endpoint (Direct / BYOK)
-or start the managed backend:
+page and pick one of the two modes.
+
+**Direct / BYOK** — point it at your own OpenAI-compatible endpoint. Any
+`/chat/completions` works: OpenAI, OpenRouter, DeepSeek, Groq, or a local
+Ollama. For Ollama, set `OLLAMA_ORIGINS=chrome-extension://*` so it accepts
+requests from the extension.
+
+**Managed** — run the backend. It holds the API key, shares one cache between
+everybody testing, and opens policy pages in a headless Chromium, which is the
+only way to read the ones that are rendered by JavaScript (Next.js sites, Meta,
+TikTok — by now most large sites).
 
 ```bash
 cp packages/server/.env.example packages/server/.env    # fill in the endpoint
+bun run auth add yourname                               # asks for a password
 bun run server                                          # localhost:8787
 ```
 
-Any OpenAI-compatible `/chat/completions` works: OpenAI, OpenRouter, DeepSeek,
-Groq, or a local Ollama. For Ollama, set `OLLAMA_ORIGINS=chrome-extension://*`
-so it accepts requests from the extension.
+Then put that username and password into the extension's options page and press
+測試連線. **Nobody can use the server until `auth add` has been run**: it holds
+an API key and a browser, so an open one is a free LLM and a free page fetcher
+for anyone who finds the port. Credentials live in `auth.txt` at the repository
+root — `username:bcrypt-hash`, one per line, gitignored — and the server rereads
+it when it changes, so adding a user needs no restart.
+
+The server needs a `chromium` on `PATH` (`PPG_CHROMIUM` to point elsewhere).
 
 ## Commands
 
 | | |
 |---|---|
-| `bun test` | Unit tests (187 across 15 files) |
+| `bun test` | Unit tests (225 across 17 files) |
 | `bun run build` | Build the extension |
 | `bun run dev` | Build with HMR |
 | `bun run server` | Managed backend |
+| `bun run auth add <name>` | Add a backend user (also `list`, `remove`) |
 | `bun run fixtures` | Serve the evaluation fixtures under their real hostnames |
 | `bun run e2e` | Load the built extension in headless Chromium and check everything |
 | `bun run eval:rules` | Precision / recall / confusion matrix |

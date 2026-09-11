@@ -10,28 +10,32 @@ Content script 抽 DOM、畫橫額；service worker 做評分、快取同模型�
 ```
 ┌──────────────────── Browser (Chrome / Edge, MV3) ─────────────────────┐
 │                                                                       │
-│  content script  (23 KB，每頁載入)     service worker (一個 session 一次)│
+│  content script  (25 KB，每頁載入)     service worker (一個 session 一次)│
 │  ├─ form-scanner ────────────────►    ├─ scoreForm（規則引擎）          │
 │  │   extractForms(document)            ├─ chrome.storage 摘要快取       │
-│  ├─ policy-scout ────────────────►    ├─ badge 顏色                    │
-│  │   搵條款連結 → fetch → sanitize      └─ llm-router ─┬── managed ──┐  │
+│  ├─ policy-scout（只搵連結）──────►     ├─ badge 顏色                   │
+│  ├─ 讀 live DOM（唯讀，唔改頁面）        └─ llm-router ─┬── managed ──┐  │
 │  └─ banner (Shadow DOM，零 library)                    └── direct    │  │
 │                                                                     │  │
+│  offscreen document：fetch + sandbox iframe（唔行 script）           │  │
+│  背景分頁：畀網站自己 render（BYOK 模式先用）                          │  │
 │  popup.html / options.html  (Svelte 5 + @material/web)              │  │
 └─────────────────────────────────────────────────────────────────────┼──┘
                                                                       │
-         managed（預設）                        direct / BYOK          │
+         managed（預設，要登入）                 direct / BYOK          │
                │                                        │              │
                ▼                                        ▼              │
    ┌──── Hono on Bun :8787 ────┐         ┌── 用戶自填 endpoint ──┐      │
-   │  /api/policy/summarize     │         │  POST {base}/chat/    │◄────┘
-   │  /api/form/assess          │────────►│       completions     │
-   │  /health                   │         └───────────────────────┘
-   │  bun:sqlite 共用快取        │
+   │  /api/login（bcrypt）      │         │  POST {base}/chat/    │◄────┘
+   │  /api/policy/render ──┐    │────────►│       completions     │
+   │  /api/policy/summarize│    │         └───────────────────────┘
+   │  /api/form/assess     │    │
+   │  /api/status          ▼    │   auth.txt（username:bcrypt-hash）
+   │  bun:sqlite 共用快取  headless Chromium（CDP，冇 Puppeteer）
    └────────────────────────────┘
 ```
 
-## 三個唔明顯但關鍵嘅決定
+## 四個唔明顯但關鍵嘅決定
 
 ### 1. 評分喺 service worker，唔喺頁面
 
@@ -39,39 +43,76 @@ Content script 抽 DOM、畫橫額；service worker 做評分、快取同模型�
 入面一個 browser session 載入一次，可以接受；喺用戶去嘅每一個網站都載入，
 就同「輕量私隱工具」呢個前提直接矛盾。
 
-Content script 淨低 DOM 抽取同繪圖，實測 **18.5 KB**。呢件事回歸過兩次
+Content script 淨低 DOM 抽取同繪圖，實測 **25 KB**（入面 6 KB 係 sanitizer）。呢件事回歸過兩次
 （一次係 import 咗規則引擎，一次係 `@ppg/shared` 未聲明 `sideEffects: false`），
 兩次都冇報錯 —— 插件照行，只係靜靜雞肥咗。所以 `eval/bundle-budget.ts`
 喺 e2e 度守住個 60 KB 預算。
 
-### 2. 條款頁喺 offscreen document 讀，唔係 server、亦唔係 content script
+### 2. 條款頁點讀：server 行先，瀏覽器喺後面接住
 
-Server-side fetch 會撞 Cloudflare、bot 攔截同地區重導向，攞返嚟嘅好可能
-唔係用戶被要求同意嗰一版。
+呢一節之前寫住「唔會喺 server 讀」，理由係 server-side fetch 會撞
+Cloudflare、bot 攔截同地區重導向，攞返嚟嘅未必係用戶被要求同意嗰一版。
+嗰啲理由到今日一樣成立 —— 但另一邊嘅代價變咗：**而家大站嘅條款頁基本上
+全部係 client-rendered**（Next.js、Meta、TikTok）。純 fetch 攞到嘅只係一個
+殼，入面一個字都冇。
 
-但喺 content script 讀都係錯，而且錯咗兩重：佢個 `fetch` 受**該網頁自己
-嘅 CSP** 管（GitHub、Reddit 連自己嗰版私隱政策都 fetch 唔到），而
-`DOMParser` 文件冇 browsing context，`getComputedStyle` 全部返空字串 ——
-所有靠 computed style 嘅剝離檢查靜靜雞失效。
+所以而家係咁分工：
 
-Offscreen document 兩樣都有：extension 權限（唔受網頁 CSP 管、帶用戶
-session）加真渲染引擎。抓返嚟嘅 HTML 放入一個 `sandbox` 但冇
-`allow-scripts` 嘅 iframe：冇嘢執行得到，但 stylesheet 載入到，
-`getComputedStyle` 講真話。
+| | |
+|---|---|
+| **Managed 模式** | Server 開一個 headless Chromium（CDP，唔用 Puppeteer）去 render。要登入先用得。 |
+| **Direct / BYOK** | 冇 server，全部喺瀏覽器度做 —— 落面條階梯 |
+| **Server 幫唔到手時**（未登入、連唔到、佢都讀唔到） | 一樣跌返落條階梯 |
+
+階梯（詳見 threat-model.md）：
+
+1. 用戶身處嘅就係條款頁 → **唯讀**咁讀 live DOM
+2. Offscreen sandbox iframe（唔執行任何 script）→ 靜態條款頁喺呢級搞掂
+3. 背景分頁 → 畀網站喺自己 origin render，然後讀。分頁 `active: false`，
+   用戶見唔到，讀完即關。
+
+階梯留住唔係為咗保險咁簡單：**server 冇用戶嘅 session**，要登入先睇到嘅
+條款頁得瀏覽器讀到；而畀人 block 資料中心流量嘅網站，block 嘅係 server，
+唔係用戶。
+
+#### 點解唔喺 content script 度 fetch
+
+錯咗兩重：content script 個 `fetch` 受**該網頁自己嘅 CSP** 管（GitHub、
+Reddit 連自己嗰版私隱政策都 fetch 唔到），而 `DOMParser` 文件冇 browsing
+context，`getComputedStyle` 全部返空字串 —— 所有靠 computed style 嘅剝離
+檢查靜靜雞失效。Offscreen document 兩樣都有：extension 權限加真渲染引擎。
 
 連結搜尋仍然留喺 content script —— 得 live 頁面知道自己個 footer 連去邊。
 
-讀取係一條三級階梯（詳見 threat-model.md）：
+#### 抽文字**唔可以**改個 DOM
 
-1. 用戶身處嘅就係條款頁 → 讀 live DOM
-2. Offscreen sandbox iframe（唔執行任何 script）→ 大部分網站喺呢級搞掂
-3. 背景分頁 → 畀網站喺自己 origin render，然後讀。Client-rendered 嘅
-   條款頁（Meta、TikTok 等）只有呢級讀得到。分頁 `active: false`，
-   用戶見唔到，讀完即關。
+`stripInvisibleContent` 係喺原地 `remove()` 嘢嘅。落喺 fetch 返嚟嘅文件度
+冇問題；落喺用戶望緊嗰一版，就係自己拆人哋個頁 —— body 入面每個
+`<style>`、每個 `aria-hidden` 子樹都會消失，React 一 re-render 就散。
+Instagram、Facebook 撳「分析」之後成版走晒 style，就係呢件事。
 
-全程自動，唔會叫用戶自己去開條款頁 —— 幫佢讀正正就係呢個工具存在嘅理由。
+而家 `extractVisibleText` 行 `collectVisibleText`：同一套 `isHidden` 規則，
+一次**唯讀**遍歷，見到睇唔到嘅嘢就連整個子樹跳過。順帶平反咗一件事 ——
+跳過一個 `display:none` 嘅 menu 只使一次 `getComputedStyle`，而唔係入面
+每個元素一次。`test/sanitize.test.ts` 有個測試比對行完前後個 `innerHTML`，
+一個字唔同就紅燈。
 
-### 3. `packages/shared/` 用 TypeScript，唔用 Python server
+### 3. Managed backend 要登入
+
+Server 手上有 API key，同埋一個開得到任何網址嘅瀏覽器。冇登入嘅話，
+個 port 就係其他人嘅免費 LLM 加免費 fetcher。
+
+- `auth.txt`（repo 根目錄，gitignore 咗）：`username:bcrypt-hash` 一行一個。
+  `bun run auth add <name>` 加，用 `Bun.password`，唔使裝 bcrypt。
+- `POST /api/login` 用密碼換一個 token，token 淨係擺喺 server 個 `Map` 入面。
+  冇 JWT、冇 secret 要管；代價係重啟 server 之後所有 token 失效 —— 插件收到
+  401 會自己登入多次再試，所以用戶唔會察覺。
+- 插件將 token 擺喺 `chrome.storage.session`（service worker 隨時會被殺，
+  每次醒返都重新 bcrypt 一次太蠢），瀏覽器閂咗就冇。
+- `/api/policy/render` 會擋私有網段（`169.254.169.254`、`10/8`、loopback…）。
+  登入決定「邊個」問得，呢個決定「問得啲乜」。
+
+### 4. `packages/shared/` 用 TypeScript，唔用 Python server
 
 因為要支援 BYOK 直連，prompt、zod schema、sanitizer、引文核對、計分
 喺 extension 同 server **兩邊都要跑**。放喺 shared 就寫一次；分兩種語言
@@ -98,12 +139,23 @@ DOMContentLoaded / MutationObserver
 
 ```
 用戶撳 popup 「分析呢個網站」
+  → worker: chrome.tabs.sendMessage({ type: 'extract-current-page' })
+      content: 呢版本身就係條款頁？係就唯讀咁抽（唔改 DOM）
+                                               content/index.ts
   → worker: chrome.tabs.sendMessage({ type: 'policy-candidates' })
       content: policyCandidates(document)       content/policy-scout.ts
-  → worker: readPolicy(urls)                    background/offscreen.ts
+
+  → managed：worker: renderPolicy(urls)         background/llm-router.ts
+      server: POST /api/policy/render（要 Bearer token）
+              → isPublicUrl 擋私有網段            server/render.ts
+              → headless Chromium 開分頁，等佢 render
+              → 注入 render-probe（就係 extractVisibleText 本身）
+  → 讀唔到 / 冇 server：worker: readPolicy(urls) background/offscreen.ts
       offscreen: fetch(url, credentials:'include')
                  → sandboxed iframe（冇 allow-scripts）→ 真 computed style
                  → pickMainContent → extractVisibleText
+  → 仲係讀唔到：readInBackgroundTab(url)         background/background-tab.ts
+
                                                shared/sanitize.ts  ← 防禦第 1 層
   → sha256Hex(text) → 查快取（domain + hash + PROMPT_VERSION）
   → buildPolicyPrompt → wrapUntrusted           shared/prompts.ts   ← 第 2 層
@@ -122,11 +174,12 @@ DOMContentLoaded / MutationObserver
 |---|---|
 | `packages/shared/src/` | schemas、rules、lookalike、sanitize、prompts、openai-compat、policy、score、domain、extract-form |
 | `packages/extension/src/content/` | form-scanner、policy-scout、banner（唯一喺人哋頁面跑嘅 code） |
-| `packages/extension/src/background/` | service worker、llm-router、cache、offscreen 管理 |
+| `packages/extension/src/background/` | service worker、llm-router（連 managed 登入）、cache、offscreen 同背景分頁管理 |
 | `packages/extension/src/offscreen/` | 條款頁嘅 fetch 同渲染（唯一有渲染引擎又唔受網頁 CSP 管嘅地方） |
 | `packages/extension/src/ui/` | Popup、Options、MD3 components、生成嘅 token |
-| `packages/server/src/` | Hono app、bun:sqlite 快取 |
-| `eval/` | fixtures、labels.csv、三個 harness、CDP client、fixture server |
+| `packages/server/src/` | Hono app、auth（auth.txt + token）、render（headless Chromium）、chromium（CDP client）、render-probe、bun:sqlite 快取 |
+| `scripts/auth.ts` | `bun run auth add / list / remove` |
+| `eval/` | fixtures、labels.csv、三個 harness、fixture server（CDP client 喺 server 度，兩邊共用） |
 
 ## 建置
 

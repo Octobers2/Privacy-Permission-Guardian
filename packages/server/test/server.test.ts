@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { EndpointConfig } from '@ppg/shared';
+import { AuthStore } from '../src/auth.ts';
 import { SummaryCache } from '../src/cache.ts';
 import { createApp } from '../src/index.ts';
 
@@ -14,11 +15,22 @@ const CONFIG: EndpointConfig = {
 
 const SOURCE = 'We share your personal information with advertising partners. We keep it forever.';
 
+/**
+ * Every route under /api needs a bearer token now.
+ *
+ * The token is issued directly rather than through `/api/login`, which would
+ * spend a bcrypt verification per test for something `auth.test.ts` already
+ * covers.
+ */
+const auth = new AuthStore({ users: new Map() });
+const TOKEN = auth.issue('demo').token;
+const HEADERS = { 'content-type': 'application/json', authorization: `Bearer ${TOKEN}` };
+
 function modelReturning(points: unknown[], calls = { n: 0 }) {
   const impl = (async () => {
     calls.n++;
     return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ points }) } }] }), {
-      headers: { 'content-type': 'application/json' },
+      headers: HEADERS,
     });
   }) as unknown as typeof fetch;
   return { impl, calls };
@@ -46,19 +58,45 @@ const REAL_POINT = {
 function appWith(points: unknown[]) {
   const { impl, calls } = modelReturning(points);
   const cache = new SummaryCache(':memory:');
-  return { app: createApp({ config: CONFIG, cache, fetchImpl: impl }), calls, cache };
+  return { app: createApp({ config: CONFIG, cache, auth, fetchImpl: impl }), calls, cache };
 }
 
 describe('GET /health', () => {
-  test('reports the configuration without leaking the key', async () => {
+  test('says a server is here, and nothing an unauthenticated caller should not know', async () => {
     const cache = new SummaryCache(':memory:');
-    const response = await createApp({ config: CONFIG, cache }).request('/health');
+    const response = await createApp({ config: CONFIG, cache, auth }).request('/health');
+    const body = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    expect(body.ok).toBe(true);
+    expect(body.authRequired).toBe(true);
+    // Which model somebody else is paying for is not public information.
+    expect(body.model).toBeUndefined();
+    expect(body.baseUrl).toBeUndefined();
+    expect(JSON.stringify(body)).not.toContain('sk-test');
+  });
+});
+
+describe('GET /api/status', () => {
+  test('reports the configuration to a caller who logged in, without the key', async () => {
+    const cache = new SummaryCache(':memory:');
+    const app = createApp({ config: CONFIG, cache, auth });
+    const response = await app.request('/api/status', { headers: { authorization: `Bearer ${TOKEN}` } });
     const body = (await response.json()) as Record<string, unknown>;
 
     expect(response.status).toBe(200);
     expect(body.model).toBe('test-model');
     expect(body.hasKey).toBe(true);
+    expect(body.username).toBe('demo');
     expect(JSON.stringify(body)).not.toContain('sk-test');
+  });
+
+  test('refuses a caller who did not', async () => {
+    const app = createApp({ config: CONFIG, cache: new SummaryCache(':memory:'), auth });
+    expect((await app.request('/api/status')).status).toBe(401);
+    expect(
+      (await app.request('/api/status', { headers: { authorization: 'Bearer nonsense' } })).status,
+    ).toBe(401);
   });
 });
 
@@ -67,7 +105,7 @@ describe('POST /api/policy/summarize', () => {
     const { app } = appWith([REAL_POINT]);
     const response = await app.request('/api/policy/summarize', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: HEADERS,
       body: JSON.stringify({ domain: 'example.com' }),
     });
     expect(response.status).toBe(400);
@@ -80,7 +118,7 @@ describe('POST /api/policy/summarize', () => {
     ]);
     const response = await app.request('/api/policy/summarize', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: HEADERS,
       body: JSON.stringify(summariseRequest()),
     });
     const summary = (await response.json()) as any;
@@ -98,7 +136,7 @@ describe('POST /api/policy/summarize', () => {
     const send = () =>
       app.request('/api/policy/summarize', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: HEADERS,
         body: JSON.stringify(summariseRequest()),
       });
 
@@ -112,7 +150,7 @@ describe('POST /api/policy/summarize', () => {
     for (const contentHash of ['a'.repeat(64), 'b'.repeat(64)]) {
       await app.request('/api/policy/summarize', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: HEADERS,
         body: JSON.stringify(summariseRequest({ contentHash })),
       });
     }
@@ -121,10 +159,10 @@ describe('POST /api/policy/summarize', () => {
 
   test('reports a model failure as a bad gateway rather than a server crash', async () => {
     const impl = (async () => new Response('nope', { status: 401 })) as unknown as typeof fetch;
-    const app = createApp({ config: CONFIG, cache: new SummaryCache(':memory:'), fetchImpl: impl });
+    const app = createApp({ config: CONFIG, cache: new SummaryCache(':memory:'), auth, fetchImpl: impl });
     const response = await app.request('/api/policy/summarize', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: HEADERS,
       body: JSON.stringify(summariseRequest()),
     });
     expect(response.status).toBe(502);
@@ -150,13 +188,13 @@ describe('POST /api/form/assess', () => {
     };
     const impl = (async () =>
       new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(assessment) } }] }), {
-        headers: { 'content-type': 'application/json' },
+        headers: HEADERS,
       })) as unknown as typeof fetch;
 
-    const app = createApp({ config: CONFIG, cache: new SummaryCache(':memory:'), fetchImpl: impl });
+    const app = createApp({ config: CONFIG, cache: new SummaryCache(':memory:'), auth, fetchImpl: impl });
     const response = await app.request('/api/form/assess', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: HEADERS,
       body: JSON.stringify(request),
     });
     expect(await response.json()).toEqual(assessment);
@@ -168,7 +206,7 @@ describe('POST /api/form/assess', () => {
     const { app } = appWith([]);
     const response = await app.request('/api/form/assess', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: HEADERS,
       body: JSON.stringify({
         ...request,
         fields: [{ ...request.fields[0], value: '4111111111111111' }],

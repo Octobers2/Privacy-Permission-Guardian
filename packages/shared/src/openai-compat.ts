@@ -26,6 +26,8 @@ export interface EndpointConfig {
 
 export type LlmErrorKind =
   | 'auth'
+  /** Managed mode: the backend did not accept the username and password. */
+  | 'credentials'
   | 'rate_limit'
   | 'model_not_found'
   | 'timeout'
@@ -48,6 +50,9 @@ export class LlmError extends Error {
 
 const HUMAN_MESSAGES: Record<LlmErrorKind, string> = {
   auth: 'API key 唔啱或者冇權限（401/403）。檢查下設定入面嘅 key。',
+  credentials:
+    'Managed server 唔認得呢組帳號密碼。喺設定頁（managed 模式）填返 server 嗰邊用 ' +
+    '`bun run auth add` 開嘅帳號同密碼。',
   rate_limit: '短時間內叫得太密（429）。等陣再試，或者調高敏感度門檻減少呼叫。',
   model_not_found: '搵唔到呢個 model（404）。檢查下 model 名同 base URL 有冇填錯。',
   timeout: '等太耐冇回應。可以喺進階設定調高 timeout。',
