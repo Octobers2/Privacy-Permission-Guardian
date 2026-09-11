@@ -77,7 +77,7 @@ export async function readInBackgroundTab(url: string): Promise<ExtractCurrentPa
     for (let attempt = 0; attempt < RENDER_ATTEMPTS; attempt++) {
       await sleep(RENDER_INTERVAL_MS);
       const extracted: ExtractCurrentPageResponse | null = await chrome.tabs
-        .sendMessage(tabId, { type: 'extract-current-page' })
+        .sendMessage(tabId, { type: 'extract-current-page', force: true })
         .catch(() => null);
       if (!extracted) continue;
 

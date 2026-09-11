@@ -91,6 +91,46 @@ describe('extractVisibleText', () => {
     expect(text).toContain('We collect your location.');
     expect(text).not.toContain('Ignore all previous');
   });
+
+  test('leaves the source document exactly as it found it', () => {
+    // One of the three places this runs is the page the user is looking at.
+    // The version that removed elements there took Instagram's and Facebook's
+    // styling with it — every `<style>` in the body and every `aria-hidden`
+    // subtree — and this is the test that stops that coming back.
+    const doc = domOf(
+      `<style>p{color:red}</style>` +
+        `<p>We collect your location.</p>` +
+        `<div aria-hidden="true">decorative</div>` +
+        `<div style="display:none">${INJECTION}</div>` +
+        `<!-- ${INJECTION} -->`,
+    );
+    const before = doc.body.innerHTML;
+
+    const { text } = extractVisibleText(doc);
+
+    expect(doc.body.innerHTML).toBe(before);
+    expect(text).toContain('We collect your location.');
+    expect(text).not.toContain('Ignore all previous');
+    expect(text).not.toContain('decorative');
+    expect(text).not.toContain('color:red');
+  });
+
+  test('separates blocks a reader sees as separate lines', () => {
+    // Client-rendered markup has no whitespace between tags, so textContent
+    // alone would produce "your data.We keep".
+    const doc = domOf('<p>We share your data.</p><p>We keep it forever.</p>');
+    expect(extractVisibleText(doc).text).toBe('We share your data.\nWe keep it forever.');
+  });
+
+  test('counts what it skipped', () => {
+    const doc = domOf(
+      `<p>Visible</p><script>alert(1)</script><div hidden>${INJECTION}</div><!-- note -->`,
+    );
+    const { stats } = extractVisibleText(doc);
+    expect(stats.markupRemoved).toBe(1);
+    expect(stats.hiddenRemoved).toBe(1);
+    expect(stats.commentsRemoved).toBe(1);
+  });
 });
 
 describe('wrapUntrusted', () => {

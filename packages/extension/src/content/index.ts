@@ -84,13 +84,23 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendRe
   // Here the site's own scripts have already run and this is simply the text
   // the user is looking at.
   if (message?.type === 'extract-current-page') {
+    const policyUrl = location.origin + location.pathname;
+    const isPolicyPage = looksLikePolicyPage();
+
+    // The worker throws the text away unless this is a policy page, so on every
+    // other page the cheapest correct answer is to not walk the DOM at all.
+    if (!isPolicyPage && !message.force) {
+      sendResponse({
+        isPolicyPage,
+        policyUrl,
+        text: '',
+        truncated: false,
+      } satisfies ExtractCurrentPageResponse);
+      return false;
+    }
+
     const { text, truncated } = extractVisibleText(pickMainContent(document));
-    sendResponse({
-      isPolicyPage: looksLikePolicyPage(),
-      policyUrl: location.origin + location.pathname,
-      text,
-      truncated,
-    } satisfies ExtractCurrentPageResponse);
+    sendResponse({ isPolicyPage, policyUrl, text, truncated } satisfies ExtractCurrentPageResponse);
     return false;
   }
 

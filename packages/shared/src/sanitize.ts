@@ -13,7 +13,37 @@
  */
 
 /** Elements whose content is never part of what a reader sees. */
-const NEVER_VISIBLE = 'script, style, noscript, template, iframe, object, embed, svg, head';
+const NEVER_VISIBLE_TAGS = new Set([
+  'script',
+  'style',
+  'noscript',
+  'template',
+  'iframe',
+  'object',
+  'embed',
+  'svg',
+  'head',
+]);
+
+/** The same list as a selector, for the DOM-mutating path below. */
+const NEVER_VISIBLE = [...NEVER_VISIBLE_TAGS].join(', ');
+
+/**
+ * Elements a reader sees a line break after.
+ *
+ * `textContent` concatenates with no separator at all, so a page whose markup
+ * carries no whitespace between tags — which is every client-rendered page,
+ * because the framework emits it — comes out as `…share your data.We keep it…`.
+ * The model then reads run-together sentences, and a quote it copies out of them
+ * will not match the source once the page is re-read. Emitting the break the
+ * reader actually sees costs one `Set` lookup per element.
+ */
+const BLOCK_LEVEL_TAGS = new Set([
+  'address', 'article', 'aside', 'blockquote', 'br', 'dd', 'details', 'dialog', 'div', 'dl',
+  'dt', 'fieldset', 'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5',
+  'h6', 'header', 'hr', 'li', 'main', 'nav', 'ol', 'p', 'pre', 'section', 'summary', 'table',
+  'tbody', 'td', 'tfoot', 'th', 'thead', 'tr', 'ul',
+]);
 
 /** Inline styles that hide an element from a sighted reader. */
 const HIDING_STYLE =
@@ -141,8 +171,16 @@ function collectComments(root: Node): Node[] {
 /**
  * Strips everything a reader cannot see, in place.
  *
- * Call this on a document parsed from fetched HTML — never on the live page the
- * user is looking at.
+ * **Nothing in the extension calls this.** `collectVisibleText` below answers
+ * the same question without touching the tree, and that is what the pipeline
+ * uses; this remains because `eval/run-injection-eval.ts` reports a comparison
+ * column for an implementation that has no rendering engine, and because it is
+ * the most direct test of the hiding predicates.
+ *
+ * It was once on the live page the user was looking at, and that was the bug
+ * that made Instagram and Facebook lose half their styling mid-analysis: it
+ * deletes every `<style>` in the body and every `aria-hidden` subtree, and a
+ * framework that expects to find them again does not survive it.
  */
 export function stripInvisibleContent(root: Document | Element, readStyle = defaultStyleReader()): SanitizeStats {
   const stats: SanitizeStats = { hiddenRemoved: 0, markupRemoved: 0, commentsRemoved: 0 };
@@ -169,6 +207,68 @@ export function stripInvisibleContent(root: Document | Element, readStyle = defa
   return stats;
 }
 
+export interface CollectedText {
+  text: string;
+  stats: SanitizeStats;
+}
+
+/**
+ * The same answer as `stripInvisibleContent`, without touching the document.
+ *
+ * One descent that reads and never writes: an element a reader cannot see is
+ * skipped along with its subtree, and everything else contributes its text. The
+ * hiding rules are `isHidden` and `NEVER_VISIBLE_TAGS` — the same two the
+ * mutating version uses, so defence layer 1 has one definition and cannot drift
+ * between the path that runs on a live page and the path that runs on fetched
+ * HTML.
+ *
+ * Skipping a whole subtree rather than testing every node also makes this
+ * cheaper than what it replaces: a `display:none` menu costs one
+ * `getComputedStyle` instead of one per element inside it.
+ */
+export function collectVisibleText(
+  root: Document | Element,
+  readStyle = defaultStyleReader(),
+): CollectedText {
+  const stats: SanitizeStats = { hiddenRemoved: 0, markupRemoved: 0, commentsRemoved: 0 };
+  const parts: string[] = [];
+
+  const visit = (node: Node): void => {
+    for (const child of node.childNodes) {
+      switch (child.nodeType) {
+        case 3: // text
+          parts.push(child.nodeValue ?? '');
+          break;
+        case 8: // comment — never reaches a reader, and never reaches textContent either
+          stats.commentsRemoved++;
+          break;
+        case 1: {
+          const element = child as Element;
+          const tag = element.tagName.toLowerCase();
+          if (NEVER_VISIBLE_TAGS.has(tag)) {
+            stats.markupRemoved++;
+            break;
+          }
+          if (isHidden(element, readStyle)) {
+            stats.hiddenRemoved++;
+            break;
+          }
+          visit(element);
+          if (BLOCK_LEVEL_TAGS.has(tag)) parts.push('\n');
+          break;
+        }
+        default:
+          break;
+      }
+    }
+  };
+
+  const start = (root as Document).body ?? root;
+  visit(start);
+
+  return { text: normaliseWhitespace(parts.join('')), stats };
+}
+
 /** Collapses runs of whitespace but keeps paragraph breaks, which help the model. */
 export function normaliseWhitespace(text: string): string {
   return text
@@ -192,15 +292,17 @@ export interface ExtractedText {
  * only part of a document was read, because claiming to have summarised a
  * 60,000-word policy that was cut at 24,000 would be the same kind of
  * overclaiming this extension exists to warn people about.
+ *
+ * Read-only, and it has to stay that way: one of the three places this runs is
+ * the page the user is looking at, where removing an element is vandalism.
+ * `test/sanitize.test.ts` fails if the source document comes back changed.
  */
 export function extractVisibleText(
   root: Document | Element,
   maxChars = 24_000,
   readStyle = defaultStyleReader(),
 ): ExtractedText {
-  const stats = stripInvisibleContent(root, readStyle);
-  const body = (root as Document).body ?? (root as Element);
-  const text = normaliseWhitespace(body?.textContent ?? '');
+  const { text, stats } = collectVisibleText(root, readStyle);
   return {
     text: text.slice(0, maxChars),
     truncated: text.length > maxChars,

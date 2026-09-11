@@ -81,6 +81,16 @@ export type PolicyCandidatesResponse = string[];
 /** Reads the page the user is actually looking at, scripts already run. */
 export interface ExtractCurrentPageRequest {
   type: 'extract-current-page';
+  /**
+   * Read the page even when it does not look like a policy document.
+   *
+   * The worker asks the *active* tab speculatively — usually an ordinary page
+   * whose text it will discard — so by default the content script answers those
+   * without walking the DOM. The background-tab reader has already decided the
+   * URL is a policy candidate, and some of them are named in a way the URL
+   * pattern cannot recognise ("Privacy Policy" linking to `/legal-center`).
+   */
+  force?: boolean;
 }
 
 export interface ExtractCurrentPageResponse {

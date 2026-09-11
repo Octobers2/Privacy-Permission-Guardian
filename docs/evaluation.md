@@ -128,7 +128,9 @@ bun run eval/run-e2e.ts        # 有 bundle 預算檢查
 
 | | |
 |---|---:|
-| Content script（每個網站每次載入） | **18,547 bytes** |
+| Content script（每個網站每次載入） | **25,424 bytes** |
+| ├ `content/index.ts` bundle | 19,556 bytes |
+| └ `shared/sanitize.ts` chunk | 5,868 bytes |
 | 預算 | 60,000 bytes |
 | Service worker + 規則引擎（一個 session 一次） | ~332 KB |
 
@@ -136,8 +138,12 @@ bun run eval/run-e2e.ts        # 有 bundle 預算檢查
 靜靜雞多咗三分一 MB。第一次係 content script import 咗規則引擎（帶埋
 public suffix list 同 zod），第二次係 `@ppg/shared` 未聲明
 `sideEffects: false`，令 Rollup 唔敢丟走 barrel 入面用唔著嘅 module。
-`eval/bundle-budget.ts` 而家喺 e2e 度守住。（條款頁嘅讀取搬咗去 offscreen
-document 之後又再細咗 4.7 KB —— sanitizer 唔再需要喺每一頁載入。）
+`eval/bundle-budget.ts` 而家喺 e2e 度守住。
+
+Sanitizer 一度唔喺呢個數入面（條款頁嘅讀取搬咗去 offscreen document
+嗰陣），但「讀用戶身處嗰版條款頁」呢條路要喺 content script 度抽文字，
+所以佢返咗嚟，5.9 KB。呢個數之前喺文件度寫住 18,547 冇更新過 —— 預算
+檢查睇嘅係總數，所以冇人為咗佢紅燈。
 
 ## 4. 端到端驗收
 
