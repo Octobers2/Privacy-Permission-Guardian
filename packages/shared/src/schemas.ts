@@ -226,6 +226,30 @@ export const FormObservationSchema = z
   .strict();
 export type FormObservation = z.infer<typeof FormObservationSchema>;
 
+/**
+ * What the content script noticed about the page itself, as opposed to about a
+ * form on it.
+ *
+ * This shape travels from the content script to the service worker and stops
+ * there. It is deliberately absent from `FormAssessRequestSchema`: the list of
+ * hosts a page talked to is exactly the kind of thing `docs/threat-model.md`
+ * promises does not leave the browser, and the model gets rule ids instead —
+ * which it already did.
+ *
+ * Ids only, no free text: a matched pattern is an id from `page-signals.ts`,
+ * never a snippet of the page, so nothing attacker-controlled rides along.
+ */
+export const PageSignalsSchema = z
+  .object({
+    iconUrls: z.array(z.string()),
+    referencedHosts: z.array(z.string()),
+    sendingHosts: z.array(z.string()),
+    exfilSinks: z.array(z.string()),
+    devtoolsBlocks: z.array(z.string()),
+  })
+  .strict();
+export type PageSignalsWire = z.infer<typeof PageSignalsSchema>;
+
 export const RuleHitSchema = z
   .object({
     id: z.string().min(1),
@@ -304,6 +328,15 @@ export const SettingsSchema = z
     allowlist: z.array(z.string()),
     /** Rule score at or above which a form is escalated to the model. */
     llmThreshold: z.number().int().min(0).max(100),
+    /**
+     * Whether the worker may fetch a page's favicon to check it against the
+     * brand hash table.
+     *
+     * It is the only check here that makes a request of its own, so it gets a
+     * switch. The request goes to the site the user is already on, and only on
+     * a page that has already scored something.
+     */
+    faviconCheck: z.boolean(),
   })
   .strict();
 export type Settings = z.infer<typeof SettingsSchema>;
@@ -325,4 +358,5 @@ export const DEFAULT_SETTINGS: Settings = {
   paused: false,
   allowlist: [],
   llmThreshold: 30,
+  faviconCheck: true,
 };

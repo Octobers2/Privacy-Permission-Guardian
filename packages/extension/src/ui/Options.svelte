@@ -76,6 +76,13 @@
         onchange={(paused) => persist({ paused })}
       />
 
+      <Switch
+        label="檢查網站圖示"
+        description="對比網站個 favicon 同知名品牌嘅圖示，捉冒認。要向你已經身處嗰個網站攞一次個圖示檔，所以淨係喺已經有可疑之處嘅頁面先會做，結果會快取一個月。"
+        checked={settings.faviconCheck}
+        onchange={(faviconCheck) => persist({ faviconCheck })}
+      />
+
       <label class="field">
         <span class="md-typescale-body-medium">敏感度：規則分數去到 {settings.llmThreshold} 分先問模型</span>
         <input
@@ -234,6 +241,15 @@
           全部細節喺 <code>docs/threat-model.md</code>。
         </li>
         <li>網站有辦法偵測到你裝咗呢個插件（MV3 content script 嘅已知限制）。</li>
+        <li>
+          插件會睇呢一頁嘅 script <strong>文字</strong>（唔會執行）同埋佢向邊啲網域發過請求，用嚟判斷
+          資料會唔會被送去第三方、同埋個頁面有冇阻止你開開發者工具。呢啲觀察<strong>只留喺你部機</strong>，
+          唔會隨任何請求傳出去 —— 傳出去嘅仍然只係規則 id。
+        </li>
+        <li>
+          「檢查網站圖示」會向<strong>你已經身處嗰個網站</strong>攞一次 favicon 嚟做本機比對。唔會攞去
+          第三方，亦唔會上傳；唔想要可以喺上面熄咗佢。
+        </li>
         <li>
           用 managed 模式嘅時候，條款頁嘅<strong>網址</strong>會傳去你填嗰個 server，由佢用真瀏覽器
           打開嚟讀。佢用嘅唔係你嘅登入狀態，所以要登入先睇到嘅條款頁仍然由你部機自己讀。

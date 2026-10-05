@@ -6,12 +6,18 @@
  * browser session rather than once per page.
  */
 import {
+  classifyField,
+  describePage,
   humanMessageFor,
   registrableDomain,
   riskBand,
   scoreForm,
+  scorePageSignals,
+  scoreStandalonePage,
   sha256Hex,
   type ConnectionCheck,
+  type FormObservation,
+  type RuleHit,
   type RuleResult,
   type Settings,
 } from '@ppg/shared';
@@ -25,6 +31,7 @@ import type {
 import type { PolicyFailure } from '../offscreen/index.ts';
 import { loadSettings, onSettingsChanged, saveSettings } from '../settings.ts';
 import { readSummary, writeSummary } from './cache.ts';
+import { faviconMatchFor } from './favicon.ts';
 import { readInBackgroundTab } from './background-tab.ts';
 import { readPolicy } from './offscreen.ts';
 import { checkConnection, renderPolicy, summarisePolicy, type RenderUnavailable } from './llm-router.ts';
@@ -53,23 +60,94 @@ async function paintScoreBadge(tabId: number, score: number): Promise<void> {
 
 /* -------------------------------------------------------------- form check */
 
-async function assess(message: Extract<ExtensionMessage, { type: 'assess' }>): Promise<AssessResponse> {
+/** Categories whose presence is what makes a third-party destination worth naming. */
+const SENSITIVE_CATEGORIES = new Set(['password', 'credit_card', 'card_cvv', 'national_id', 'bank_account']);
+
+function wantsSensitiveData(observations: FormObservation[]): boolean {
+  return observations.some((observation) =>
+    observation.form.fields.some((field) => SENSITIVE_CATEGORIES.has(classifyField(field))),
+  );
+}
+
+/**
+ * Whether this page has earned the one network request these checks can make.
+ *
+ * Hashing the favicon means fetching it, and a privacy tool that fetches
+ * something on every page the user opens has a problem it cannot argue its way
+ * out of. So the icon is only looked at once the page has already said
+ * something: a form worth a few points, or a page-level finding of its own.
+ * The result is cached per registrable domain, so a site the user visits daily
+ * is fetched once a month.
+ */
+const FAVICON_GATE_SCORE = 15;
+
+async function assess(
+  message: Extract<ExtensionMessage, { type: 'assess' }>,
+  sender: chrome.runtime.MessageSender,
+): Promise<AssessResponse> {
   const settings = await loadSettings();
   if (settings.paused) return { paused: true, worst: null };
 
-  let worst: RuleResult | null = null;
-  for (const observation of message.observations) {
-    const result = scoreForm(observation, { allowlist: settings.allowlist });
-    if (result.verdict === 'safe') continue;
-    if (!worst || result.score > worst.score) worst = result;
+  const { observations, signals } = message;
+  const page = observations[0]?.page ?? null;
+  const allowlist = settings.allowlist;
+
+  const scoreOptions = {
+    allowlist,
+    hasSensitiveFields: wantsSensitiveData(observations),
+  };
+
+  // The page context normally rides along on an observation. A page with no
+  // form has none, so it comes from the sender instead — which is the browser's
+  // own record of where the tab is, not something the page can claim.
+  const context = page ?? (sender.tab?.url ? describePage(sender.tab.url, sender.tab.title ?? '') : null);
+  let pageHits: RuleHit[] = context ? scorePageSignals(signals, context, scoreOptions) : [];
+
+  let formResult = worstForm(observations, { allowlist, pageHits });
+
+  if (settings.faviconCheck && context && shouldCheckFavicon(formResult, pageHits)) {
+    const faviconMatch = await faviconMatchFor(context.hostname, signals.iconUrls);
+    if (faviconMatch) {
+      pageHits = scorePageSignals(signals, context, { ...scoreOptions, faviconMatch });
+      formResult = worstForm(observations, { allowlist, pageHits });
+    }
   }
+
+  const worst: RuleResult | null =
+    formResult ?? (context ? nullIfSafe(scoreStandalonePage(pageHits, context, { allowlist })) : null);
 
   return {
     paused: false,
     worst: worst
-      ? { score: worst.score, verdict: worst.verdict, reasons: worst.hits.map((hit) => hit.detail) }
+      ? {
+          score: worst.score,
+          verdict: worst.verdict,
+          reasons: worst.hits.map((hit) => hit.detail),
+          kind: formResult ? 'form' : 'page',
+        }
       : null,
   };
+}
+
+function nullIfSafe(result: RuleResult): RuleResult | null {
+  return result.verdict === 'safe' ? null : result;
+}
+
+function worstForm(
+  observations: FormObservation[],
+  options: { allowlist: string[]; pageHits: RuleHit[] },
+): RuleResult | null {
+  let worst: RuleResult | null = null;
+  for (const observation of observations) {
+    const result = scoreForm(observation, options);
+    if (result.verdict === 'safe') continue;
+    if (!worst || result.score > worst.score) worst = result;
+  }
+  return worst;
+}
+
+function shouldCheckFavicon(formResult: RuleResult | null, pageHits: RuleHit[]): boolean {
+  return (formResult?.score ?? 0) >= FAVICON_GATE_SCORE || pageHits.length > 0;
 }
 
 async function allowlistSite(hostname: string): Promise<void> {
@@ -272,10 +350,10 @@ async function analysePolicy(tabId: number): Promise<SummaryState> {
 
 /* ---------------------------------------------------------------- plumbing */
 
-chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendResponse) => {
   switch (message?.type) {
     case 'assess':
-      void assess(message).then(sendResponse);
+      void assess(message, sender).then(sendResponse);
       return true;
     case 'allowlist-site':
       void allowlistSite(message.hostname).then(() => sendResponse({ ok: true }));

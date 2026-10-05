@@ -9,19 +9,33 @@
  * also often carries whatever the person who saved it had autofilled.
  *
  * Defusing does not affect what the evaluation measures: the rule engine reads
- * field names, types, labels and the domain, and never executes anything.
+ * field names, types, labels, script text and the domain, and never executes
+ * anything.
+ *
+ * That last one is why scripts are neutralised rather than deleted. The
+ * page-level rules read where a page ships data to and whether it fights
+ * DevTools, and both of those live in script text. Deleting `<script>`, which
+ * is what this did first, would have stripped the evidence for those rules out
+ * of every collected sample and quietly scored the detector down — the same
+ * trap the cross-origin form action was already rescued from below.
+ * `type="text/plain"` is never executed by any browser, and the text stays
+ * readable.
  */
 import { parseHTML } from 'linkedom';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
 export interface DefuseReport {
-  scriptsRemoved: number;
+  scriptsDefused: number;
+  elementsRemoved: number;
   handlersRemoved: number;
   externalRefsNeutralised: number;
   formActionsRewritten: number;
   valuesStripped: number;
 }
+
+/** Marks a script that has been turned into inert text. */
+export const DEFUSED_SCRIPT_MARKER = 'data-ppg-defused';
 
 /** Input types whose `value` is a button caption rather than user data. */
 const VALUE_IS_A_LABEL = new Set(['submit', 'button', 'reset', 'image']);
@@ -44,16 +58,25 @@ export interface DefuseOptions {
 export function defuse(html: string, options: DefuseOptions = {}): { html: string; report: DefuseReport } {
   const { document } = parseHTML(html);
   const report: DefuseReport = {
-    scriptsRemoved: 0,
+    scriptsDefused: 0,
+    elementsRemoved: 0,
     handlersRemoved: 0,
     externalRefsNeutralised: 0,
     formActionsRewritten: 0,
     valuesStripped: 0,
   };
 
-  for (const element of [...document.querySelectorAll('script, noscript, iframe, object, embed')]) {
+  for (const element of [...document.querySelectorAll('noscript, iframe, object, embed')]) {
     element.remove();
-    report.scriptsRemoved++;
+    report.elementsRemoved++;
+  }
+
+  // Not removed: the exfil endpoint and the debugger loop are in here, and they
+  // are what the page-level rules read. `text/plain` is inert in every browser.
+  for (const element of [...document.querySelectorAll('script')]) {
+    element.setAttribute('type', 'text/plain');
+    element.setAttribute(DEFUSED_SCRIPT_MARKER, '1');
+    report.scriptsDefused++;
   }
 
   for (const element of [...document.querySelectorAll('*')]) {
@@ -73,7 +96,10 @@ export function defuse(html: string, options: DefuseOptions = {}): { html: strin
       // can be preserved.
       if (['src', 'srcset', 'href', 'poster', 'data', 'formaction'].includes(name)) {
         if (/^\s*(https?:)?\/\//i.test(attribute.value) && !isInert(attribute.value)) {
-          element.setAttribute(attribute.name, '#');
+          // Pointed at the sink rather than blanked to "#", for the same reason
+          // the form action is: the host is part of what the fixture is an
+          // example of. `.invalid` never resolves, so nothing is reachable.
+          element.setAttribute(attribute.name, sinkUrlFor(attribute.value));
           report.externalRefsNeutralised++;
         }
       }
@@ -108,6 +134,17 @@ export function defuse(html: string, options: DefuseOptions = {}): { html: strin
   return { html: `<!doctype html>\n${document.documentElement.outerHTML}\n`, report };
 }
 
+/** `https://sink.invalid/<original host><original path>` — unreachable, but still legible. */
+function sinkUrlFor(rawUrl: string): string {
+  try {
+    const value = rawUrl.trim();
+    const target = new URL(value.startsWith('//') ? `https:${value}` : value);
+    return `${SINK_ORIGIN}/${target.hostname}${target.pathname}`;
+  } catch {
+    return '#';
+  }
+}
+
 /** Hosts that cannot resolve, so a reference to them reaches nobody. */
 const INERT_HOST = /^(?:https?:)?\/\/[^/]*\.(?:invalid|test|example|localhost)(?::\d+)?(?:\/|$)/i;
 
@@ -118,18 +155,41 @@ export function isInert(url: string): boolean {
 /** Whether a file still contains anything a defused fixture must not. */
 export function residualRisks(html: string): string[] {
   const problems: string[] = [];
-  if (/<script[\s>]/i.test(html)) problems.push('contains a <script> element');
+
+  // A script is acceptable only in the shape `defuse` leaves it in: inert type,
+  // marker attribute. Anything else is a page that still runs.
+  const { document } = parseHTML(html);
+  for (const script of document.querySelectorAll('script')) {
+    const inert = (script.getAttribute('type') ?? '').toLowerCase() === 'text/plain';
+    if (!inert || !script.hasAttribute(DEFUSED_SCRIPT_MARKER)) {
+      problems.push('contains a <script> element that would still run');
+      break;
+    }
+  }
+
   if (/\son[a-z]+\s*=/i.test(html)) problems.push('contains an inline event handler');
 
-  for (const [, url] of html.matchAll(/<form[^>]+action\s*=\s*["']((?:https?:)?\/\/[^"']+)["']/gi)) {
-    if (!isInert(url)) problems.push('a form still posts to a resolvable remote origin');
+  for (const form of document.querySelectorAll('form[action]')) {
+    const action = form.getAttribute('action') ?? '';
+    if (/^\s*(https?:)?\/\//i.test(action) && !isInert(action)) {
+      problems.push('a form still posts to a resolvable remote origin');
+      break;
+    }
   }
-  for (const [, url] of html.matchAll(/(?:src|href)\s*=\s*["']((?:https?:)?\/\/[^"']+)["']/gi)) {
-    if (!isInert(url)) {
+
+  // Attributes only, and read off the parsed document rather than the raw text.
+  // A URL inside the text of a defused script is a string: nothing fetches it,
+  // and `location.href = "https://…"` in there is not a remote resource.
+  for (const element of document.querySelectorAll('[src], [href], [poster], [data], [srcset]')) {
+    const urls = ['src', 'href', 'poster', 'data', 'srcset']
+      .map((name) => element.getAttribute(name) ?? '')
+      .filter((value) => /^\s*(https?:)?\/\//i.test(value));
+    if (urls.some((url) => !isInert(url))) {
       problems.push('loads a resolvable remote resource');
       break;
     }
   }
+
   return [...new Set(problems)];
 }
 
@@ -186,7 +246,8 @@ if (import.meta.main) {
   }
 
   console.log(`wrote ${target}`);
-  console.log(`  scripts removed        ${report.scriptsRemoved}`);
+  console.log(`  scripts defused        ${report.scriptsDefused}`);
+  console.log(`  elements removed       ${report.elementsRemoved}`);
   console.log(`  event handlers removed ${report.handlersRemoved}`);
   console.log(`  remote refs cut        ${report.externalRefsNeutralised}`);
   console.log(`  form actions rewritten ${report.formActionsRewritten}`);

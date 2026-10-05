@@ -8,6 +8,11 @@ A Chrome / Edge MV3 extension that does two things:
 - **Form risk warning** — scans forms for sensitive personal-data fields and
   warns when the combination of domain, field set and form target looks like
   phishing. This half runs entirely offline: no API key, no network.
+- **Page-level phishing signals** — whether the page ships data somewhere it has
+  no business shipping it (a Telegram bot, a form relay), whether its favicon
+  belongs to a brand the domain does not own, and whether it is actively
+  fighting DevTools. These stand on their own, so a kit with no `<form>` at all
+  is still caught.
 
 一個 GenAI + Cybersecurity 課程 project。中文文件喺 [`docs/`](docs/)。
 
@@ -26,7 +31,7 @@ Bun · TypeScript · Svelte 5 · Vite + CRXJS · Material Design 3 · Hono · zo
 Deliberately few dependencies: `bun test`, `bun:sqlite`, `Bun.password` and
 Bun's TypeScript support are built in, the headless browser is driven over the
 DevTools protocol by ~250 lines rather than by Puppeteer, and the content
-script — the only code that runs on every page the user visits — is **25 KB**
+script — the only code that runs on every page the user visits — is **33 KB**
 with nothing else behind it.
 
 ## Quick start
@@ -71,11 +76,12 @@ The server needs a `chromium` on `PATH` (`PPG_CHROMIUM` to point elsewhere).
 
 | | |
 |---|---|
-| `bun test` | Unit tests (225 across 17 files) |
+| `bun test` | Unit tests (259 across 19 files) |
 | `bun run build` | Build the extension |
 | `bun run dev` | Build with HMR |
 | `bun run server` | Managed backend |
 | `bun run auth add <name>` | Add a backend user (also `list`, `remove`) |
+| `bun run favicons` | Regenerate the brand favicon hash table (needs the network) |
 | `bun run fixtures` | Serve the evaluation fixtures under their real hostnames |
 | `bun run e2e` | Load the built extension in headless Chromium and check everything |
 | `bun run eval:rules` | Precision / recall / confusion matrix |
@@ -97,6 +103,8 @@ The server needs a `chromium` on `PATH` (`PPG_CHROMIUM` to point elsewhere).
 | | |
 |---|---|
 | Rule engine, banner, options, offline detection | done (`w1-rules-only`) |
+| Page-level signals: exfil destination, DevTools blocking, favicon hot-linking | done |
+| **Favicon brand-impersonation table** | **needs one `bun run favicons` with network — ships empty** |
 | Policy summary end to end, both modes, managed backend | done (`w2-llm-e2e`) |
 | Evaluation harnesses, injection measurements, docs | done |
 | **Collected (non-synthetic) fixtures** | **outstanding — see `docs/evaluation.md` §0** |

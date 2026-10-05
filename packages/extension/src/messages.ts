@@ -10,7 +10,7 @@
  *
  * Types only; no runtime import, so this file adds nothing to either bundle.
  */
-import type { ConnectionCheck, FormObservation, PolicySummary, Verdict } from '@ppg/shared';
+import type { ConnectionCheck, FormObservation, PageSignals, PolicySummary, Verdict } from '@ppg/shared';
 
 export const SETTINGS_STORAGE_KEY = 'settings';
 
@@ -19,6 +19,15 @@ export const SETTINGS_STORAGE_KEY = 'settings';
 export interface AssessRequest {
   type: 'assess';
   observations: FormObservation[];
+  /**
+   * What the page itself is doing: where it ships data, what its icon claims to
+   * be, whether it is fighting DevTools.
+   *
+   * This travels to the worker and stops there. It is deliberately not part of
+   * `FormAssessRequest`, which is the shape that leaves the browser — the model
+   * keeps getting rule ids, not the list of hosts a page talked to.
+   */
+  signals: PageSignals;
 }
 
 export interface AllowlistSiteRequest {
@@ -28,8 +37,14 @@ export interface AllowlistSiteRequest {
 
 export interface AssessResponse {
   paused: boolean;
-  /** The most alarming form on the page, or null when nothing is worth saying. */
-  worst: { score: number; verdict: Verdict; reasons: string[] } | null;
+  /**
+   * The most alarming finding on the page, or null when nothing is worth saying.
+   *
+   * `kind` decides the headline: a warning about a form says "do not type into
+   * this form", while one raised by the page alone — a kit whose inputs are
+   * loose `contenteditable` divs — has no form to point at.
+   */
+  worst: { score: number; verdict: Verdict; reasons: string[]; kind: 'form' | 'page' } | null;
 }
 
 /* --------------------------------------------------- popup/options -> worker */

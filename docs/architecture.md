@@ -10,9 +10,11 @@ Content script 抽 DOM、畫橫額；service worker 做評分、快取同模型�
 ```
 ┌──────────────────── Browser (Chrome / Edge, MV3) ─────────────────────┐
 │                                                                       │
-│  content script  (25 KB，每頁載入)     service worker (一個 session 一次)│
+│  content script  (33 KB，每頁載入)     service worker (一個 session 一次)│
 │  ├─ form-scanner ────────────────►    ├─ scoreForm（規則引擎）          │
-│  │   extractForms(document)            ├─ chrome.storage 摘要快取       │
+│  │   extractForms(document)            ├─ scorePageSignals（頁面層）     │
+│  ├─ page-signals ────────────────►    ├─ favicon：fetch → dhash → 比對  │
+│  │   script 文字 / 圖示 / 目的地        ├─ chrome.storage 摘要快取       │
 │  ├─ policy-scout（只搵連結）──────►     ├─ badge 顏色                   │
 │  ├─ 讀 live DOM（唯讀，唔改頁面）        └─ llm-router ─┬── managed ──┐  │
 │  └─ banner (Shadow DOM，零 library)                    └── direct    │  │
@@ -43,7 +45,8 @@ Content script 抽 DOM、畫橫額；service worker 做評分、快取同模型�
 入面一個 browser session 載入一次，可以接受；喺用戶去嘅每一個網站都載入，
 就同「輕量私隱工具」呢個前提直接矛盾。
 
-Content script 淨低 DOM 抽取同繪圖，實測 **25 KB**（入面 6 KB 係 sanitizer）。呢件事回歸過兩次
+Content script 淨低 DOM 抽取同繪圖，實測 **33 KB**（入面 6 KB 係 sanitizer，
+8 KB 係頁面層訊號嘅 pattern 表）。呢件事回歸過兩次
 （一次係 import 咗規則引擎，一次係 `@ppg/shared` 未聲明 `sideEffects: false`），
 兩次都冇報錯 —— 插件照行，只係靜靜雞肥咗。所以 `eval/bundle-budget.ts`
 喺 e2e 度守住個 60 KB 預算。
@@ -121,16 +124,41 @@ Server 手上有 API key，同埋一個開得到任何網址嘅瀏覽器。冇�
 ## 資料流：表單提示
 
 ```
-DOMContentLoaded / MutationObserver
+DOMContentLoaded / MutationObserver / PerformanceObserver('resource')
   → extractForms(document, location.href)      shared/extract-form.ts
+  → collectPageSignals(document, href)         shared/page-signals.ts
   → { page, form } 只有欄位 metadata，冇 value
-  → sendMessage({ type: 'assess', observations })
-      worker: scoreForm(observation, { allowlist }) shared/rules.ts
+    { signals }   只有 id、主機名、圖示網址，冇頁面原文
+  → sendMessage({ type: 'assess', observations, signals })
+      worker: scorePageSignals(signals, page)       shared/rules.ts
+              ├─ EXFIL_SINK_PATTERNS 命中
+              ├─ DEVTOOLS_BLOCK_PATTERNS 命中
+              └─ COMMON_THIRD_PARTIES 隔走正常基建  shared/third-party.ts
+              ↓ 有分先至：
+              faviconMatchFor(hostname, iconUrls)   background/favicon.ts
+              └─ fetch → OffscreenCanvas → dhash    shared/favicon.ts
+      worker: scoreForm(observation, { allowlist, pageHits })
               ├─ detectLookalike(hostname)          shared/lookalike.ts
               └─ classifyField × N
-      → { verdict, reasons[] }
+      worker: 冇表單就 scoreStandalonePage(pageHits)
+      → { verdict, reasons[], kind }
   → showBanner(...)                             content/banner.ts
 ```
+
+`pageHits` 係摱入同一個分數入面，唔係第二個分數：咁樣 60 / 30 兩個門檻、
+allowlist、同埋 known-brand 封頂全部照樣只作用喺一個數字上面。
+
+**點解要有 `scoreStandalonePage`。** 一個釣魚 kit 可以完全唔用 `<form>`，
+連 `<input>` 都唔用（loose `contenteditable`），咁 `extractForms` 就乜都攞
+唔到。但佢個 script 入面照樣有個 Telegram bot token。所以頁面層命中喺冇
+表單嗰陣要企得住 —— 不過門檻唔同：只有 `STANDALONE_RULE_IDS` 入面嗰三條
+（bot token、圖示冒認、exfil 目的地）開得到門，擋 DevTools 自己一個唔得。
+「可疑」可疑緊咩？冇表單就冇被要求緊嘅嘢。
+
+**點解 favicon 要有個閘。** 佢係插件唯一一個自己主動發嘅請求。一個私隱
+工具喺用戶開嘅每一頁都 fetch 嘢，係講唔通嘅，所以只有頁面已經講咗啲嘢
+（表單 ≥ 15 分，或者已經有其他頁面層命中）先至去攞個圖示，攞完快取一個月。
+詳情見 [threat-model.md](threat-model.md)。
 
 `ruleScore ≥ llmThreshold`（預設 30）先會問模型。`≥ 60` 就算完全冇網絡
 都直接出警告。
@@ -172,13 +200,14 @@ DOMContentLoaded / MutationObserver
 
 | 位置 | 內容 |
 |---|---|
-| `packages/shared/src/` | schemas、rules、lookalike、sanitize、prompts、openai-compat、policy、score、domain、extract-form |
-| `packages/extension/src/content/` | form-scanner、policy-scout、banner（唯一喺人哋頁面跑嘅 code） |
-| `packages/extension/src/background/` | service worker、llm-router（連 managed 登入）、cache、offscreen 同背景分頁管理 |
+| `packages/shared/src/` | schemas、rules、lookalike、sanitize、prompts、openai-compat、policy、score、domain、extract-form、page-signals、favicon、third-party |
+| `packages/extension/src/content/` | form-scanner、page-signals、policy-scout、banner（唯一喺人哋頁面跑嘅 code） |
+| `packages/extension/src/background/` | service worker、llm-router（連 managed 登入）、cache、favicon（解碼同 hash）、offscreen 同背景分頁管理 |
 | `packages/extension/src/offscreen/` | 條款頁嘅 fetch 同渲染（唯一有渲染引擎又唔受網頁 CSP 管嘅地方） |
 | `packages/extension/src/ui/` | Popup、Options、MD3 components、生成嘅 token |
 | `packages/server/src/` | Hono app、auth（auth.txt + token）、render（headless Chromium）、chromium（CDP client）、render-probe、bun:sqlite 快取 |
 | `scripts/auth.ts` | `bun run auth add / list / remove` |
+| `scripts/gen-favicon-hashes.ts` | `bun run favicons` —— 用同一部 CDP Chromium 生成品牌圖示 hash 表（要網絡，輸出 commit 入 repo） |
 | `eval/` | fixtures、labels.csv、三個 harness、fixture server（CDP client 喺 server 度，兩邊共用） |
 
 ## 建置

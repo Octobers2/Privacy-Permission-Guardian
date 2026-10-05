@@ -8,7 +8,10 @@
  */
 import { BRANDS, detectLookalike, type LookalikeMatch } from './lookalike.ts';
 import { publicSuffixOf, registrableDomain } from './domain.ts';
-import type { FormField, FormObservation, RuleHit, RuleResult, Verdict } from './schemas.ts';
+import { COMMON_THIRD_PARTIES } from './third-party.ts';
+import type { FaviconMatch } from './favicon.ts';
+import type { PageSignals } from './page-signals.ts';
+import type { FormField, FormObservation, PageContext, RuleHit, RuleResult, Verdict } from './schemas.ts';
 
 /* ------------------------------------------------------ field classification */
 
@@ -99,6 +102,15 @@ export interface ScoreOptions {
   allowlist?: string[];
   /** Score at or above which a form is escalated to the model. */
   llmThreshold?: number;
+  /**
+   * Page-level findings from `scorePageSignals`, folded into this form's score.
+   *
+   * A form is scored by what it asks for; a page is scored by where it ships
+   * data and what it is pretending to be. Merging them here rather than keeping
+   * a second score means the existing thresholds, the allowlist and the
+   * known-brand damper all keep applying to one number.
+   */
+  pageHits?: RuleHit[];
 }
 
 function lookalikeDetail(match: LookalikeMatch): string {
@@ -121,7 +133,7 @@ function lookalikeDetail(match: LookalikeMatch): string {
  */
 export function scoreForm(observation: FormObservation, options: ScoreOptions = {}): RuleResult {
   const { page, form } = observation;
-  const hits: RuleHit[] = [];
+  const hits: RuleHit[] = [...(options.pageHits ?? [])];
 
   const registrable = registrableDomain(page.hostname);
   if (options.allowlist?.includes(registrable)) {
@@ -210,6 +222,203 @@ export function scoreForm(observation: FormObservation, options: ScoreOptions = 
   if (isKnownBrandDomain && verdict === 'danger') verdict = 'caution';
 
   return { score, hits, verdict };
+}
+
+/* ------------------------------------------------------- page-level rules */
+
+/**
+ * Techniques that only exist to keep somebody out of DevTools.
+ *
+ * Blocking the context menu is not on this list. Photo galleries, news sites
+ * and a good deal of the Chinese-language web do it, and a rule that fires on
+ * all of them buys a phishing signal at the price of the extension's
+ * credibility on every other page.
+ */
+const STRONG_DEVTOOLS_BLOCKS = new Set([
+  'debugger_loop',
+  'devtools_key_block',
+  'devtools_detect_lib',
+  'devtools_size_probe',
+  'console_suppression',
+]);
+
+const DEVTOOLS_BLOCK_LABELS: Record<string, string> = {
+  debugger_loop: '不斷觸發 debugger 令你開唔到開發者工具',
+  devtools_key_block: '攔截 F12 / Ctrl+Shift+I / Ctrl+U',
+  devtools_detect_lib: '載咗一個專門偵測開發者工具嘅程式庫',
+  devtools_size_probe: '用視窗大小偵測你有冇打開開發者工具',
+  console_suppression: '不斷清空 console',
+};
+
+const EXFIL_SINK_LABELS: Record<string, string> = {
+  telegram_bot_api: 'Telegram bot API',
+  telegram_bot_token: 'Telegram bot token',
+  discord_webhook: 'Discord webhook',
+  slack_webhook: 'Slack webhook',
+  form_relay: '表單轉寄服務',
+  request_bin: '一個用嚟收請求嘅測試 endpoint',
+  paste_sink: '一個貼文服務',
+};
+
+const BRAND_NAMES = new Map(BRANDS.map((brand) => [brand.domain, brand.name]));
+
+/**
+ * The findings that mean "phishing" with nothing else to go on.
+ *
+ * Everything else on the page-level list needs a form to be about something:
+ * a page that blocks DevTools is suspicious, but suspicious about what? These
+ * three name a destination or an impersonation, which stands by itself.
+ */
+const STANDALONE_RULE_IDS = new Set(['telegram_bot_token', 'favicon_brand_mismatch', 'exfil_sink_endpoint']);
+
+export interface PageScoreOptions {
+  /** Registrable domains the user has silenced. */
+  allowlist?: string[];
+  /** Which brand the page's icon turned out to be, when the worker looked it up. */
+  faviconMatch?: FaviconMatch | null;
+  /** Whether any form on the page asks for a password, card details or an ID number. */
+  hasSensitiveFields?: boolean;
+}
+
+/** Hosts the page reaches that are neither its own nor ordinary web infrastructure. */
+function unrelatedHosts(signals: PageSignals, registrable: string): string[] {
+  const seen = new Set([...signals.sendingHosts, ...signals.referencedHosts]);
+  return [...seen].filter((host) => {
+    const domain = registrableDomain(host);
+    return domain !== registrable && !COMMON_THIRD_PARTIES.has(domain);
+  });
+}
+
+/**
+ * Scores what the page itself is doing, independently of any form on it.
+ *
+ * Returns hits rather than a verdict: they are folded into a form's score by
+ * `scoreForm`, or stand on their own through `scoreStandalonePage` when the
+ * page has no form the extractor can see — which is the case a kit collecting
+ * credentials from loose `contenteditable` divs deliberately creates.
+ */
+export function scorePageSignals(
+  signals: PageSignals,
+  page: PageContext,
+  options: PageScoreOptions = {},
+): RuleHit[] {
+  const hits: RuleHit[] = [];
+  const registrable = registrableDomain(page.hostname);
+  if (options.allowlist?.includes(registrable)) return [];
+
+  /* ------------------------------------------------------ where data goes */
+
+  const sinks = new Set(signals.exfilSinks);
+
+  if (sinks.has('telegram_bot_token')) {
+    hits.push({
+      id: 'telegram_bot_token',
+      points: 40,
+      detail: '頁面入面有一個 Telegram bot token —— 即係話你打嘅嘢會直接送去某人個 Telegram',
+    });
+    // The token and the endpoint it is used against are one finding, not two.
+    sinks.delete('telegram_bot_token');
+    sinks.delete('telegram_bot_api');
+  }
+
+  if (sinks.size > 0) {
+    const named = [...sinks].map((id) => EXFIL_SINK_LABELS[id] ?? id);
+    hits.push({
+      id: 'exfil_sink_endpoint',
+      points: 35,
+      detail: `呢一頁會將資料送去 ${named.join('、')}，唔係送返去網站自己`,
+    });
+  }
+
+  if (options.hasSensitiveFields) {
+    const unrelated = unrelatedHosts(signals, registrable);
+    if (unrelated.length > 0) {
+      const shown = unrelated.slice(0, 2).join('、');
+      const rest = unrelated.length > 2 ? `等 ${unrelated.length} 個網域` : '';
+      hits.push({
+        id: 'sensitive_post_third_party',
+        points: 20,
+        detail: `呢一頁一邊要你嘅敏感資料，一邊同 ${shown}${rest} 通訊，而嗰啲唔係呢個網站自己`,
+      });
+    }
+  }
+
+  /* --------------------------------------------------- what the icon says */
+
+  const match = options.faviconMatch;
+  if (match && match.domain !== registrable) {
+    const name = BRAND_NAMES.get(match.domain) ?? match.domain;
+    hits.push({
+      id: 'favicon_brand_mismatch',
+      points: 35,
+      detail: `網站圖示同 ${name}（${match.domain}）嘅一模一樣，但呢個網域唔係佢哋嘅`,
+    });
+  }
+
+  const hotlinked = signals.iconUrls
+    .map((url) => {
+      try {
+        return new URL(url).hostname;
+      } catch {
+        return '';
+      }
+    })
+    .find((host) => host && registrableDomain(host) !== registrable);
+
+  if (hotlinked) {
+    hits.push({
+      id: 'favicon_hotlinked',
+      points: 15,
+      detail: `網站個圖示係由 ${hotlinked} 攞嘅，唔係由呢個網站自己提供`,
+    });
+  }
+
+  /* ------------------------------------------------------ fighting the reader */
+
+  const strong = signals.devtoolsBlocks.filter((id) => STRONG_DEVTOOLS_BLOCKS.has(id));
+  if (strong.length > 0) {
+    const named = strong.map((id) => DEVTOOLS_BLOCK_LABELS[id] ?? id);
+    hits.push({
+      id: 'devtools_blocked',
+      points: 25,
+      detail: `呢一頁刻意阻止你檢查佢：${named.join('、')}。正經網站冇理由咁做`,
+    });
+  } else if (signals.devtoolsBlocks.includes('contextmenu_block')) {
+    hits.push({
+      id: 'right_click_blocked',
+      points: 5,
+      detail: '呢一頁封鎖咗右鍵或者選字',
+    });
+  }
+
+  return hits;
+}
+
+/**
+ * A verdict for a page with no form worth scoring.
+ *
+ * Kept separate from `scoreForm` because the bar is different: without a form,
+ * the 60-point threshold would be reached by adding up findings that only mean
+ * something together with one. Only `STANDALONE_RULE_IDS` can open this door,
+ * and a single one of them is a `caution` unless it is the bot token, which
+ * has no innocent reading at all.
+ */
+export function scoreStandalonePage(
+  pageHits: RuleHit[],
+  page: PageContext,
+  options: Pick<PageScoreOptions, 'allowlist'> = {},
+): RuleResult {
+  if (options.allowlist?.includes(registrableDomain(page.hostname))) {
+    return { score: 0, hits: [], verdict: 'safe' };
+  }
+
+  const eligible = pageHits.filter((hit) => STANDALONE_RULE_IDS.has(hit.id));
+  if (eligible.length === 0) return { score: 0, hits: [], verdict: 'safe' };
+
+  const score = Math.min(100, pageHits.reduce((total, hit) => total + hit.points, 0));
+  const certain = eligible.some((hit) => hit.id === 'telegram_bot_token') || eligible.length >= 2;
+
+  return { score, hits: pageHits, verdict: certain ? 'danger' : 'caution' };
 }
 
 /** Whether this form is worth spending a model call on. */

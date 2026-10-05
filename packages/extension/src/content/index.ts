@@ -14,12 +14,26 @@ import type {
 import { SETTINGS_STORAGE_KEY } from '../messages.ts';
 import { removeBanner, showBanner } from './banner.ts';
 import { scanDocument, watchDocument } from './form-scanner.ts';
+import { collectSignals, signalsFingerprint, startResourceWatch } from './page-signals.ts';
 import { extractVisibleText, pickMainContent } from '@ppg/shared/sanitize';
+import { hasReportableSignals, type PageSignals } from '@ppg/shared/page-signals';
 import { looksLikePolicyPage, policyCandidates } from './policy-scout.ts';
 
+/**
+ * A warning about a form can tell the user what not to type into it. One raised
+ * by the page alone has no form to point at — that is the whole reason it
+ * exists, since a kit collecting credentials from loose `contenteditable` divs
+ * leaves nothing for the form extractor to find.
+ */
 const TITLES = {
-  danger: '呢個表單好可疑，唔好喺度輸入個人資料',
-  caution: '呢個表單要求敏感個人資料，請確認網站可信',
+  form: {
+    danger: '呢個表單好可疑，唔好喺度輸入個人資料',
+    caution: '呢個表單要求敏感個人資料，請確認網站可信',
+  },
+  page: {
+    danger: '呢個網站有釣魚網站嘅特徵，唔好喺度輸入任何嘢',
+    caution: '呢個網站有啲可疑嘅地方，輸入資料之前請確認佢可信',
+  },
 } as const;
 
 async function send<T>(message: ExtensionMessage): Promise<T | null> {
@@ -32,26 +46,32 @@ async function send<T>(message: ExtensionMessage): Promise<T | null> {
   }
 }
 
-async function assess(observations: ReturnType<typeof scanDocument>): Promise<void> {
-  if (observations.length === 0) {
+async function assess(
+  observations: ReturnType<typeof scanDocument>,
+  signals: PageSignals,
+): Promise<void> {
+  // Most pages have no form and nothing to report. Asking the worker anyway
+  // would put a message on every page the user visits to be told "nothing",
+  // which is the cost this extension is built around not paying.
+  if (observations.length === 0 && !hasReportableSignals(signals)) {
     removeBanner();
     return;
   }
 
-  const response = await send<AssessResponse>({ type: 'assess', observations });
+  const response = await send<AssessResponse>({ type: 'assess', observations, signals });
   if (!response || response.paused || !response.worst) {
     removeBanner();
     return;
   }
 
-  const { verdict, reasons } = response.worst;
+  const { verdict, reasons, kind } = response.worst;
   if (verdict === 'safe') {
     removeBanner();
     return;
   }
 
   showBanner(
-    { verdict, title: TITLES[verdict], reasons },
+    { verdict, title: TITLES[kind][verdict], reasons },
     {
       onDismiss: () => {},
       onNeverOnThisSite: () => {
@@ -61,12 +81,19 @@ async function assess(observations: ReturnType<typeof scanDocument>): Promise<vo
   );
 }
 
-watchDocument((observations) => void assess(observations));
+const watch = watchDocument(
+  (observations, signals) => void assess(observations, signals),
+  { signalsOf: collectSignals, fingerprintSignals: signalsFingerprint },
+);
+
+// A page that posts what you typed does it seconds after load, with the DOM
+// untouched. Nothing would mutate, so nothing would re-trigger the watcher.
+startResourceWatch(() => watch.refresh());
 
 // Pausing or allowlisting has to take effect on the page the user is looking
 // at, not on the next navigation.
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && changes[SETTINGS_STORAGE_KEY]) void assess(scanDocument());
+  if (area === 'local' && changes[SETTINGS_STORAGE_KEY]) void assess(scanDocument(), collectSignals());
 });
 
 // Only the live page knows where its own policy is linked from, so the search

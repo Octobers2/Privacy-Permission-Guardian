@@ -6,7 +6,13 @@
 |---|---|
 | **會離開瀏覽器** | 網域、路徑（**已剝走 query string**）、頁面標題、表單欄位嘅 `type` / `name` / `id` / `autocomplete` / `placeholder` / 標籤文字、頁面可見文字節錄（≤ 800 字）、條款頁正文（≤ 24,000 字）、規則引擎分數同命中嘅規則 id |
 | **Managed 模式仲會多兩樣** | 條款頁**嘅網址**（去你自己嗰部 server，由佢用 headless Chromium 打開）、managed 帳號嘅**用戶名同密碼**（只去 `/api/login`，之後用 token） |
-| **永遠唔會離開瀏覽器** | **用戶喺表單輸入嘅任何值**、cookie、瀏覽歷史、query string、密碼、API key（BYOK 模式下只存喺本機 `chrome.storage.local`） |
+| **永遠唔會離開瀏覽器** | **用戶喺表單輸入嘅任何值**、cookie、瀏覽歷史、query string、密碼、API key（BYOK 模式下只存喺本機 `chrome.storage.local`）、**頁面層訊號**（頁面聯絡過嘅網域、script 文字、圖示網址） |
+
+最後嗰項係新加嘅頁面層偵測（圖示、第三方目的地、擋 DevTools）嘅輸入。
+佢由 content script 去到 service worker 就停喺度：`PageSignals`
+**唔喺** `FormAssessRequestSchema` 入面 —— 即係話就算模型嗰條路將來駁通咗，
+出去嘅仍然只係規則 id，同而家一模一樣。個 schema 一樣係 `.strict()`，
+而且入面淨係 id 同主機名，冇任何一段頁面原文。
 
 `FormField` 個 schema 冇 `value` 欄位，而且係 `.strict()`。
 `packages/shared/test/schemas.test.ts` 有一個測試特登驗證加返 `value` 會被
@@ -27,6 +33,42 @@ Demo script 第 3 步係開住 DevTools Network 現場證明呢一點。
 
 呢個權限係大。我哋唔會扮細 —— options 頁本身有一段講清楚，而且有一個
 即時生效嘅全域暫停掣。
+
+### 頁面層偵測冇加過任何權限
+
+三樣新嘢（圖示對比、第三方目的地、擋 DevTools）**一個新權限都唔使**：
+
+- Script 文字同 `<link rel=icon>` 係 DOM，content script 本身就讀得到；
+- 頁面實際發過邊啲請求，係由 `PerformanceObserver`（`type: 'resource'`）
+  讀嘅。佢係一個唯讀時間線，唔使權限、唔使掂頁面嘅 code，而且**只有網址同
+  initiator，冇 request body**。`webRequest` 考慮過，否決咗：佢一樣睇唔到
+  body，但要多攞一個大權限。
+- 圖示比對要嘅 fetch 行喺 service worker，`<all_urls>` 已經包咗。
+
+### 唯一一個新嘅對外請求：favicon
+
+呢個要單獨講，因為佢係整個插件入面**第一個由我哋主動發、而唔係頁面本身已經
+發緊嘅請求**：
+
+| | |
+|---|---|
+| 去邊 | **用戶已經身處嗰個網站自己**。唔會去第三方，更加唔會上傳張圖 |
+| 幾時先發 | 只喺頁面已經有分數（表單 ≥ 15 分）或者已經有其他頁面層命中先至發。一個乾乾淨淨嘅頁面唔會觸發 |
+| 發幾多次 | 每個註冊域一個月一次（`chrome.storage.local`，30 日 TTL） |
+| 攞完做咩 | 喺本機解碼成 9×8 灰階、計一個 64-bit dHash、同一張**已經 commit 咗**嘅品牌表比較。張圖同個 hash 都唔會離開部機 |
+| 熄得唔熄得 | 熄得。Options 頁「檢查網站圖示」，`settings.faviconCheck` |
+
+解碼行喺 service worker（`createImageBitmap` + `OffscreenCanvas`），唔係
+offscreen document：入面係一張**圖**，唔係一份文件 —— 冇任何嘢被當成 markup
+解析，亦冇任何嘢執行。SVG 圖示喺 worker 解唔到，解唔到就當冇證據，唔會為咗
+少數格式開多一條渲染路。
+
+### 擋 DevTools 嗰樣係**淨係睇**，唔會郁個頁面
+
+偵測手法係讀 script 嘅**文字**，一個字都唔會執行。另一條路 —— 合成一個 F12
+`keydown` 再睇 `defaultPrevented` —— 係睇得到外部 script 註冊嘅 handler，
+但佢**會行網頁自己嘅 code**。呢件事同 `architecture.md` 講嘅「唔可以改／唔可以
+郁用戶望緊嗰一版」係同一個原則，所以冇做。
 
 ## 插件係可以被網站偵測到嘅
 
@@ -195,8 +237,18 @@ multicast、`fc00::/7`、`fe80::/10`、連 `::ffff:7f00:1` 呢啲寫法都擋。
 
 - **唔好用日常瀏覽器 profile 開 live 釣魚網址。** 用獨立 profile，或者
   直接 `curl` 落檔案唔 render。
-- 入 repo 之前一定要跑 `bun run eval/sanitize-fixture.ts`：刪 `<script>`
-  同 inline handler、切斷所有會解析嘅遠端引用、剝走儲存時被自動填入嘅值。
+- 入 repo 之前一定要跑 `bun run eval/sanitize-fixture.ts`：**中和** `<script>`、
+  刪 inline handler、切斷所有會解析嘅遠端引用、剝走儲存時被自動填入嘅值。
+- `<script>` 係改成 `type="text/plain" data-ppg-defused="1"`，**唔係刪走**。
+  任何瀏覽器都唔會執行 `text/plain`，但段文字仍然讀得到 —— 而頁面層規則
+  （exfil 目的地、`debugger` loop、擋 F12）睇嘅正正就係嗰段文字。刪咗佢，
+  等於將每一個收集返嚟嘅樣本上面嘅證據抹走，然後系統性咁扣低偵測器嘅分。
+  同下面 form action 嗰條完全一樣嘅道理。
+- 遠端 `src` / `href` 改成 `https://sink.invalid/<原本 host>/<原本 path>`，
+  一樣係為咗保住原本個 host 睇得到，而 `.invalid` 永不解析。
+  `residualRisks` 而家係**解析個 DOM 再睇 attribute**，唔再 grep 原文 ——
+  否則 script 文字入面一句 `location.href = "https://…"` 都會被當成
+  「仲會載入遠端資源」。
 - 跨域 form action **唔會**被改成 `#`，而係改成
   `https://sink.invalid/<原本 host>`。`.invalid` 係 RFC 2606 保留、永不
   解析，但跨域性質保留咗 —— 否則會刪走每個收集返嚟嘅樣本上面嘅

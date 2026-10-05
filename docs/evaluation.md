@@ -5,7 +5,7 @@
 
 ## 0. 一個要先講清楚嘅限制
 
-目前 9 個表單 fixture **全部係 `synthetic`** —— 由我哋一路望住規則一路
+目前 13 個表單 fixture **全部係 `synthetic`** —— 由我哋一路望住規則一路
 寫出嚟。佢哋喺呢啲規則上考 100% 係預期之內，**唔可以當成偵測率放入報告**。
 `labels.csv` 有一個 `source` 欄分開 `synthetic` 同 `collected`，
 `run-rules-eval.ts` 喺全部都係 synthetic 嗰陣會出警告。
@@ -27,11 +27,11 @@ bun run eval/run-rules-eval.ts                # 規則組
 bun run eval/run-rules-eval.ts --with-llm     # 三組（要 PPG_BASE_URL）
 ```
 
-### 目前（9 個 synthetic fixture，4 個釣魚）
+### 目前（13 個 synthetic fixture，6 個釣魚）
 
 | Arm | TP | FP | TN | FN | Precision | Recall | F1 | FP rate |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Rules only | 4 | 0 | 5 | 0 | 100.0% | 100.0% | 100.0% | 0.0% |
+| Rules only | 6 | 0 | 8 | 0 | 100.0% | 100.0% | 100.0% | 0.0% |
 
 *（LLM only 同 Rules + LLM 兩組要一個 endpoint 先跑得到，見上面。）*
 
@@ -48,6 +48,30 @@ bun run eval/run-rules-eval.ts --with-llm     # 三組（要 PPG_BASE_URL）
 | phishing | dhl-tracking.click | 80 | danger |
 | phishing | login.microsoft-verify.sbs | 75 | danger |
 | legit | www.datahungry.example | 0 | safe |
+| legit | spa-policy.example | 0 | safe |
+| phishing | **secure-hsbc.top** | 100 | danger |
+| phishing | **appleid-locked.sbs** | 100 | danger |
+| legit | **shop.goodstore.example** | 25 | safe |
+| legit | **gallery.photostudio.example** | 5 | safe |
+
+加入頁面層規則之後，**原本 9 個 fixture 每一個嘅分數一個字都冇變**
+（80 / 100 / 80 / 75 / 40 / 25 / 0 …）。呢件事係特登盯住嘅：第一版將表單嘅
+`action` 網域都當成「頁面聯絡過嘅第三方」，四個釣魚 fixture 即刻由 80 跳到
+100 —— 唔係因為捉多咗嘢，而係同一個觀察（表單向外域 post）被 `cross_origin_action`
+同 `sensitive_post_third_party` **各計一次**。`page-signals.ts` 而家唔會將 form
+action 放入 `referencedHosts`，`page-signals.test.ts` 有一個測試鎖住佢。
+
+### 後面兩個 legit fixture 係做乜嘅
+
+佢哋唔係為咗好睇。兩個都係故意寫嚟**證明新規則唔會亂咬**嘅：
+
+- `shop.goodstore.example` —— 一個正正常常嘅結帳頁，收卡號、CVV、地址，
+  同時載 Stripe、Google Tag Manager、GA 同 Sentry。如果
+  `sensitive_post_third_party` 喺呢度着，呢條規則就唔可以出街，因為全世界
+  嘅結帳頁都係咁。佢企喺 25 分（`credit_card_fields`），冇頁面層命中。
+- `gallery.photostudio.example` —— 一個攝影師封鎖右鍵同選字。呢個係圖片網
+  最常見嘅做法，唔係釣魚手法。佢只攞到 `right_click_blocked` 5 分，
+  `safe`。呢個 5 分就係點解 contextmenu **唔喺** `STRONG_DEVTOOLS_BLOCKS` 入面。
 
 **HSBC 嗰行係整份評測最有意思嘅一行。** 一個真實嘅銀行開戶表單本身就要
 身份證、地址、出生日期，會直接衝到 40 分。喺自己嘅正式註冊域上，
@@ -55,6 +79,16 @@ bun run eval/run-rules-eval.ts --with-llm     # 三組（要 PPG_BASE_URL）
 佢哋收緊咩。同一份表單放喺 `hsbc-verify.top` 就照樣 `danger`（100 分）。
 
 呢個係「壓低 false positive」同「唔隱瞞資訊」之間嘅取捨，值得喺報告展開講。
+
+### 邊條規則由邊個 harness 量度
+
+頁面層嘅三樣嘢唔係全部量得到，講清楚邊樣量得到比報一個大數重要：
+
+| 規則 | 由邊度量 |
+|---|---|
+| `telegram_bot_token`、`exfil_sink_endpoint`、`devtools_blocked`、`right_click_blocked`、`favicon_hotlinked` | `bun run eval:rules` —— 純 DOM，linkedom 行得 |
+| `sensitive_post_third_party` | 靜態嗰半（script 入面寫死嘅網址）喺 `eval:rules`；`PerformanceObserver` 睇到嘅真實請求只有 `bun run e2e` 先量到 |
+| `favicon_brand_mismatch` | **而家量唔到。** 判斷一個圖示係咪 Apple 嘅要一個圖片解碼器，linkedom 冇。算術部分喺 `packages/shared/test/favicon.test.ts`（合成 grid、已知距離）；整條鏈要 `bun run favicons` 生成咗個表、再喺真瀏覽器度跑先算數。**未跑過 `favicons` 之前，`favicon-hashes.json` 係空嘅，呢條規則永遠唔會着。** |
 
 ### 點解報告要領住 false positive rate
 
