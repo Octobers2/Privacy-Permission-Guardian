@@ -1,0 +1,2 @@
+{ "name": "spike-webllm", "private": true, "type": "module",
+  "dependencies": { "@mlc-ai/web-llm": "^0.2.86", "playwright-core": "^1.50.0" } }
