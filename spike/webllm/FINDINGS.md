@@ -18,3 +18,8 @@ Run: `bun install && bun run serve.ts &` then `bun run drive.ts <model-id>` (hea
 - q3f16_1 compile for qwen35 (MLC has the preset, group size 40; needs the mlc_llm + emscripten toolchain).
 - Prefix-caching the shared instruction block.
 - A merged fine-tuned checkpoint loading under the stock wasm (needs trained weights).
+
+## Added 2026-10-14
+- **Cold-start adapter race**: the first `navigator.gpu.requestAdapter({powerPreference:'high-performance'})` on a fresh page can return null, and WebLLM's `detectGPUDevice` treats that as fatal ("Unable to find a compatible GPU"). A second call succeeds. The extension must retry adapter detection before creating the engine (see `drive-eval.ts`).
+- **Packed fine-tuned weights run on the stock prebuilt wasm** (`Qwen3.5-4B-q4f32_1_cs1k-webgpu.wasm`): 300 test passages, argmax agreement with PyTorch fake-quant 100%, mean |logit diff| 0.019, ~480 ms/passage (f32, no prefix caching). Packer: `ml/compress/pack_mlc.py`.
+- `mlc_llm convert_weight` / wasm compile are broken on qwen3_5 in the current nightly (needs `apache-tvm-ffi==0.1.13`, then fails in `create_rnn_state`), so new wasm builds (e.g. q3f16_1) are blocked.

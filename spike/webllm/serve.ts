@@ -5,7 +5,7 @@ Bun.serve({ port: 5199, fetch(r) {
   if (u.startsWith('/models/')) {
     // our-backend layout: /models/<id>/resolve/main/<file>  (WebLLM appends resolve/main/)
     const rel = u.slice('/models/'.length).replace('/resolve/main/', '/')
-    const f = Bun.file('/tmp/claude-1000/models/' + rel)
+    const f = Bun.file((process.env.MODEL_ROOT ?? '/tmp/claude-1000/models') + '/' + rel)
     return new Response(f, { headers: { 'access-control-allow-origin': '*', 'cache-control': 'public, max-age=31536000, immutable' } })
   }
   if (u === '/page.js') return new Response(Bun.file('dist/page.js'))

@@ -7,10 +7,10 @@ BASE = "Qwen/Qwen3.5-4B-Base"
 KEV = glob.glob("/ironwolf/ppg-cache/hf/hub/models--jaredpalmer--kev-4b/snapshots/*")[0]
 
 class LetterModel(torch.nn.Module):
-    def __init__(self, adapter: str | None = KEV, trainable=False):
+    def __init__(self, adapter: str | None = KEV, trainable=False, base: str = BASE):
         super().__init__()
-        self.tok = AutoTokenizer.from_pretrained(BASE)
-        lm = AutoModelForCausalLM.from_pretrained(BASE, dtype=torch.bfloat16, device_map={"": 0})
+        self.tok = AutoTokenizer.from_pretrained(base)
+        lm = AutoModelForCausalLM.from_pretrained(base, dtype=torch.bfloat16, device_map={"": 0})
         self.backbone = lm.model
         ids = [self.tok.convert_tokens_to_ids("Ġ" + L) for L in LETTERS]
         assert all(i is not None and i != self.tok.unk_token_id for i in ids), ids

@@ -64,3 +64,33 @@ async function run(modelId: string) {
 }
 ;(window as any).runSpike = run
 ;(window as any).__ready = true
+
+
+// ---- parity harness: score passages with a self-hosted MLC dir through the real wasm, return raw letter logits ----
+const NAMES9 = ['limitation of liability','contract by using','unilateral change','arbitration','content removal','choice of law','other','unilateral termination','jurisdiction']
+const letterPrompt = (p: string) =>
+  `Classify this terms-of-service passage.\n${NAMES9.map((n, i) => `${LETTERS[i]}) ${n}`).join('\n')}\n\nPassage: ${p.trim()}\nAnswer:`   // mirror of ml/prompt.py letter_prompt (letters-v1)
+
+async function scoreSelfHosted(dir: string, wasm: string, texts: string[]) {
+  const tap = new LetterTap()
+  const id = 'self:' + dir
+  const appConfig = { model_list: [{ model: `${location.origin}/models/${dir}`, model_id: id, model_lib: `${location.origin}/models/${wasm}`, overrides: { context_window_size: 4096 } }] }
+  let engine: webllm.MLCEngine
+  try { engine = await webllm.CreateMLCEngine(id, { appConfig, logitProcessorRegistry: new Map([[id, tap]]), initProgressCallback: (r) => (window as any).__log.push(r.text.slice(0, 120)) }) }
+  catch (e: any) {
+    const a = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' })
+    throw new Error(`engine failed: ${e?.name}: ${String(e?.message).slice(0, 160)} | cause=${e?.cause} | adapter=${a ? a.info.vendor : 'null'} maxBuf=${a?.limits.maxBufferSize} maxStor=${a?.limits.maxStorageBufferBindingSize} | log=${JSON.stringify((window as any).__log.slice(-6))}`)
+  }
+  const tok = await (await fetch(`${location.origin}/models/${dir}/resolve/main/tokenizer.json`)).json()
+  tap.ids = LETTERS.map((l) => tok.model.vocab['Ġ' + l])
+  const out: number[][] = []
+  const t0 = performance.now()
+  for (const t of texts) {
+    await engine.resetChat()
+    await engine.completions.create({ prompt: letterPrompt(t), max_tokens: 1, temperature: 0 })
+    out.push(tap.last!)
+  }
+  await engine.unload()
+  return { logits: out, seconds: (performance.now() - t0) / 1000 }
+}
+;(window as any).scoreSelfHosted = scoreSelfHosted
