@@ -86,20 +86,34 @@ try {
   await setPrefs();
 
   /** Opens a site, then drives the extension's popup against that tab like a user, and returns what the popup says. */
-  async function analyse(host: string, path = '/'): Promise<{ text: string; ms: number; popup: Page }> {
+  async function analyse(host: string, path = '/'): Promise<{ text: string; ms: number; groups: string[]; popup: Page }> {
     const sitePage = await context!.newPage();
     await sitePage.goto(site(host, path));
     const tabId = await worker.evaluate(async (prefix) => (await chrome.tabs.query({})).find((t) => t.url?.startsWith(prefix))!.id!, site(host));
     const popup = await context!.newPage();
     await popup.goto(`chrome-extension://${extensionId}/popup.html?tab=${tabId}`);
     const started = Date.now();
+    // TIMELINE=1: sample the analysis state a few times a second and print each change, to see where the time goes
+    const timeline: string[] = [];
+    let last = '';
+    let lastUi = '';
+    const sampler = Bun.env.TIMELINE ? setInterval(async () => {
+      const st = await worker.evaluate(async (id) => (await chrome.storage.session.get('analysis:' + id))['analysis:' + id]?.state, tabId).catch(() => null);
+      const label = st ? `${st.status}${st.stage ? ':' + st.stage : ''}` : 'none';
+      if (label !== last) { last = label; timeline.push(`${((Date.now() - started) / 1000).toFixed(1)}s state=${label}`); }
+      const ui = await popup.evaluate(() => (document.querySelector('main')?.innerText ?? '').replace(/\s+/g, ' ').slice(22, 70)).catch(() => '');
+      if (ui !== lastUi) { lastUi = ui; timeline.push(`${((Date.now() - started) / 1000).toFixed(1)}s ui="${ui}"`); }
+    }, 300) : null;
     await popup.getByText('Analyse the terms').click();
     await popup.locator('.headline, .error, section:has-text("does not link"), section:has-text("Found")').first().waitFor({ timeout: 180_000 });
+    if (sampler) { clearInterval(sampler); console.log('  [timeline] ' + timeline.join('  ->  ')); }
     const text = (await popup.locator('main').innerText()).replace(/\s+/g, ' ');
-    const tech = (await popup.locator('.tech pre').textContent().catch(() => '')) ?? '';
+    // read the findings before the site tab closes: the popup rightly stops showing them once its tab is gone
+    const groups = (await popup.locator('details summary .name').allTextContents()).map((t) => t.trim());
+    const tech = (await popup.locator('.tech pre').textContent({ timeout: 300 }).catch(() => '')) ?? '';
     if (tech) console.log('  [technical details]\n' + tech.split('\n').map((l) => '    ' + l).join('\n'));
     await sitePage.close();
-    return { text, ms: Date.now() - started, popup };
+    return { text, ms: Date.now() - started, groups, popup };
   }
 
   // A ---------------------------------------------------------------------------------------------------------
@@ -110,7 +124,7 @@ try {
   check(/Analysed on this device/.test(a.text), 'it says the analysis happened on this device');
   const flaggedCount = Number(/(\d+) potentially unfair/.exec(a.text)?.[1] ?? 0);
   check(flaggedCount >= 5 && flaggedCount <= 9, 'about the seven planted clauses were flagged', `${flaggedCount} flagged of 11`);
-  const groups = (await a.popup.locator('details summary .name').allTextContents()).map((t) => t.trim());
+  const groups = a.groups;
   // Planted: termination, liability, arbitration, content removal, a change-of-terms clause (read as "contract by using" or
   // "unilateral change"), choice of law and jurisdiction. A small model may fold choice of law into jurisdiction, so the bar is "most".
   const planted = ['Unilateral termination', 'Limitation of liability', 'Mandatory arbitration', 'Content removal', 'Jurisdiction'];
