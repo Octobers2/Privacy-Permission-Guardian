@@ -6,7 +6,7 @@
  *
  *   - `eval/run-e2e.ts` and `eval/run-injection-eval.ts`, with the extension
  *     loaded, to check the built extension in a real browser;
- *   - `src/render.ts`, without it, to render a client-side-rendered policy page
+ *   - the server's former page renderer (removed in v2: the extension reads client-rendered pages itself)
  *     so the server can read text that only exists after the site's own
  *     JavaScript has run.
  *
@@ -51,7 +51,7 @@ export interface Tab {
   /**
    * The main document's HTTP response, or null if the navigation never got one.
    *
-   * `src/render.ts` needs it to tell "the policy page is a 404" apart from "the
+   * the former server-side renderer needed it to tell "the policy page is a 404" apart from "the
    * policy page rendered nothing", which are different sentences in the popup.
    */
   mainResponse: MainResponse | null;

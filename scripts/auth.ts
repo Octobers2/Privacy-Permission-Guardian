@@ -101,42 +101,42 @@ async function askHidden(question: string): Promise<string> {
 
 async function add(username: string): Promise<void> {
   if (!isValidUsername(username)) {
-    fail(`唔合法嘅 username「${username}」。只接受英文字母、數字同 . _ -，最多 64 個字。`);
+    fail(`Invalid username "${username}". Use only letters, digits and . _ - (64 characters at most).`);
   }
 
   const users = load();
-  if (users.has(username)) console.log(`「${username}」已經存在，會換成新密碼。`);
+  if (users.has(username)) console.log(`"${username}" already exists; the password will be replaced.`);
 
-  const password = await askHidden(`密碼（${username}）: `);
+  const password = await askHidden(`Password for ${username}: `);
   if (password.length < MIN_PASSWORD_LENGTH) {
-    fail(`密碼至少要 ${MIN_PASSWORD_LENGTH} 個字元。`);
+    fail(`The password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
   }
-  const again = await askHidden('再打一次: ');
-  if (password !== again) fail('兩次唔一樣。冇改到任何嘢。');
+  const again = await askHidden('Repeat the password: ');
+  if (password !== again) fail('The passwords differ. Nothing was changed.');
 
   users.set(username, await Bun.password.hash(password, { algorithm: 'bcrypt', cost: BCRYPT_COST }));
   save(users);
 
-  console.log(`✓ 「${username}」寫咗入 ${file}`);
-  console.log('  喺插件嘅設定頁（managed 模式）填返同一組帳號密碼就用得。');
+  console.log(`✓ Saved "${username}" to ${file}`);
+  console.log('  Enter the same username and password in the extension\'s settings to sign in and share results.');
 }
 
 function list(): void {
   const users = load();
   if (users.size === 0) {
-    console.log(`${file} 冇任何用戶。行 \`bun run auth add <username>\` 加一個。`);
+    console.log(`${file} has no users. Add one with \`bun run auth add <username>\`.`);
     return;
   }
   for (const [username, hash] of users) {
-    console.log(hash === EXAMPLE_HASH ? `${username}  (example line — 唔會登入得到)` : username);
+    console.log(hash === EXAMPLE_HASH ? `${username}  (example line — cannot sign in)` : username);
   }
 }
 
 function remove(username: string): void {
   const users = load();
-  if (!users.delete(username)) fail(`${file} 入面冇「${username}」。`);
+  if (!users.delete(username)) fail(`${file} has no user "${username}".`);
   save(users);
-  console.log(`✓ 刪咗「${username}」。已經發出嘅 token 要等 server 重啟先會失效。`);
+  console.log(`✓ Removed "${username}". Tokens already issued stay valid until the server restarts.`);
 }
 
 /* -------------------------------------------------------------------- main */
@@ -145,7 +145,7 @@ const [command, username] = process.argv.slice(2);
 
 switch (command) {
   case 'add':
-    if (!username) fail('用法：bun run auth add <username>');
+    if (!username) fail('Usage: bun run auth add <username>');
     await add(username);
     break;
   case 'list':
@@ -153,10 +153,10 @@ switch (command) {
     break;
   case 'remove':
   case 'rm':
-    if (!username) fail('用法：bun run auth remove <username>');
+    if (!username) fail('Usage: bun run auth remove <username>');
     remove(username);
     break;
   default:
-    console.log('用法：bun run auth <add|list|remove> [username]');
+    console.log('Usage: bun run auth <add|list|remove> [username]');
     process.exit(command ? 1 : 0);
 }

@@ -67,14 +67,14 @@ describe('buildFormPrompt', () => {
     const { user } = buildFormPrompt(request);
     expect(user).toContain('Credit card number');
     expect(user).toContain('type=text, required');
-    expect(user).toContain('冇任何用戶輸入嘅值');
+    expect(user).toContain('no value the user typed');
   });
 
   test('gives the model the rule findings so it can disagree with them', () => {
     const { system, user } = buildFormPrompt(request);
     expect(user).toContain('lookalike_domain');
-    expect(user).toContain('規則引擎分數：80');
-    expect(system).toContain('可以同意或者唔同意');
+    expect(user).toContain('Rule engine score: 80');
+    expect(system).toContain('You may agree or disagree');
   });
 
   test('wraps the page text as untrusted', () => {
@@ -83,7 +83,7 @@ describe('buildFormPrompt', () => {
 
   test('survives a page url it cannot parse', () => {
     const { user } = buildFormPrompt({ ...request, page: { ...request.page, url: 'not a url' } });
-    expect(user).toContain('路徑：not a url');
+    expect(user).toContain('Path: not a url');
   });
 });
 

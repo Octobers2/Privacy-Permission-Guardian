@@ -31,3 +31,13 @@ export function registrableLabel(hostname: string): string | null {
 export function isSameSite(a: string, b: string): boolean {
   return registrableDomain(a) === registrableDomain(b);
 }
+
+/**
+ * True for a hostname on the public internet: a registrable domain under an ICANN public suffix.
+ * `localhost`, bare intranet names (`wiki`), `*.local`/`*.internal` and IP literals are all false, so URLs from a
+ * private network can never reach a public database.
+ */
+export function isPublicHostname(hostname: string): boolean {
+  const parsed = parseHostname(hostname.replace(/^\[|\]$/g, ''));
+  return !parsed.isIp && parsed.isIcann === true && parsed.domain !== null;
+}

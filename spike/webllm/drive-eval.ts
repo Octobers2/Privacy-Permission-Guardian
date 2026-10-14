@@ -6,6 +6,8 @@ const rows = readFileSync(new URL('../../ml/data/test.jsonl', import.meta.url), 
 const b = await chromium.launchPersistentContext('/tmp/claude-1000/spike-profile', { executablePath: '/usr/bin/chromium', headless: true,
   args: ['--enable-unsafe-webgpu', '--enable-features=Vulkan,WebGPU', '--use-angle=vulkan', '--ignore-gpu-blocklist', '--no-sandbox'] })
 const p = b.pages()[0] ?? (await b.newPage())
+const MODELS_BASE = process.env.MODELS_BASE
+if (MODELS_BASE) await p.addInitScript((b) => { (window as any).__modelsBase = b }, MODELS_BASE)
 await p.addInitScript(() => { const o = navigator.gpu.requestAdapter.bind(navigator.gpu); navigator.gpu.requestAdapter = (opts: any = {}) => o({ powerPreference: 'high-performance', ...opts }) })
 p.on('console', (m) => { if (['error','warning'].includes(m.type())) console.log('[console.' + m.type() + ']', m.text().slice(0, 400)) })
 p.on('pageerror', (e) => console.log('[pageerror]', e.message.slice(0, 300)))

@@ -15,7 +15,8 @@
     "eval:injection": "bun run eval/run-injection-eval.ts",
     "e2e": "bun run --filter @ppg/extension build && bun run eval/run-e2e.ts",
     "fixtures": "bun run eval/serve-fixtures.ts",
-    "fixtures:check": "bun run eval/sanitize-fixture.ts --check eval/fixtures/phishing/*.html eval/fixtures/legit/*.html"
+    "fixtures:check": "bun run eval/sanitize-fixture.ts --check eval/fixtures/phishing/*.html eval/fixtures/legit/*.html",
+    "models:manifest": "bun run scripts/model-manifest.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",

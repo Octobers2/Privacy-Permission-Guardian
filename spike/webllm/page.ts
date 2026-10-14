@@ -74,14 +74,15 @@ const letterPrompt = (p: string) =>
 async function scoreSelfHosted(dir: string, wasm: string, texts: string[]) {
   const tap = new LetterTap()
   const id = 'self:' + dir
-  const appConfig = { model_list: [{ model: `${location.origin}/models/${dir}`, model_id: id, model_lib: `${location.origin}/models/${wasm}`, overrides: { context_window_size: 4096 } }] }
+  const base = (window as any).__modelsBase ?? location.origin
+  const appConfig = { model_list: [{ model: `${base}/models/${dir}`, model_id: id, model_lib: `${base}/models/${wasm}`, overrides: { context_window_size: 4096 } }] }
   let engine: webllm.MLCEngine
   try { engine = await webllm.CreateMLCEngine(id, { appConfig, logitProcessorRegistry: new Map([[id, tap]]), initProgressCallback: (r) => (window as any).__log.push(r.text.slice(0, 120)) }) }
   catch (e: any) {
     const a = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' })
     throw new Error(`engine failed: ${e?.name}: ${String(e?.message).slice(0, 160)} | cause=${e?.cause} | adapter=${a ? a.info.vendor : 'null'} maxBuf=${a?.limits.maxBufferSize} maxStor=${a?.limits.maxStorageBufferBindingSize} | log=${JSON.stringify((window as any).__log.slice(-6))}`)
   }
-  const tok = await (await fetch(`${location.origin}/models/${dir}/resolve/main/tokenizer.json`)).json()
+  const tok = await (await fetch(`${base}/models/${dir}/resolve/main/tokenizer.json`)).json()
   tap.ids = LETTERS.map((l) => tok.model.vocab['Ġ' + l])
   const out: number[][] = []
   const t0 = performance.now()
@@ -109,9 +110,10 @@ function piiPrompt(url: string, text: string) {
 }
 async function scorePrompts(dir: string, wasm: string, prompts: string[], nLetters: number) {
   const tap = new LetterTap(); const id = 'self:' + dir
-  const appConfig = { model_list: [{ model: `${location.origin}/models/${dir}`, model_id: id, model_lib: `${location.origin}/models/${wasm}`, overrides: { context_window_size: 4096 } }] }
+  const base = (window as any).__modelsBase ?? location.origin
+  const appConfig = { model_list: [{ model: `${base}/models/${dir}`, model_id: id, model_lib: `${base}/models/${wasm}`, overrides: { context_window_size: 4096 } }] }
   const engine = await webllm.CreateMLCEngine(id, { appConfig, logitProcessorRegistry: new Map([[id, tap]]) })
-  const tok = await (await fetch(`${location.origin}/models/${dir}/resolve/main/tokenizer.json`)).json()
+  const tok = await (await fetch(`${base}/models/${dir}/resolve/main/tokenizer.json`)).json()
   tap.ids = LETTERS.slice(0, nLetters).map((l) => tok.model.vocab['Ġ' + l])
   const out: number[][] = []; const t0 = performance.now()
   for (const p of prompts) { await engine.resetChat(); await engine.completions.create({ prompt: p, max_tokens: 1, temperature: 0 }); out.push(tap.last!) }
