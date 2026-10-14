@@ -6,7 +6,7 @@ dist/
 .DS_Store
 *.log
 eval/.cert/
-packages/server/data/
+/data/
 
 # Managed backend credentials — never commit the real one.
 auth.txt

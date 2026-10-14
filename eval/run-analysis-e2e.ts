@@ -28,7 +28,7 @@ const site = (host: string, path = '/') => `http://${host}:${SITE_PORT}${path}`;
 const headed = process.argv.includes('--headed');
 
 if (!existsSync(join(dist, 'manifest.json'))) throw new Error('Build the extension first: bun run build');
-if (!existsSync(join(root, 'packages/server/data/models/manifest.json'))) throw new Error('No model manifest: bun run models:manifest');
+if (!existsSync(join(root, 'data/models/manifest.json'))) throw new Error('No model manifest: bun run models:manifest');
 
 // ---- fake sites: the terms page of acme-demo.com can be switched between versions
 let acmeTerms = 'terms.html';

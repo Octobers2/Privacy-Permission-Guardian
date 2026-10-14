@@ -341,7 +341,7 @@ export function startPurgeJob(store: ResultStore, everyMs = 24 * HOUR): () => vo
 const config = envConfig();
 const store = new ResultStore({ file: Bun.env.PPG_DB_FILE });
 const auth = new AuthStore();
-const modelsDir = Bun.env.PPG_MODELS_DIR ?? new URL('../data/models', import.meta.url).pathname;
+const modelsDir = Bun.env.PPG_MODELS_DIR ?? new URL('../../../data/models', import.meta.url).pathname;
 const app = createApp({
   config,
   store,

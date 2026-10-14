@@ -8,7 +8,7 @@
  * contributor sign-in), and finish. Then reads the saved preferences back from the extension.
  *
  * Needs a GPU the browser can use, the built extension (packages/extension/dist) and model bundles in
- * packages/server/data/models (run `bun run models:manifest`).
+ * data/models (run `bun run models:manifest`).
  */
 import { chromium, type BrowserContext, type Page } from 'playwright-core';
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -23,7 +23,7 @@ const PORT = 8799;
 const SERVER = `http://localhost:${PORT}`;
 
 if (!existsSync(join(dist, 'manifest.json'))) throw new Error('Build the extension first: bun run build');
-if (!existsSync(join(root, 'packages/server/data/models/manifest.json'))) throw new Error('No model manifest: bun run models:manifest');
+if (!existsSync(join(root, 'data/models/manifest.json'))) throw new Error('No model manifest: bun run models:manifest');
 
 const tmp = mkdtempSync(join(tmpdir(), 'ppg-setup-e2e-'));
 writeFileSync(join(tmp, 'auth.txt'), `contributor:${await Bun.password.hash('correct-horse-battery', { algorithm: 'bcrypt', cost: 4 })}\n`);

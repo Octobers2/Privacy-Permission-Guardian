@@ -1,7 +1,7 @@
 /**
  * Writes <models dir>/manifest.json: the list of model bundles the setup screen offers.
  *
- *   bun run models:manifest [dir]          (default: $PPG_MODELS_DIR or packages/server/data/models)
+ *   bun run models:manifest [dir]          (default: $PPG_MODELS_DIR or data/models)
  *
  * A bundle is a directory containing `ppg-model.json` (written by ml/compress/write_meta.py) next to the MLC weight
  * files (`tensor-cache.json`, `params_shard_*.bin`, `mlc-chat-config.json`, tokenizer files). Its compiled kernel
@@ -14,7 +14,7 @@ import { createHash } from 'node:crypto';
 import { createReadStream, existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-const dir = resolve(process.argv[2] ?? Bun.env.PPG_MODELS_DIR ?? resolve(import.meta.dir, '../packages/server/data/models'));
+const dir = resolve(process.argv[2] ?? Bun.env.PPG_MODELS_DIR ?? resolve(import.meta.dir, '../data/models'));
 
 function sha256(path: string): Promise<string> {
   return new Promise((ok, fail) => {

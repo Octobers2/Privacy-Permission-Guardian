@@ -21,7 +21,7 @@ import {
   type ResultView,
 } from '@ppg/shared';
 
-export const DEFAULT_DB_FILE = resolve(import.meta.dir, '../data/ppg.sqlite');
+export const DEFAULT_DB_FILE = resolve(import.meta.dir, '../../../data/ppg.sqlite');
 
 export interface StoreOptions {
   file?: string;

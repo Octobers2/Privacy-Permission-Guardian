@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { existsSync, readFileSync } from 'node:fs';
 import { isUsable, ModelManifestSchema } from '../src/model-manifest.ts';
 
-const REAL = new URL('../../server/data/models/manifest.json', import.meta.url).pathname;
+const REAL = new URL('../../../data/models/manifest.json', import.meta.url).pathname;
 
 describe('ModelManifestSchema', () => {
   // The manifest is generated locally (the bundles are gigabytes and not in the repository), so this runs when present.
