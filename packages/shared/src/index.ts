@@ -8,3 +8,4 @@ export * from './score.ts';
 export * from './prompts.ts';
 export * from './openai-compat.ts';
 export * from './policy.ts';
+export * from './pii.ts';

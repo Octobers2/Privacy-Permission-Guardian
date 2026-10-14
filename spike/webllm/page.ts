@@ -94,3 +94,29 @@ async function scoreSelfHosted(dir: string, wasm: string, texts: string[]) {
   return { logits: out, seconds: (performance.now() - t0) / 1000 }
 }
 ;(window as any).scoreSelfHosted = scoreSelfHosted
+
+
+// ---- PII question (mirror of ml/prompt.py pii_prompt, version pii-v1): A = personal, B = public ----
+function piiPrompt(url: string, text: string) {
+  const u = new URL(url)
+  let path = u.pathname
+  try { path = decodeURIComponent(path) } catch { /* malformed escape: keep as is */ }
+  const where = `${u.host}${path}`                                         // never the query string; decoded like the Python side
+  const page = text.split(/\s+/).filter(Boolean).join(' ').slice(0, 1200)
+  return 'Decide whether this web page shows private information about the person using it ' +
+    '(their account, orders, messages, health, finances, contact or ID details) or is a public page.\n' +
+    `A) personal\nB) public\n\nPage address: ${where}\nPage text: ${page}\nAnswer:`
+}
+async function scorePrompts(dir: string, wasm: string, prompts: string[], nLetters: number) {
+  const tap = new LetterTap(); const id = 'self:' + dir
+  const appConfig = { model_list: [{ model: `${location.origin}/models/${dir}`, model_id: id, model_lib: `${location.origin}/models/${wasm}`, overrides: { context_window_size: 4096 } }] }
+  const engine = await webllm.CreateMLCEngine(id, { appConfig, logitProcessorRegistry: new Map([[id, tap]]) })
+  const tok = await (await fetch(`${location.origin}/models/${dir}/resolve/main/tokenizer.json`)).json()
+  tap.ids = LETTERS.slice(0, nLetters).map((l) => tok.model.vocab['Ġ' + l])
+  const out: number[][] = []; const t0 = performance.now()
+  for (const p of prompts) { await engine.resetChat(); await engine.completions.create({ prompt: p, max_tokens: 1, temperature: 0 }); out.push(tap.last!) }
+  await engine.unload()
+  return { logits: out, seconds: (performance.now() - t0) / 1000 }
+}
+;(window as any).scorePii = (dir: string, wasm: string, rows: { url: string; text: string }[]) => scorePrompts(dir, wasm, rows.map((r) => piiPrompt(r.url, r.text)), 2)
+;(window as any).piiPromptFor = (url: string, text: string) => piiPrompt(url, text)
