@@ -101,15 +101,15 @@ try {
       const st = await worker.evaluate(async (id) => (await chrome.storage.session.get('analysis:' + id))['analysis:' + id]?.state, tabId).catch(() => null);
       const label = st ? `${st.status}${st.stage ? ':' + st.stage : ''}` : 'none';
       if (label !== last) { last = label; timeline.push(`${((Date.now() - started) / 1000).toFixed(1)}s state=${label}`); }
-      const ui = await popup.evaluate(() => (document.querySelector('main')?.innerText ?? '').replace(/\s+/g, ' ').slice(22, 70)).catch(() => '');
+      const ui = await popup.evaluate(() => (document.querySelector('.app main')?.innerText ?? '').replace(/\s+/g, ' ').slice(22, 70)).catch(() => '');
       if (ui !== lastUi) { lastUi = ui; timeline.push(`${((Date.now() - started) / 1000).toFixed(1)}s ui="${ui}"`); }
     }, 300) : null;
-    await popup.getByText('Analyse the terms').click();
-    await popup.locator('.headline, .error, section:has-text("does not link"), section:has-text("Found")').first().waitFor({ timeout: 180_000 });
+    await popup.getByText('Read the terms', { exact: true }).click();
+    await popup.locator('section.ready h2, section.state h2').first().waitFor({ timeout: 180_000 });
     if (sampler) { clearInterval(sampler); console.log('  [timeline] ' + timeline.join('  ->  ')); }
     const text = (await popup.locator('main').innerText()).replace(/\s+/g, ' ');
     // read the findings before the site tab closes: the popup rightly stops showing them once its tab is gone
-    const groups = (await popup.locator('details summary .name').allTextContents()).map((t) => t.trim());
+    const groups = (await popup.locator('article.clause .kind').allTextContents()).map((t) => t.trim());
     const tech = (await popup.locator('.tech pre').textContent({ timeout: 300 }).catch(() => '')) ?? '';
     if (tech) console.log('  [technical details]\n' + tech.split('\n').map((l) => '    ' + l).join('\n'));
     await sitePage.close();
@@ -120,9 +120,9 @@ try {
   console.log('\n=== A. first analysis of acme-demo.com ===');
   const a = await analyse('acme-demo.com');
   console.log(`  ${(a.ms / 1000).toFixed(1)} s | ${a.text}`);
-  check(/potentially unfair clauses?/.test(a.text), 'a headline with the number of unfair clauses');
-  check(/Analysed on this device/.test(a.text), 'it says the analysis happened on this device');
-  const flaggedCount = Number(/(\d+) potentially unfair/.exec(a.text)?.[1] ?? 0);
+  check(/\d+ clauses? that may work against you/.test(a.text), 'a headline with the number of flagged clauses');
+  check(/read on this device/.test(a.text), 'it says the analysis happened on this device');
+  const flaggedCount = Number(/(\d+) clauses? that may/.exec(a.text)?.[1] ?? 0);
   check(flaggedCount >= 5 && flaggedCount <= 9, 'about the seven planted clauses were flagged', `${flaggedCount} flagged of 11`);
   const groups = a.groups;
   // Planted: termination, liability, arbitration, content removal, a change-of-terms clause (read as "contract by using" or
@@ -144,16 +144,16 @@ try {
   await wipeLocal();
   const b = await analyse('acme-demo.com');
   console.log(`  ${(b.ms / 1000).toFixed(1)} s | ${b.text.slice(0, 160)}`);
-  check(/From the public cache/.test(b.text), 'served from the public cache');
+  check(/from the public cache/.test(b.text), 'served from the public cache');
   check(b.ms < a.ms, 'faster than the first run', `${(b.ms / 1000).toFixed(1)} s vs ${(a.ms / 1000).toFixed(1)} s`);
-  check(Number(/(\d+) potentially unfair/.exec(b.text)?.[1]) === flaggedCount, 'the same clauses');
+  check(Number(/(\d+) clauses? that may/.exec(b.text)?.[1]) === flaggedCount, 'the same clauses');
 
   // C ---------------------------------------------------------------------------------------------------------
   console.log('\n=== C. the policy changed ===');
   acmeTerms = 'terms.v2.html';
   await wipeLocal();
   const c = await analyse('acme-demo.com');
-  check(/Analysed on this device/.test(c.text), 'changed text is read again, not served from the cache');
+  check(/read on this device/.test(c.text), 'changed text is read again, not served from the cache');
   const hist = await api('/api/v1/history?url=' + encodeURIComponent(site('acme-demo.com', '/terms')));
   check(hist.versions?.length === 2 && hist.versions[0].current && !hist.versions[1].current, 'both versions are kept, the newest is current', `${hist.versions?.length} versions`);
 

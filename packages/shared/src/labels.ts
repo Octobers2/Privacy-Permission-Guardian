@@ -59,3 +59,35 @@ export const CATEGORY_HINTS: Record<UnfairCategory, string> = {
 export function isUnfair(category: string): category is UnfairCategory {
   return (UNFAIR_CATEGORIES as readonly string[]).includes(category);
 }
+
+/**
+ * The eight clause types grouped by what they do to the reader. Four families are easier to take in at a glance than eight
+ * categories, and they carry the colours of the interface and the public site.
+ */
+export const FAMILIES = ['rights', 'liability', 'control', 'consent'] as const;
+export type Family = (typeof FAMILIES)[number];
+
+export const FAMILY_OF: Record<UnfairCategory, Family> = {
+  arbitration: 'rights',
+  jurisdiction: 'rights',
+  choice_of_law: 'rights',
+  limitation_of_liability: 'liability',
+  unilateral_change: 'control',
+  unilateral_termination: 'control',
+  content_removal: 'control',
+  contract_by_using: 'consent',
+};
+
+export const FAMILY_LABELS: Record<Family, string> = {
+  rights: 'Your rights',
+  liability: 'Liability',
+  control: 'Their control',
+  consent: 'Consent',
+};
+
+export const FAMILY_HINTS: Record<Family, string> = {
+  rights: 'Where and how you can take a dispute, and which law applies.',
+  liability: 'What the provider will not answer for.',
+  control: 'What the provider can change or end without your say.',
+  consent: 'How you are taken to have agreed.',
+};

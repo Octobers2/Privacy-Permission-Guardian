@@ -11,6 +11,7 @@
     "icons": "bun run scripts/gen-icons.ts"
   },
   "dependencies": {
+    "@fontsource-variable/source-serif-4": "^5.3.1",
     "@material/web": "^2.3.0",
     "@mlc-ai/web-llm": "^0.2.86",
     "@ppg/shared": "workspace:*",

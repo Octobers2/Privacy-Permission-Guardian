@@ -5,7 +5,8 @@
   import { onMount } from 'svelte';
   import { DEFAULT_PREFS, loadPrefs, onPrefsChanged, savePrefs, type Prefs } from '../prefs.ts';
   import { normaliseServer, signIn } from '../setup/api.ts';
-  import Section from './components/Section.svelte';
+  import Icon from './components/Icon.svelte';
+  import Mark from './components/Mark.svelte';
   import Switch from './components/Switch.svelte';
   import TextField from './components/TextField.svelte';
 
@@ -68,96 +69,184 @@
 </script>
 
 <main>
-  <h1 class="md-typescale-headline-medium">Settings</h1>
+  <header class="top">
+    <Mark size={34} />
+    <h1>Settings</h1>
+  </header>
 
   {#if loaded}
-    <Section title="On-device model" description="The model that reads terms of service on your computer.">
-      <p class="value">
-        {#if prefs.setupDone && prefs.modelId}Installed: <strong>{prefs.modelId}</strong>{:else}Not set up yet.{/if}
-      </p>
-      <div class="row"><md-outlined-button onclick={openSetup}>{prefs.setupDone ? 'Change model or run setup again' : 'Run setup'}</md-outlined-button></div>
-      <TextField label="Server address" bind:value={serverUrl} type="url" supportingText="Where models are downloaded from and results are looked up." />
-      <div class="row">
-        <md-filled-button onclick={saveServer}>Save address</md-filled-button>
-        {#if serverMessage}<span class="note">{serverMessage}</span>{/if}
+    <section class="setting">
+      <div class="what">
+        <h2>On-device model</h2>
+        <p>The model that reads terms of service on your computer.</p>
       </div>
-    </Section>
-
-    <Section title="Plain-language summaries" description="Optional. Off by default.">
-      <div class="radios" role="radiogroup" aria-label="Summary source">
-        {#each [{ id: 'off', label: 'Off', hint: 'Only the flagged clauses are shown.' }, { id: 'server', label: 'From the server', hint: 'The flagged clauses of public pages are sent to the server, which asks an AI model to explain them.' }, { id: 'byok', label: 'From my own endpoint', hint: 'The flagged clauses go straight to an OpenAI-compatible endpoint you provide, and nowhere else.' }] as option}
-          <label>
-            <input type="radio" name="summary" value={option.id} checked={prefs.summary === option.id} onchange={() => persist({ summary: option.id as Prefs['summary'] })} />
-            <span><strong>{option.label}</strong><br /><span class="note">{option.hint}</span></span>
-          </label>
-        {/each}
-      </div>
-      <p class="note">Pages that look like they show personal information are never summarised, whatever you choose.</p>
-      {#if prefs.summary === 'byok'}
-        <TextField label="Endpoint" bind:value={byok.baseUrl} type="url" supportingText="Base URL, e.g. https://api.openai.com/v1" />
-        <TextField label="API key" bind:value={byok.apiKey} type="password" supportingText="Stored in this browser only." />
-        <TextField label="Model" bind:value={byok.model} />
+      <div class="how">
+        <p class="value">
+          {#if prefs.setupDone && prefs.modelId}Installed: <strong>{prefs.modelId}</strong>{:else}Not set up yet.{/if}
+        </p>
+        <div class="row"><md-outlined-button onclick={openSetup}>{prefs.setupDone ? 'Change model or run setup again' : 'Run setup'}</md-outlined-button></div>
+        <TextField label="Server address" bind:value={serverUrl} type="url" supportingText="Where models are downloaded from and results are looked up." />
         <div class="row">
-          <md-filled-button onclick={saveByok}>Save</md-filled-button>
-          {#if byokSaved}<span class="note">Saved.</span>{/if}
+          <md-filled-button onclick={saveServer}>Save address</md-filled-button>
+          {#if serverMessage}<span class="note">{serverMessage}</span>{/if}
         </div>
-      {/if}
-    </Section>
+      </div>
+    </section>
 
-    <Section title="Contributor account" description="Optional. Lets you share what the model finds so other people can look it up.">
-      {#if prefs.account && !expired}
-        <p class="value">Signed in as <strong>{prefs.account.username}</strong>. Flagged clauses from public terms pages are shared automatically. Pages that look personal never are.</p>
-        <div class="row"><md-outlined-button onclick={() => persist({ account: null })}>Sign out</md-outlined-button></div>
-      {:else}
-        {#if expired}<p class="note">Your sign-in has expired. Sign in again to keep sharing.</p>{/if}
-        <TextField label="Username" bind:value={username} />
-        <TextField label="Password" bind:value={password} type="password" />
-        {#if accountMessage}<p class="error" role="alert">{accountMessage}</p>{/if}
-        <div class="row"><md-filled-button onclick={doSignIn} disabled={busy || !username || !password}>Sign in</md-filled-button></div>
-      {/if}
-    </Section>
-
-    <Section title="Form warnings" description="The warning shown on forms that look like phishing. This works offline and never uses the model.">
-      <Switch checked={prefs.paused} label="Pause warnings" description="No banners on any site until you turn this off." onchange={(paused) => persist({ paused })} />
-      <div>
-        <h3 class="md-typescale-title-small">Sites where warnings stay quiet</h3>
-        {#if prefs.allowlist.length === 0}
-          <p class="note">None. Use “Do not warn me on this site” on a warning banner to add one.</p>
-        {:else}
-          <ul class="allow">
-            {#each prefs.allowlist as domain (domain)}
-              <li>{domain} <md-text-button onclick={() => removeAllowed(domain)}>Remove</md-text-button></li>
-            {/each}
-          </ul>
+    <section class="setting">
+      <div class="what">
+        <h2>Plain-language summaries</h2>
+        <p>Optional, and off by default.</p>
+      </div>
+      <div class="how">
+        <div class="radios" role="radiogroup" aria-label="Summary source">
+          {#each [{ id: 'off', label: 'Off', hint: 'Only the flagged clauses are shown.' }, { id: 'server', label: 'From the server', hint: 'The flagged clauses of public pages are sent to the server, which asks an AI model to explain them.' }, { id: 'byok', label: 'From my own endpoint', hint: 'The flagged clauses go straight to an OpenAI-compatible endpoint you provide, and nowhere else.' }] as option}
+            <label class="radio" class:chosen={prefs.summary === option.id}>
+              <input type="radio" name="summary" value={option.id} checked={prefs.summary === option.id} onchange={() => persist({ summary: option.id as Prefs['summary'] })} />
+              <span><strong>{option.label}</strong><span class="hint">{option.hint}</span></span>
+            </label>
+          {/each}
+        </div>
+        <p class="note"><Icon name="lock" size={16} /> Pages that look like they show personal information are never summarised, whatever you choose.</p>
+        {#if prefs.summary === 'byok'}
+          <TextField label="Endpoint" bind:value={byok.baseUrl} type="url" supportingText="Base URL, e.g. https://api.openai.com/v1" />
+          <TextField label="API key" bind:value={byok.apiKey} type="password" supportingText="Stored in this browser only." />
+          <TextField label="Model" bind:value={byok.model} />
+          <div class="row">
+            <md-filled-button onclick={saveByok}>Save</md-filled-button>
+            {#if byokSaved}<span class="note">Saved.</span>{/if}
+          </div>
         {/if}
       </div>
-    </Section>
+    </section>
 
-    <Section title="What this extension sends, and what it does not">
-      <ul class="privacy">
-        <li><strong>Never sent:</strong> what you type into forms, your browsing history, or any page that shows personal information.</li>
-        <li><strong>Looked up:</strong> the address of a site’s terms page and a fingerprint of its text, to find a saved public result. This goes to the server above.</li>
-        <li><strong>Shared, only if you signed in:</strong> the flagged clauses of a public terms page, with the page address. Never the rest of the page.</li>
-        <li><strong>Sent for summaries, only if you chose a source above:</strong> the flagged clauses, and nothing else.</li>
-        <li><strong>On your computer:</strong> all reading and classifying. The model is downloaded once and kept in this browser.</li>
-      </ul>
-    </Section>
+    <section class="setting">
+      <div class="what">
+        <h2>Contributor account</h2>
+        <p>Optional. Share what the model finds so other people can look it up.</p>
+      </div>
+      <div class="how">
+        {#if prefs.account && !expired}
+          <p class="value">Signed in as <strong>{prefs.account.username}</strong>. Flagged clauses from public terms pages are shared automatically. Pages that look personal never are.</p>
+          <div class="row"><md-outlined-button onclick={() => persist({ account: null })}>Sign out</md-outlined-button></div>
+        {:else}
+          {#if expired}<p class="note">Your sign-in has expired. Sign in again to keep sharing.</p>{/if}
+          <TextField label="Username" bind:value={username} />
+          <TextField label="Password" bind:value={password} type="password" />
+          {#if accountMessage}<p class="error" role="alert">{accountMessage}</p>{/if}
+          <div class="row"><md-filled-button onclick={doSignIn} disabled={busy || !username || !password}>Sign in</md-filled-button></div>
+        {/if}
+      </div>
+    </section>
+
+    <section class="setting">
+      <div class="what">
+        <h2>Form warnings</h2>
+        <p>The warning shown on forms that look like phishing. It works offline and never uses the model.</p>
+      </div>
+      <div class="how">
+        <Switch checked={prefs.paused} label="Pause warnings" description="No banners on any site until you turn this off." onchange={(paused) => persist({ paused })} />
+        <div>
+          <h3>Sites where warnings stay quiet</h3>
+          {#if prefs.allowlist.length === 0}
+            <p class="note">None. Use “Do not warn me on this site” on a warning to add one.</p>
+          {:else}
+            <ul class="allow">
+              {#each prefs.allowlist as domain (domain)}
+                <li><span>{domain}</span><md-text-button onclick={() => removeAllowed(domain)}>Remove</md-text-button></li>
+              {/each}
+            </ul>
+          {/if}
+        </div>
+      </div>
+    </section>
+
+    <section class="privacy" aria-labelledby="privacy-h">
+      <h2 id="privacy-h">What leaves your computer</h2>
+      <div class="columns">
+        <div class="col stays">
+          <h3><Icon name="laptop" size={18} /> Never leaves it</h3>
+          <ul>
+            <li>All reading and classifying</li>
+            <li>What you type into forms</li>
+            <li>Your browsing history</li>
+            <li>Any page that shows personal information</li>
+          </ul>
+        </div>
+        <div class="col looked">
+          <h3><Icon name="info" size={18} /> Looked up</h3>
+          <ul>
+            <li>The address of a site’s terms page</li>
+            <li>A fingerprint of its text, to find a saved result</li>
+          </ul>
+          <p class="to">Goes to the server above.</p>
+        </div>
+        <div class="col shared">
+          <h3><Icon name="upload" size={18} /> Only if you opt in</h3>
+          <ul>
+            <li>Flagged clauses of public terms pages, with the page address, if you are signed in</li>
+            <li>The same clauses, for a summary, if you chose a summary source</li>
+          </ul>
+        </div>
+      </div>
+    </section>
   {/if}
 </main>
 
 <style>
   main {
-    max-width: 720px;
+    max-width: 860px;
     margin: 0 auto;
-    padding: 24px 16px 64px;
+    padding: 36px 24px 80px;
+  }
+  .top {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 8px;
+  }
+  h1 {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  h2 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  h3 {
+    margin: 0 0 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  p {
+    margin: 0;
+  }
+
+  /* a setting: its name on the left, its controls on the right, a rule between them */
+  .setting {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 16px 48px;
+    padding: 32px 0;
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  }
+  .what p {
+    margin-top: 6px;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+  .how {
     display: flex;
     flex-direction: column;
     gap: 16px;
-  }
-  h1,
-  h3,
-  p {
-    margin: 0;
+    max-width: 520px;
   }
   .row {
     display: flex;
@@ -166,8 +255,14 @@
     flex-wrap: wrap;
   }
   .note {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
     color: var(--md-sys-color-on-surface-variant);
     font-size: 0.875rem;
+  }
+  .note :global(svg) {
+    margin-top: 2px;
   }
   .value {
     font-size: 0.9375rem;
@@ -179,20 +274,33 @@
   .radios {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
   }
-  .radios label {
+  .radio {
     display: flex;
-    gap: 12px;
+    gap: 14px;
     align-items: flex-start;
+    padding: 14px 16px;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--ppg-radius-control);
     cursor: pointer;
   }
-  .radios input {
-    margin-top: 4px;
+  .radio.chosen {
+    border-color: var(--md-sys-color-primary);
+    background: var(--md-sys-color-surface-container-low);
+  }
+  .radio input {
+    margin-top: 3px;
     accent-color: var(--md-sys-color-primary);
   }
+  .radio .hint {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.8125rem;
+    color: var(--md-sys-color-on-surface-variant);
+  }
   .allow {
-    margin: 8px 0 0;
+    margin: 4px 0 0;
     padding: 0;
     list-style: none;
   }
@@ -200,13 +308,59 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    padding: 2px 0;
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
   }
+
+  /* what leaves the computer: three columns, because the difference between them is the point */
   .privacy {
+    padding-top: 36px;
+  }
+  .columns {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .col {
+    padding: 16px 18px 18px;
+    border-radius: var(--ppg-radius-surface);
+    background: var(--md-sys-color-surface-container-low);
+    border-top: 3px solid var(--rule);
+    font-size: 0.875rem;
+    line-height: 1.45;
+  }
+  .col h3 :global(svg) {
+    color: var(--rule);
+  }
+  .col ul {
     margin: 0;
-    padding-left: 20px;
+    padding-left: 18px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    font-size: 0.875rem;
+    gap: 6px;
+  }
+  /* the colour carries the meaning (kept / looked up / shared) and nothing else on the card is coloured */
+  .stays {
+    --rule: var(--md-sys-color-success);
+  }
+  .looked {
+    --rule: var(--md-sys-color-outline);
+  }
+  .shared {
+    --rule: var(--md-sys-color-warning);
+  }
+  .to {
+    margin-top: 10px;
+    font-size: 0.8125rem;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+  @media (max-width: 720px) {
+    .setting {
+      grid-template-columns: 1fr;
+    }
+    .columns {
+      grid-template-columns: 1fr;
+    }
   }
 </style>

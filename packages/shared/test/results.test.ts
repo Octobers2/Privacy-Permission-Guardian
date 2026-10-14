@@ -98,3 +98,12 @@ describe('summary', () => {
     expect(out.riskScore).toBe(25);
   });
 });
+
+import { CATEGORY_LABELS, FAMILIES, FAMILY_OF, UNFAIR_CATEGORIES } from '../src/labels.ts';
+describe('families', () => {
+  test('every unfair category belongs to exactly one family, and every family is used', () => {
+    for (const c of UNFAIR_CATEGORIES) expect(FAMILIES).toContain(FAMILY_OF[c]);
+    expect(new Set(UNFAIR_CATEGORIES.map((c) => FAMILY_OF[c]))).toEqual(new Set(FAMILIES));
+    expect(Object.keys(CATEGORY_LABELS)).toContain('other'); // labels still cover the benign class
+  });
+});

@@ -7,6 +7,9 @@
   import { checkDevice, formatBytes, hasRoomFor, recommend, type DeviceReport } from '../engine/device.ts';
   import { isDownloaded, PpgEngine } from '../engine/engine.ts';
   import { DEFAULT_SERVER, loadPrefs, savePrefs } from '../prefs.ts';
+  import DocumentStrip from '../ui/components/DocumentStrip.svelte';
+  import Icon from '../ui/components/Icon.svelte';
+  import Mark from '../ui/components/Mark.svelte';
   import Progress from '../ui/components/Progress.svelte';
   import Switch from '../ui/components/Switch.svelte';
   import TextField from '../ui/components/TextField.svelte';
@@ -188,301 +191,359 @@
     finishing = false;
   }
 
+  // Where the example clauses sit in the welcome strip: spread through a document, in clusters, like real terms.
+  const DEMO = [9, 22, 23, 41, 58, 59, 63, 80, 97, 104].map((index, i) => ({ index, category: (['arbitration', 'limitation_of_liability', 'unilateral_termination', 'contract_by_using', 'jurisdiction', 'unilateral_change', 'limitation_of_liability', 'content_removal', 'arbitration', 'choice_of_law'] as const)[i]! }));
+
   const allCorrect = $derived(testRows.length > 0 && testRows.every((r) => r.ok));
 </script>
 
-<main>
-  <header>
-    <p class="brand md-typescale-title-medium">Privacy &amp; Permission Guardian</p>
-    <ol class="steps" aria-label="Setup progress">
+<div class="shell">
+  <aside class="rail" aria-label="Setup progress">
+    <div class="brand"><Mark size={32} /><span>Terms check</span></div>
+    <ol class="steps">
       {#each STEPS as s, i}
         <li class:current={i === stepIndex} class:past={i < stepIndex} aria-current={i === stepIndex ? 'step' : undefined}>
-          <span class="dot" aria-hidden="true">{i < stepIndex ? '✓' : i + 1}</span>
+          <span class="dot" aria-hidden="true">{#if i < stepIndex}<Icon name="check" size={14} />{:else}{i + 1}{/if}</span>
           <span class="name">{s.label}</span>
         </li>
       {/each}
     </ol>
-  </header>
+    <p class="compact" aria-hidden="true">Step {stepIndex + 1} of {STEPS.length} · {STEPS[stepIndex]?.label}</p>
+  </aside>
 
-  <section class="card" aria-live="polite">
-    {#if step === 'welcome'}
-      <h1 bind:this={heading} tabindex="-1" class="md-typescale-headline-medium">Read the fine print, without reading it</h1>
-      <p>
-        This extension reads a website’s terms of service for you and points out clauses that tend to work against users, such as forced
-        arbitration or the right to close your account without notice. It also warns you about forms that look like phishing.
-      </p>
-      <ul class="promises">
-        <li><strong>It runs on your computer.</strong> A small AI model is downloaded once and does the reading locally.</li>
-        <li><strong>Your pages stay with you.</strong> Nothing you read is sent anywhere unless you choose to share it.</li>
-        <li><strong>Sharing is optional.</strong> If you opt in, only the flagged clauses of public policy pages are shared, never a page that shows personal data.</li>
-      </ul>
-      {#if alreadySetUp}
-        <p class="note">Setup was already completed on this browser. Continue to check the model again or choose a different one.</p>
-      {/if}
-      <div class="actions"><md-filled-button onclick={() => (step = 'device')}>Get started</md-filled-button></div>
-    {:else if step === 'device'}
-      <h1 bind:this={heading} tabindex="-1" class="md-typescale-headline-medium">Check this computer</h1>
-      <p>The model needs a graphics card that supports WebGPU. This takes a few seconds.</p>
-      <TextField label="Server address" bind:value={serverUrl} type="url" supportingText="Where the model is downloaded from." />
-
-      {#if checking}
-        <div class="working"><Progress value={null} label="Checking your computer" /><p>Checking…</p></div>
-      {/if}
-      {#if checkError}
-        <p class="error" role="alert">{checkError}</p>
-      {/if}
-
-      {#if device && !checking}
-        <dl class="facts">
-          <dt>Graphics</dt>
-          <dd class:bad={!device.webgpu || device.software}>
-            {device.webgpu ? (device.gpu ?? 'Detected') : 'Not available'}{device.software ? ' (software only)' : ''}
-          </dd>
-          <dt>Memory limit per buffer</dt>
-          <dd>{device.maxStorageBufferBindingSize ? formatBytes(device.maxStorageBufferBindingSize) : '–'}</dd>
-          <dt>Free browser storage</dt>
-          <dd>{device.storage ? formatBytes(device.storage.quota - device.storage.usage) : 'Unknown'}</dd>
-          <dt>Models offered</dt>
-          <dd>{models.length}</dd>
-        </dl>
-        {#each device.problems as problem}
-          <p class="error" role="alert">{problem}</p>
-        {/each}
-        {#if models.length === 0 && !device.problems.length}
-          <p class="error" role="alert">The server has no models for this version of the extension.</p>
-        {/if}
-      {/if}
-
-      <div class="actions">
-        <md-text-button onclick={() => (step = 'welcome')}>Back</md-text-button>
-        {#if device && !device.problems.length && models.length}
-          <md-outlined-button onclick={runCheck}>Check again</md-outlined-button>
-          <md-filled-button onclick={() => (step = 'model')}>Continue</md-filled-button>
-        {:else}
-          <md-filled-button onclick={runCheck} disabled={checking}>{device ? 'Check again' : 'Check my computer'}</md-filled-button>
-        {/if}
-      </div>
-    {:else if step === 'model'}
-      <h1 bind:this={heading} tabindex="-1" class="md-typescale-headline-medium">Choose a model</h1>
-      <p>You can change this later in the settings. The download happens once and is kept in your browser.</p>
-      <div class="models" role="radiogroup" aria-label="Model">
-        {#each models as m (m.id)}
-          <label class="model" class:chosen={selectedId === m.id}>
-            <input type="radio" name="model" value={m.id} bind:group={selectedId} />
-            <span class="body">
-              <span class="title md-typescale-title-medium">
-                {m.name}
-                {#if recommended?.id === m.id}<span class="badge">Recommended</span>{/if}
-              </span>
-              <span class="size">{formatBytes(m.sizeBytes)} download</span>
-              <span class="desc">
-                {m.tier === 'fast'
-                  ? 'Quick on most computers and accurate enough for everyday use.'
-                  : 'The most accurate option, with a bigger download. Best on a computer with a dedicated graphics card.'}
-              </span>
-              <span class="detail">
-                Clause-detection score {m.tasks.tos.testMacroF1?.toFixed(2) ?? '–'}
-                {#if m.tasks.pii}· personal-data check catches {Math.round((m.tasks.pii.testRecall ?? 0) * 100)}% of private pages{/if}
-              </span>
-            </span>
-          </label>
-        {/each}
-      </div>
-      {#if recommendation}<p class="note">{recommendation}</p>{/if}
-      {#if downloadError}<p class="error" role="alert">{downloadError}</p>{/if}
-      <div class="actions">
-        <md-text-button onclick={() => (step = 'device')}>Back</md-text-button>
-        <md-filled-button onclick={download} disabled={!selected}>
-          Download {selected ? formatBytes(selected.sizeBytes) : ''}
-        </md-filled-button>
-      </div>
-    {:else if step === 'download'}
-      <h1 bind:this={heading} tabindex="-1" class="md-typescale-headline-medium">Downloading {selected?.name ?? 'the model'}</h1>
-      {#if !downloadError}
-        <Progress value={progress.fraction > 0 ? progress.fraction : null} label="Download progress" />
-        <p class="progress-text">
-          {Math.round(progress.fraction * 100)}%
-          {#if selected}· {formatBytes(selected.sizeBytes * progress.fraction)} of {formatBytes(selected.sizeBytes)}{/if}
+  <main>
+    <section class="content" aria-live="polite">
+      {#if step === 'welcome'}
+        <div class="hero" aria-hidden="true"><DocumentStrip total={120} flagged={DEMO} reveal height={56} /></div>
+        <h1 bind:this={heading} tabindex="-1">Read the fine print, without reading it</h1>
+        <p class="lead">
+          This extension reads a site’s terms of service and points out the clauses that tend to work against you, such as forced arbitration or the right to close your
+          account without notice. It also warns you about forms that look like phishing.
         </p>
-        <p class="note">{progress.text}</p>
-        <p class="note">You can leave this tab open in the background. If the download is interrupted, files that finished are kept.</p>
-      {:else}
-        <p class="error" role="alert">{downloadError}</p>
+        <ul class="promises">
+          <li><Icon name="laptop" size={22} /><div><strong>It runs on your computer.</strong> A small model is downloaded once and does the reading locally.</div></li>
+          <li><Icon name="lock" size={22} /><div><strong>Your pages stay with you.</strong> Nothing you read is sent anywhere unless you choose to share it.</div></li>
+          <li><Icon name="upload" size={22} /><div><strong>Sharing is optional.</strong> If you opt in, only the flagged clauses of public terms pages are shared, never a page that shows personal data.</div></li>
+        </ul>
+        {#if alreadySetUp}<p class="note">Setup was already completed on this browser. Continue to check the model again or choose a different one.</p>{/if}
+        <div class="actions"><md-filled-button onclick={() => (step = 'device')}>Get started</md-filled-button></div>
+      {:else if step === 'device'}
+        <h1 bind:this={heading} tabindex="-1">Check this computer</h1>
+        <p class="lead">The model needs a graphics card that supports WebGPU. This takes a few seconds.</p>
+        <TextField label="Server address" bind:value={serverUrl} type="url" supportingText="Where the model is downloaded from." />
+
+        {#if checking}
+          <div class="working"><Progress value={null} label="Checking your computer" /><p class="note">Checking…</p></div>
+        {/if}
+        {#if checkError}<p class="error" role="alert"><Icon name="alert" size={18} />{checkError}</p>{/if}
+
+        {#if device && !checking}
+          <dl class="facts">
+            <dt>Graphics</dt>
+            <dd class:bad={!device.webgpu || device.software}>
+              <Icon name={device.webgpu && !device.software ? 'check' : 'alert'} size={16} />
+              {device.webgpu ? (device.gpu ?? 'Detected') : 'Not available'}{device.software ? ' (software only)' : ''}
+            </dd>
+            <dt>Memory limit per buffer</dt>
+            <dd>{device.maxStorageBufferBindingSize ? formatBytes(device.maxStorageBufferBindingSize) : '–'}</dd>
+            <dt>Free browser storage</dt>
+            <dd>{device.storage ? formatBytes(device.storage.quota - device.storage.usage) : 'Unknown'}</dd>
+            <dt>Models offered</dt>
+            <dd>{models.length}</dd>
+          </dl>
+          {#each device.problems as problem}<p class="error" role="alert"><Icon name="alert" size={18} />{problem}</p>{/each}
+          {#if models.length === 0 && !device.problems.length}
+            <p class="error" role="alert"><Icon name="alert" size={18} />The server has no models for this version of the extension.</p>
+          {/if}
+        {/if}
+
         <div class="actions">
-          <md-text-button onclick={() => (step = 'model')}>Back</md-text-button>
-          <md-filled-button onclick={download} disabled={downloading}>Try again</md-filled-button>
+          <md-text-button onclick={() => (step = 'welcome')}>Back</md-text-button>
+          {#if device && !device.problems.length && models.length}
+            <md-outlined-button onclick={runCheck}>Check again</md-outlined-button>
+            <md-filled-button onclick={() => (step = 'model')}>Continue</md-filled-button>
+          {:else}
+            <md-filled-button onclick={runCheck} disabled={checking}>{device ? 'Check again' : 'Check my computer'}</md-filled-button>
+          {/if}
         </div>
-      {/if}
-    {:else if step === 'test'}
-      <h1 bind:this={heading} tabindex="-1" class="md-typescale-headline-medium">Quick test</h1>
-      <p>Asking the model a few things it should know. This confirms it works on your graphics card.</p>
-      {#if testing && testRows.length === 0}<Progress value={null} label="Running the test" />{/if}
-      <table class="results">
-        <tbody>
-          {#each testRows as row}
-            <tr class:wrong={!row.ok}>
-              <td class="mark" aria-label={row.ok ? 'as expected' : 'different from expected'}>{row.ok ? '✓' : '•'}</td>
-              <td>{row.what}</td>
-              <td class="answer">{row.answer}</td>
-            </tr>
+      {:else if step === 'model'}
+        <h1 bind:this={heading} tabindex="-1">Choose a model</h1>
+        <p class="lead">You can change this later in the settings. The download happens once and is kept in your browser.</p>
+        <div class="models" role="radiogroup" aria-label="Model">
+          {#each models as m (m.id)}
+            <label class="model" class:chosen={selectedId === m.id}>
+              <input type="radio" name="model" value={m.id} bind:group={selectedId} />
+              <span class="body">
+                <span class="title">
+                  {m.name}
+                  {#if recommended?.id === m.id}<span class="badge">Recommended</span>{/if}
+                </span>
+                <span class="desc">
+                  {m.tier === 'fast'
+                    ? 'Quick on most computers and accurate enough for everyday use.'
+                    : 'The most accurate option, with a bigger download. Best with a dedicated graphics card.'}
+                </span>
+                <span class="stats">
+                  <span class="stat strong">{formatBytes(m.sizeBytes)} download</span>
+                  <span class="stat">Clause score {m.tasks.tos.testMacroF1?.toFixed(2) ?? '–'}</span>
+                  {#if m.tasks.pii}<span class="stat">Catches {Math.round((m.tasks.pii.testRecall ?? 0) * 100)}% of private pages</span>{/if}
+                </span>
+              </span>
+              <span class="tick" aria-hidden="true"><Icon name="check" size={18} /></span>
+            </label>
           {/each}
-        </tbody>
-      </table>
-      {#if testError}<p class="error" role="alert">Something went wrong: {testError}</p>{/if}
-      {#if !testing && testRows.length && !testError}
-        <p class="note">
-          {allCorrect ? 'Everything works as expected.' : 'The model works. Some answers differ from what we expected, which can happen with short samples.'}
-          Answered {testRows.length} questions in {testSeconds.toFixed(1)} s.
-        </p>
-      {/if}
-      <div class="actions">
-        {#if testError}<md-filled-button onclick={runTest}>Try again</md-filled-button>{/if}
-        <md-filled-button onclick={() => (step = 'options')} disabled={testing || !testRows.length}>Continue</md-filled-button>
-      </div>
-    {:else if step === 'options'}
-      <h1 bind:this={heading} tabindex="-1" class="md-typescale-headline-medium">Two optional extras</h1>
-
-      <h2 class="md-typescale-title-large">Plain-language summaries</h2>
-      <Switch
-        checked={summaryOn}
-        label="Explain flagged clauses in plain English"
-        description="When on, the flagged clauses of a public policy page (never the whole page, and never a page that shows personal data) are sent to the server, which asks an AI model to write a short explanation. Off by default; change it any time in the settings."
-        onchange={(value) => (summaryOn = value)}
-      />
-
-      <h2 class="md-typescale-title-large">Share what you find</h2>
-      {#if account}
-        <p class="note">Signed in as <strong>{account.username}</strong>. Results from public policy pages will be shared so others can look them up.</p>
-        <md-text-button onclick={() => (account = null)}>Sign out</md-text-button>
-      {:else}
-        <p>
-          If you have a contributor account, you can share what the model finds so other people can look it up without running a model.
-          Only flagged clauses from public policy pages are shared, with no personal data and no browsing history. Skip this if you do not have an account.
-        </p>
-        <TextField label="Username" bind:value={username} />
-        <TextField label="Password" bind:value={password} type="password" />
-        {#if signInError}<p class="error" role="alert">{signInError}</p>{/if}
-        <div class="actions left">
-          <md-outlined-button onclick={doSignIn} disabled={signInBusy || !username || !password}>Sign in</md-outlined-button>
         </div>
+        {#if recommendation}<p class="note">{recommendation}</p>{/if}
+        {#if downloadError}<p class="error" role="alert"><Icon name="alert" size={18} />{downloadError}</p>{/if}
+        <div class="actions">
+          <md-text-button onclick={() => (step = 'device')}>Back</md-text-button>
+          <md-filled-button onclick={download} disabled={!selected}>Download {selected ? formatBytes(selected.sizeBytes) : ''}</md-filled-button>
+        </div>
+      {:else if step === 'download'}
+        <h1 bind:this={heading} tabindex="-1">Downloading {selected?.name ?? 'the model'}</h1>
+        {#if !downloadError}
+          <Progress value={progress.fraction > 0 ? progress.fraction : null} label="Download progress" />
+          <p class="progress-text">
+            <strong>{Math.round(progress.fraction * 100)}%</strong>
+            {#if selected}<span>{formatBytes(selected.sizeBytes * progress.fraction)} of {formatBytes(selected.sizeBytes)}</span>{/if}
+          </p>
+          <p class="note">{progress.text}</p>
+          <p class="note">You can leave this tab open in the background. If the download is interrupted, files that finished are kept.</p>
+        {:else}
+          <p class="error" role="alert"><Icon name="alert" size={18} />{downloadError}</p>
+          <div class="actions">
+            <md-text-button onclick={() => (step = 'model')}>Back</md-text-button>
+            <md-filled-button onclick={download} disabled={downloading}>Try again</md-filled-button>
+          </div>
+        {/if}
+      {:else if step === 'test'}
+        <h1 bind:this={heading} tabindex="-1">Quick test</h1>
+        <p class="lead">Asking the model a few things it should know. This confirms it works on your graphics card.</p>
+        {#if testing && testRows.length === 0}<Progress value={null} label="Running the test" />{/if}
+        <table class="results">
+          <tbody>
+            {#each testRows as row}
+              <tr class:wrong={!row.ok}>
+                <td class="mark" aria-label={row.ok ? 'as expected' : 'different from expected'}>{row.ok ? '✓' : '•'}</td>
+                <td class="what">{row.what}</td>
+                <td class="answer">{row.answer}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+        {#if testError}<p class="error" role="alert"><Icon name="alert" size={18} />Something went wrong: {testError}</p>{/if}
+        {#if !testing && testRows.length && !testError}
+          <p class="note">
+            {allCorrect ? 'Everything works as expected.' : 'The model works. Some answers differ from what we expected, which can happen with short samples.'}
+            Answered {testRows.length} questions in {testSeconds.toFixed(1)} s.
+          </p>
+        {/if}
+        <div class="actions">
+          {#if testError}<md-filled-button onclick={runTest}>Try again</md-filled-button>{/if}
+          <md-filled-button onclick={() => (step = 'options')} disabled={testing || !testRows.length}>Continue</md-filled-button>
+        </div>
+      {:else if step === 'options'}
+        <h1 bind:this={heading} tabindex="-1">Two optional extras</h1>
+        <div class="panel">
+          <h2>Plain-language summaries</h2>
+          <Switch
+            checked={summaryOn}
+            label="Explain flagged clauses in plain English"
+            description="When on, the flagged clauses of a public terms page (never the whole page, and never a page that shows personal data) are sent to the server, which asks an AI model to write a short explanation. Off by default; change it any time in the settings."
+            onchange={(value) => (summaryOn = value)}
+          />
+        </div>
+        <div class="panel">
+          <h2>Share what you find</h2>
+          {#if account}
+            <p>Signed in as <strong>{account.username}</strong>. Results from public terms pages will be shared so others can look them up.</p>
+            <div class="actions left"><md-text-button onclick={() => (account = null)}>Sign out</md-text-button></div>
+          {:else}
+            <p>
+              If you have a contributor account, you can share what the model finds so other people can look it up without running a model. Only flagged clauses from public
+              terms pages are shared, with no personal data and no browsing history. Skip this if you do not have an account.
+            </p>
+            <TextField label="Username" bind:value={username} />
+            <TextField label="Password" bind:value={password} type="password" />
+            {#if signInError}<p class="error" role="alert"><Icon name="alert" size={18} />{signInError}</p>{/if}
+            <div class="actions left"><md-outlined-button onclick={doSignIn} disabled={signInBusy || !username || !password}>Sign in</md-outlined-button></div>
+          {/if}
+        </div>
+        <div class="actions">
+          <md-text-button onclick={() => (step = 'test')}>Back</md-text-button>
+          <md-filled-button onclick={finish} disabled={finishing}>Finish setup</md-filled-button>
+        </div>
+      {:else}
+        <div class="done-mark" aria-hidden="true"><Icon name="check" size={30} /></div>
+        <h1 bind:this={heading} tabindex="-1">You’re all set</h1>
+        <p class="lead">Browse as usual. When you open a site’s terms of service, open the toolbar icon and choose <strong>Read the terms</strong>. Pin the extension to keep it in view.</p>
+        <ul class="summary-list">
+          <li>Model: <strong>{selected?.name ?? 'installed'}</strong>, kept in this browser.</li>
+          <li>Summaries: <strong>{summaryOn ? 'on' : 'off'}</strong>. Sharing: <strong>{account ? `on, as ${account.username}` : 'off'}</strong>.</li>
+        </ul>
+        <p class="note">You can change all of this, switch models, or remove the download from the extension’s settings.</p>
+        <div class="actions"><md-filled-button onclick={() => window.close()}>Close this tab</md-filled-button></div>
       {/if}
-
-      <div class="actions">
-        <md-text-button onclick={() => (step = 'test')}>Back</md-text-button>
-        <md-filled-button onclick={finish} disabled={finishing}>Finish setup</md-filled-button>
-      </div>
-    {:else}
-      <h1 bind:this={heading} tabindex="-1" class="md-typescale-headline-medium">You’re all set</h1>
-      <p>
-        Browse as usual. When you open a site’s terms or privacy policy, the toolbar icon shows what was found. Pin the extension to keep it in view.
-      </p>
-      <ul class="promises">
-        <li>The model: <strong>{selected?.name ?? 'installed'}</strong>, kept in this browser.</li>
-        <li>Summaries: <strong>{summaryOn ? 'on' : 'off'}</strong>. Sharing: <strong>{account ? `on, as ${account.username}` : 'off'}</strong>.</li>
-      </ul>
-      <p class="note">You can change all of this, switch models, or remove the download from the extension’s settings.</p>
-      <div class="actions"><md-filled-button onclick={() => window.close()}>Close this tab</md-filled-button></div>
-    {/if}
-  </section>
-</main>
+    </section>
+  </main>
+</div>
 
 <style>
-  main {
-    max-width: 760px;
-    margin: 0 auto;
-    padding: 24px 16px 64px;
+  .shell {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+
+  /* ---- left rail: where you are in a sequence, so numbering is information here */
+  .rail {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
     box-sizing: border-box;
+    padding: 32px 28px;
+    background: var(--md-sys-color-surface-container-low);
+    border-right: 1px solid var(--md-sys-color-outline-variant);
+    display: flex;
+    flex-direction: column;
+    gap: 36px;
   }
   .brand {
-    margin: 0 0 16px;
-    color: var(--md-sys-color-primary);
-  }
-  .steps {
-    display: flex;
-    gap: 4px;
-    list-style: none;
-    margin: 0 0 24px;
-    padding: 0;
-    flex-wrap: wrap;
-  }
-  .steps li {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 4px 12px 4px 4px;
-    border-radius: 999px;
-    color: var(--md-sys-color-on-surface-variant);
-    font-size: 0.8125rem;
-  }
-  .steps li.current {
-    background: var(--md-sys-color-secondary-container);
-    color: var(--md-sys-color-on-secondary-container);
+    gap: 12px;
     font-weight: 600;
+    font-size: 1.0625rem;
+  }
+  .steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .steps li {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 9px 0;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: 0.875rem;
+  }
+  .steps li:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 12px;
+    top: 36px;
+    width: 1px;
+    height: 14px;
+    background: var(--md-sys-color-outline-variant);
   }
   .dot {
-    display: inline-grid;
+    flex: none;
+    display: grid;
     place-items: center;
-    width: 24px;
-    height: 24px;
+    width: 25px;
+    height: 25px;
     border-radius: 50%;
     border: 1px solid var(--md-sys-color-outline);
     font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    background: var(--md-sys-color-surface-container-low);
   }
   .past .dot {
     background: var(--md-sys-color-primary);
     border-color: var(--md-sys-color-primary);
     color: var(--md-sys-color-on-primary);
   }
+  .current {
+    color: var(--md-sys-color-on-surface);
+    font-weight: 600;
+  }
   .current .dot {
-    border-color: var(--md-sys-color-on-secondary-container);
+    border: 2px solid var(--md-sys-color-primary);
+    color: var(--md-sys-color-primary);
   }
-  @media (max-width: 640px) {
-    .steps li:not(.current) .name {
-      display: none;
-    }
+  .compact {
+    display: none;
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--md-sys-color-on-surface-variant);
   }
-  .card {
-    background: var(--md-sys-color-surface-container-low);
-    border-radius: 28px;
-    padding: 32px;
+
+  /* ---- content */
+  main {
+    padding: 56px 40px 80px;
+    display: flex;
+    justify-content: center;
+  }
+  .content {
+    width: 100%;
+    max-width: 580px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 20px;
   }
-  @media (max-width: 480px) {
-    .card {
-      padding: 20px;
-      border-radius: 20px;
-    }
-  }
-  h1,
-  h2,
-  p,
-  ul,
-  dl {
+  h1 {
     margin: 0;
+    font-size: 1.875rem;
+    font-weight: 600;
+    line-height: 1.18;
+    letter-spacing: -0.012em;
+    text-wrap: balance;
   }
   h1:focus {
     outline: none;
   }
   h2 {
-    margin-top: 8px;
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  p {
+    margin: 0;
+  }
+  .lead {
+    font-size: 1rem;
+    line-height: 1.55;
+    color: var(--md-sys-color-on-surface-variant);
+    max-width: 62ch;
+  }
+  .hero {
+    padding: 8px 0 12px;
   }
   .promises {
-    padding-left: 20px;
+    list-style: none;
+    margin: 4px 0 0;
+    padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 18px;
+  }
+  .promises li {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    line-height: 1.5;
+  }
+  .promises :global(svg) {
+    margin-top: 2px;
+    color: var(--md-sys-color-primary);
   }
   .note {
     color: var(--md-sys-color-on-surface-variant);
     font-size: 0.875rem;
   }
   .error {
-    color: var(--md-sys-color-error);
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    color: var(--md-sys-color-on-error-container);
     background: var(--md-sys-color-error-container);
     padding: 12px 16px;
-    border-radius: 12px;
+    border-radius: var(--ppg-radius-control);
     font-size: 0.875rem;
   }
   .actions {
@@ -494,6 +555,7 @@
   }
   .actions.left {
     justify-content: flex-start;
+    margin-top: 0;
   }
   .working {
     display: flex;
@@ -503,16 +565,30 @@
   .facts {
     display: grid;
     grid-template-columns: max-content 1fr;
-    gap: 8px 24px;
-    background: var(--md-sys-color-surface-container);
-    padding: 16px;
-    border-radius: 16px;
+    gap: 0;
+    margin: 0;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--ppg-radius-surface);
+    overflow: hidden;
+  }
+  .facts dt,
+  .facts dd {
+    margin: 0;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  }
+  .facts dt:nth-last-of-type(1),
+  .facts dd:last-of-type {
+    border-bottom: 0;
   }
   .facts dt {
     color: var(--md-sys-color-on-surface-variant);
+    padding-right: 32px;
   }
   .facts dd {
-    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
   .facts dd.bad {
     color: var(--md-sys-color-error);
@@ -523,50 +599,101 @@
     gap: 12px;
   }
   .model {
+    position: relative;
     display: flex;
     gap: 16px;
-    padding: 16px;
-    border-radius: 16px;
+    align-items: flex-start;
+    padding: 18px 20px;
+    border-radius: var(--ppg-radius-surface);
     border: 1px solid var(--md-sys-color-outline-variant);
     cursor: pointer;
     background: var(--md-sys-color-surface);
+    transition: border-color 140ms var(--ppg-ease), background-color 140ms var(--ppg-ease);
+  }
+  .model:hover {
+    border-color: var(--md-sys-color-outline);
   }
   .model.chosen {
-    border-color: var(--md-sys-color-primary);
-    background: var(--md-sys-color-primary-container);
-    color: var(--md-sys-color-on-primary-container);
+    border: 2px solid var(--md-sys-color-primary);
+    padding: 17px 19px;
+    background: var(--md-sys-color-surface-container-low);
   }
   .model:focus-within {
     outline: 2px solid var(--md-sys-color-primary);
     outline-offset: 2px;
   }
   .model input {
-    margin-top: 4px;
-    accent-color: var(--md-sys-color-primary);
+    position: absolute;
+    opacity: 0;
+    inset: 0;
+    cursor: pointer;
   }
   .model .body {
+    flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
+  }
+  .title {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
   .badge {
-    margin-left: 8px;
-    padding: 2px 8px;
-    border-radius: 8px;
-    background: var(--md-sys-color-tertiary-container);
-    color: var(--md-sys-color-on-tertiary-container);
+    padding: 2px 9px;
+    border-radius: 6px;
+    background: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
     font-size: 0.75rem;
     font-weight: 600;
   }
-  .size {
+  .desc {
+    color: var(--md-sys-color-on-surface-variant);
+  }
+  .stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    margin-top: 4px;
+  }
+  .stat {
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    font-size: 0.75rem;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+  .stat.strong {
+    color: var(--md-sys-color-on-surface);
     font-weight: 600;
   }
-  .detail {
-    font-size: 0.75rem;
-    opacity: 0.8;
+  .model .tick {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid var(--md-sys-color-outline);
+    color: transparent;
+  }
+  .model.chosen .tick {
+    background: var(--md-sys-color-primary);
+    border-color: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
   }
   .progress-text {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
     font-variant-numeric: tabular-nums;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+  .progress-text strong {
+    font-size: 1.5rem;
+    color: var(--md-sys-color-on-surface);
   }
   .results {
     width: 100%;
@@ -574,21 +701,75 @@
     font-size: 0.875rem;
   }
   .results td {
-    padding: 8px 8px 8px 0;
+    padding: 12px 12px 12px 0;
     border-bottom: 1px solid var(--md-sys-color-outline-variant);
     vertical-align: top;
   }
   .results .mark {
     width: 24px;
-    color: var(--md-sys-color-primary);
+    color: var(--md-sys-color-success);
     font-weight: 700;
   }
   .results .wrong .mark {
-    color: var(--md-sys-color-tertiary);
+    color: var(--md-sys-color-warning);
   }
   .results .answer {
     text-align: right;
     font-weight: 600;
     white-space: nowrap;
+  }
+  .panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 20px;
+    border-radius: var(--ppg-radius-surface);
+    background: var(--md-sys-color-surface-container-low);
+  }
+  .done-mark {
+    display: grid;
+    place-items: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--md-sys-color-success-container) 55%, var(--md-sys-color-surface));
+    color: var(--md-sys-color-success);
+  }
+  .summary-list {
+    margin: 0;
+    padding-left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  /* ---- narrow: the rail becomes a one-line progress header */
+  @media (max-width: 760px) {
+    .shell {
+      display: block;
+    }
+    .rail {
+      position: static;
+      height: auto;
+      border-right: 0;
+      border-bottom: 1px solid var(--md-sys-color-outline-variant);
+      padding: 16px 20px;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .steps {
+      display: none;
+    }
+    .compact {
+      display: block;
+    }
+    main {
+      padding: 28px 20px 56px;
+    }
+    h1 {
+      font-size: 1.5rem;
+    }
   }
 </style>

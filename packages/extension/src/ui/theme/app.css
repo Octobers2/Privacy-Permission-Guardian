@@ -25,3 +25,66 @@ body {
   background: var(--md-sys-color-surface);
   color: var(--md-sys-color-on-surface);
 }
+
+/* ------------------------------------------------------------------------- *
+ * Type: two voices, with a rule.
+ *   sans  = the extension speaking (interface, explanations, labels)
+ *   serif = the document speaking (any wording quoted from a terms page)
+ * ------------------------------------------------------------------------- */
+@font-face {
+  font-family: 'PPG Document';
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url('../../../node_modules/@fontsource-variable/source-serif-4/files/source-serif-4-latin-wght-normal.woff2') format('woff2-variations');
+}
+
+:root {
+  --ppg-sans: Roboto, system-ui, -apple-system, 'Segoe UI', 'Noto Sans', 'Noto Sans HK', 'PingFang HK', 'Microsoft JhengHei', sans-serif;
+  --ppg-serif: 'PPG Document', 'Source Serif 4', Georgia, 'Noto Serif', 'Noto Serif HK', 'Songti TC', serif;
+
+  /* Shape follows the hierarchy instead of one radius for everything: pages are large, controls are small, quotes are nearly square. */
+  --ppg-radius-quote: 4px;
+  --ppg-radius-control: 12px;
+  --ppg-radius-surface: 20px;
+  --ppg-radius-page: 28px;
+
+  --ppg-ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+body {
+  font-family: var(--ppg-sans);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ------------------------------------------------------------------------- *
+ * The four families of clause. A host element sets one of these classes and
+ * everything inside reads its colours from --fam*, so a clause, its chip and
+ * its tick in the document strip can never disagree.
+ * ------------------------------------------------------------------------- */
+.fam-rights { --fam: var(--md-sys-color-rights); --on-fam: var(--md-sys-color-on-rights); --fam-container: var(--md-sys-color-rights-container); --on-fam-container: var(--md-sys-color-on-rights-container); }
+.fam-liability { --fam: var(--md-sys-color-liability); --on-fam: var(--md-sys-color-on-liability); --fam-container: var(--md-sys-color-liability-container); --on-fam-container: var(--md-sys-color-on-liability-container); }
+.fam-control { --fam: var(--md-sys-color-control); --on-fam: var(--md-sys-color-on-control); --fam-container: var(--md-sys-color-control-container); --on-fam-container: var(--md-sys-color-on-control-container); }
+.fam-consent { --fam: var(--md-sys-color-consent); --on-fam: var(--md-sys-color-on-consent); --fam-container: var(--md-sys-color-consent-container); --on-fam-container: var(--md-sys-color-on-consent-container); }
+
+/* ------------------------------------------------------------------------- *
+ * Quality floor: visible keyboard focus, and no motion for people who ask for none.
+ * ------------------------------------------------------------------------- */
+:where(a, button, summary, input, [tabindex]):focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
