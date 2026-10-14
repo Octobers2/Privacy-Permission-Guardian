@@ -308,6 +308,8 @@ export function createApp(options: ServerOptions): Hono<{ Variables: Variables }
         return c.json(summary);
       } catch (error) {
         const { status, body } = failure(error);
+        // The client only gets a category; the operator needs the reason, and nothing else records it.
+        console.error(`[summary] ${status} ${body.error}: ${error instanceof Error ? error.message : String(error)} (model ${config.model} at ${config.baseUrl})`);
         return c.json(body, status);
       }
     },

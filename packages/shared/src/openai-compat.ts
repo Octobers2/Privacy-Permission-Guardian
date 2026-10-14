@@ -180,7 +180,10 @@ async function postChat(
     );
   }
 
-  const payload = (await response.json()) as {
+  // A base URL that points at a website instead of an API answers 200 with HTML; say that, not "something went wrong".
+  const payload = (await response.json().catch(() => {
+    throw new LlmError('invalid_response', 'the endpoint did not answer with JSON. Check that the base URL ends in the API path, such as /v1');
+  })) as {
     choices?: {
       finish_reason?: string;
       message?: { content?: string; reasoning_content?: string };

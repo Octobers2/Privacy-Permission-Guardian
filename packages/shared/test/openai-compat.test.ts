@@ -64,6 +64,13 @@ describe('extractJson', () => {
   });
 });
 
+describe('chatJson with a base URL that is not an API', () => {
+  test('an HTML answer is an invalid_response that says what to check', async () => {
+    const impl = (async () => new Response('<html>welcome</html>', { status: 200, headers: { 'content-type': 'text/html' } })) as unknown as typeof fetch;
+    await expect(chatJson(CONFIG, PROMPT, Schema, { fetchImpl: impl })).rejects.toMatchObject({ kind: 'invalid_response', message: expect.stringContaining('base URL') });
+  });
+});
+
 describe('chatJson', () => {
   test('joins the base url correctly whether or not it ends in a slash', async () => {
     for (const baseUrl of ['https://api.example.com/v1', 'https://api.example.com/v1/']) {
