@@ -18,23 +18,38 @@
   let family = $state<Family | null>(null);
   let picked = $state<number | null>(null);
 
+  /** Set when the background worker gave no usable answer, which is how a worker left over from an older version looks. */
+  let unresponsive = $state(false);
+
   async function ask<T>(message: object): Promise<T | null> {
     try {
-      return (await chrome.runtime.sendMessage(message)) as T;
+      const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 8_000));
+      return ((await Promise.race([chrome.runtime.sendMessage(message), timeout])) as T | undefined) ?? null;
     } catch {
       return null;
     }
   }
 
+  const NO_ANSWER: AnalysisState = {
+    status: 'error',
+    domain: '',
+    message: 'The extension did not answer. After an update, the browser can keep running the previous version until the extension is reloaded.',
+  };
+
   async function refresh() {
-    if (tabId !== null) view = await ask<AnalysisState>({ type: 'get-state', tabId });
+    if (tabId === null) return;
+    const answer = await ask<AnalysisState>({ type: 'get-state', tabId });
+    unresponsive = !answer;
+    view = answer ?? NO_ANSWER;
   }
 
   async function analyse() {
     if (tabId === null) return;
     family = null;
     view = { status: 'working', domain: '', stage: 'reading', done: 0, total: 0, flagged: [] };
-    view = (await ask<AnalysisState>({ type: 'analyse', tabId })) ?? { status: 'error', domain: '', message: 'The extension did not answer. Reload it and try again.' };
+    const answer = await ask<AnalysisState>({ type: 'analyse', tabId });
+    unresponsive = !answer;
+    view = answer ?? NO_ANSWER;
   }
 
   onMount(() => {
@@ -54,6 +69,7 @@
 
   const openSetup = () => chrome.tabs.create({ url: chrome.runtime.getURL('setup.html') });
   const openOptions = () => chrome.runtime.openOptionsPage();
+  const reloadExtension = () => chrome.runtime.reload();
 
   async function jumpTo(index: number) {
     family = null;
@@ -197,6 +213,8 @@
     {:else if view?.status === 'ready'}
       <md-text-button href={view.result.policyUrl} target="_blank">Open the terms</md-text-button>
       <md-filled-tonal-button onclick={analyse}>Read again</md-filled-tonal-button>
+    {:else if unresponsive}
+      <md-filled-button onclick={reloadExtension}>Reload extension</md-filled-button>
     {:else if view?.status === 'unavailable' || view?.status === 'error'}
       {#if view.domain}<md-filled-tonal-button onclick={analyse}>Try again</md-filled-tonal-button>{/if}
     {/if}
