@@ -67,7 +67,24 @@ it when it changes, so adding a user needs no restart.
 
 The server needs a `chromium` on `PATH` (`PPG_CHROMIUM` to point elsewhere).
 
+## Public query site
+
+The results server also serves a public website, so there is nothing else to run: `bun run server`, then open
+`http://localhost:8787/`.
+
+- `/` search by domain, sites ranked by flagged clauses or by share of the text, and recently read policies
+- `/site/<domain>` every document read for a site: the document strip, clauses by family, and earlier versions
+- `/docs` the read-only JSON API (`/api/v1/*`) the pages use, with examples you can run
+
+It is plain HTML, CSS and JavaScript in `packages/server/public/` with no build step. Every passage shown comes from a third-party
+page, so it is only ever inserted as text, and the pages are served with a policy that blocks inline script. The stylesheet's colours
+are generated with the extension's (`bun run theme` in `packages/extension`).
+
+`bun run demo` starts a throwaway server on an in-memory database filled with invented sites, to look at the pages without
+contributors; `bun run e2e:site` drives them in a real browser.
+
 ## Commands
+
 
 | | |
 |---|---|

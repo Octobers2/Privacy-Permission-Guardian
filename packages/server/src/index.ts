@@ -37,6 +37,7 @@ import {
 import { AuthStore } from './auth.ts';
 import { serveModelFile } from './models.ts';
 import { RateLimiter } from './ratelimit.ts';
+import { createSite } from './site.ts';
 import { ResultStore } from './store.ts';
 
 export interface ServerOptions {
@@ -104,6 +105,7 @@ function policyKey(raw: string | undefined): string | null {
 }
 
 export function createApp(options: ServerOptions): Hono<{ Variables: Variables }> {
+  const site = createSite();
   const { config, store, auth, modelsDir, fetchImpl, trustProxy = false, allowedOrigins = [] } = options;
   const chatOptions = fetchImpl ? { fetchImpl } : {};
   const clock = options.now ?? Date.now;
@@ -323,6 +325,10 @@ export function createApp(options: ServerOptions): Hono<{ Variables: Variables }
     }
   });
 
+  // ----------------------------------------------------------------- the public query site (last: everything above wins)
+
+  app.on(['GET', 'HEAD'], '*', async (c) => (await site.respond(c.req.raw)) ?? c.notFound());
+
   return app;
 }
 
@@ -358,7 +364,7 @@ if (import.meta.main) {
   startPurgeJob(store);
   const users = auth.count();
   const s = store.stats();
-  console.log(`backend on http://localhost:${port}`);
+  console.log(`backend on http://localhost:${port}  (query site at /, API docs at /docs)`);
   console.log(`  results   ${s.results} current (${s.urls} policies, ${s.domains} sites), kept 30 days`);
   console.log(`  models    ${modelsDir}`);
   console.log(`  summaries ${config.apiKey ? `${config.model} via ${config.baseUrl}` : 'DISABLED — set PPG_API_KEY (see .env.example)'}`);

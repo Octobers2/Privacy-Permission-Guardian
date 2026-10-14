@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>API · Terms check</title>
+  <meta name="description" content="The public read-only API behind Terms check: look up how a site's terms of service were classified.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/site.css">
+  <script type="module" src="/js/docs.js"></script>
+</head>
+<body>
+  <div class="page" id="top"></div>
+  <main class="page" id="main">
+    <section class="hero small">
+      <h1>The public API</h1>
+      <p class="lede">Everything on this site comes from a read-only JSON API. It needs no key, allows requests from any website, and returns results that are kept for 30 days.</p>
+    </section>
+    <section class="block" aria-labelledby="base-h">
+      <h2 id="base-h">Base address</h2>
+      <p>All paths below are relative to:</p>
+      <pre class="code" id="base"><code></code></pre>
+    </section>
+    <section class="block" aria-labelledby="ep-h">
+      <h2 id="ep-h">Endpoints</h2>
+      <div id="endpoints"></div>
+    </section>
+    <section class="block" aria-labelledby="shape-h">
+      <h2 id="shape-h">What a result contains</h2>
+      <dl class="fields" id="fields"></dl>
+    </section>
+    <section class="block" aria-labelledby="notes-h">
+      <h2 id="notes-h">Good to know</h2>
+      <ul class="plain">
+        <li>Results exist only for sites a contributor has read with the extension, and are removed 30 days after they were made.</li>
+        <li>Policies are stored per address. A site with a privacy page and a terms page has one result for each.</li>
+        <li>When a policy changes, the new result becomes current and the older ones stay available through the history endpoint until they expire.</li>
+        <li>Errors have the form <code>{"error": "not_found", "message": "…"}</code> with a matching HTTP status.</li>
+        <li>Quoted passages come from third-party websites. Treat them as untrusted text and never insert them into a page as HTML.</li>
+        <li>Adding results needs a contributor account and is done by the extension, not by this API.</li>
+      </ul>
+    </section>
+  </main>
+  <div class="page" id="bottom"></div>
+</body>
+</html>

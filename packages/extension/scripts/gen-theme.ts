@@ -38,6 +38,8 @@ const OUT_ROOT = resolve(import.meta.dir, '../src/ui/theme/md3-tokens.css');
  * The injected banner lives in a shadow root, where `:root` does not reach and
  * would leak into the host page anyway, so it gets its own `:host` copy.
  */
+// The public query site (served by the results server) shares the palette; it has no build step, so the stylesheet is generated straight into its folder.
+const OUT_SITE = resolve(import.meta.dir, '../../server/public/css/tokens.css');
 const OUT_HOST = resolve(import.meta.dir, '../src/content/md3-tokens-host.css');
 
 function arg(flag: string, fallback: string): string {
@@ -114,6 +116,8 @@ ${dark.map((l) => '  ' + l).join('\n')}
 
 writeFileSync(OUT_ROOT, sheet(':root'));
 writeFileSync(OUT_HOST, sheet(':host'));
+writeFileSync(OUT_SITE, sheet(':root'));
 console.log(`wrote ${OUT_ROOT}`);
 console.log(`wrote ${OUT_HOST}`);
+console.log(`wrote ${OUT_SITE}`);
 console.log(`  ${light.length} light tokens, ${dark.length} dark tokens, seed ${seed}`);
