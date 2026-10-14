@@ -12,3 +12,5 @@ export * from './pii.ts';
 export * from './labels.ts';
 export * from './results.ts';
 export * from './summary.ts';
+export * from './classifier-prompt.ts';
+export * from './model-manifest.ts';

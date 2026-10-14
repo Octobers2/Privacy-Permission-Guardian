@@ -6,10 +6,13 @@ ap.add_argument("bundle"); ap.add_argument("--id", required=True); ap.add_argume
 ap.add_argument("--lib", required=True); ap.add_argument("--quantization", default="q4f32_1"); ap.add_argument("--version", required=True)
 ap.add_argument("--tos-report", required=True); ap.add_argument("--pii-report"); ap.add_argument("--context", type=int, default=4096)
 a = ap.parse_args()
+# the nine option-letter tokens (" A" … " I"): the extension reads their logits, so it must not need the 20 MB tokenizer to find them
+vocab = json.load(open(pathlib.Path(a.bundle) / "tokenizer.json"))["model"]["vocab"]
+letter_ids = [vocab["\u0120" + L] for L in "ABCDEFGHI"]
 tos = json.load(open(a.tos_report)); pii = json.load(open(a.pii_report))["test"] if a.pii_report else None
 meta = {
     "id": a.id, "name": a.name, "tier": a.tier, "version": a.version, "quantization": a.quantization, "lib": a.lib,
-    "requiresShaderF16": "f16" in a.quantization.split("_")[0], "contextWindow": a.context,
+    "letterTokenIds": letter_ids, "requiresShaderF16": "f16" in a.quantization.split("_")[0], "contextWindow": a.context,
     "tasks": {
         "tos": {"promptVersion": "letters-v1", "temperature": round(tos["temperature"], 4), "testMacroF1": round(tos["T"]["macro_f1"], 3)},
         **({"pii": {"promptVersion": "pii-v1", "threshold": 0.5, "testPrecision": round(pii["precision"], 3), "testRecall": round(pii["recall"], 3)}} if pii else {}),

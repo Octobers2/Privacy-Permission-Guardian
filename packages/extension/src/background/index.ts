@@ -296,6 +296,10 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendRe
   }
 });
 
-chrome.runtime.onInstalled.addListener(() => void paintPausedBadge());
+chrome.runtime.onInstalled.addListener(({ reason }) => {
+  void paintPausedBadge();
+  // First install: the model has to be downloaded before anything works, so open the setup page straight away.
+  if (reason === 'install') void chrome.tabs.create({ url: chrome.runtime.getURL('setup.html') });
+});
 chrome.runtime.onStartup.addListener(() => void paintPausedBadge());
 onSettingsChanged(() => void paintPausedBadge());

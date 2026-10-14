@@ -31,9 +31,18 @@ def letter_prompt(passage: str) -> str:
 # ---- PII question: does this page show private information about the person using it? (2 options: A personal, B public) ----
 PII_PROMPT_VERSION = "pii-v1"
 
-def pii_prompt(url: str, text: str) -> str:
+def pii_page_address(url: str) -> str:
+    """host + decoded path, canonicalised exactly like the browser's URL object: lowercase host, default port dropped,
+    empty path = "/", never the query string or fragment (the TypeScript twin lives in packages/shared/src/classifier-prompt.ts)."""
     from urllib.parse import unquote, urlsplit
-    u = urlsplit(url); where = f"{u.netloc}{unquote(u.path)}"             # never the query string; paths are shown decoded (what a person reads)
+    u = urlsplit(url)
+    host = (u.hostname or "").lower()
+    if ":" in host: host = f"[{host}]"                                   # IPv6 literal
+    default = {"http": 80, "https": 443}.get(u.scheme)
+    if u.port and u.port != default: host += f":{u.port}"
+    return f"{host}{unquote(u.path) or '/'}"
+
+def pii_prompt(url: str, text: str) -> str:
     return ("Decide whether this web page shows private information about the person using it "
             "(their account, orders, messages, health, finances, contact or ID details) or is a public page.\n"
-            f"A) personal\nB) public\n\nPage address: {where}\nPage text: {' '.join(text.split())[:1200]}\nAnswer:")
+            f"A) personal\nB) public\n\nPage address: {pii_page_address(url)}\nPage text: {' '.join(text.split())[:1200]}\nAnswer:")
