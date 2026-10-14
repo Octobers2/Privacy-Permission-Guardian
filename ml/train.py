@@ -12,6 +12,8 @@ ap.add_argument("--name", required=True); ap.add_argument("--epochs", type=int, 
 ap.add_argument("--lr", type=float, default=5e-5); ap.add_argument("--micro", type=int, default=8)
 ap.add_argument("--accum", type=int, default=2); ap.add_argument("--weight_pow", type=float, default=0.5)
 ap.add_argument("--max_steps", type=int); ap.add_argument("--seed", type=int, default=0)
+ap.add_argument("--base", default=letter.BASE); ap.add_argument("--lora_r", type=int, help="fresh LoRA of this rank instead of continuing Kev's adapter")
+ap.add_argument("--teacher", help="data/<name>.train.logits.npy: distill from these logits"); ap.add_argument("--alpha", type=float, default=0.5, help="weight of the hard-label loss when distilling"); ap.add_argument("--kd_T", type=float, default=2.0)
 a = ap.parse_args()
 random.seed(a.seed); torch.manual_seed(a.seed)
 H = pathlib.Path(__file__).parent
@@ -26,7 +28,8 @@ cw = counts ** -a.weight_pow; cw = cw / (cw[ytr].mean())          # mean sample 
 cw_t = torch.tensor(cw, dtype=torch.float32).cuda()
 print("class weights:", {NAMES[i]: round(float(cw[i]), 2) for i in range(9)})
 
-m = letter.LetterModel(letter.KEV, trainable=True)
+m = letter.LetterModel(None, trainable=True, base=a.base, lora_r=a.lora_r) if a.lora_r else letter.LetterModel(letter.KEV, trainable=True, base=a.base)
+teacher = torch.tensor(np.load(H / "data" / f"{a.teacher}.train.logits.npy")).cuda() if a.teacher else None
 m.backbone.base_model.model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
 params = [p for p in m.backbone.parameters() if p.requires_grad]
 print(f"trainable params: {sum(p.numel() for p in params)/1e6:.1f}M (dtype {params[0].dtype})")
@@ -54,6 +57,9 @@ for ep in range(a.epochs):
                 lg = m.logits(ids, mask)
             y = torch.tensor(ytr[idx]).cuda()
             loss = torch.nn.functional.cross_entropy(lg, y, weight=cw_t, reduction="sum") / len(chunk)
+            if teacher is not None:   # alpha*hard + (1-alpha)*T^2*KL(teacher_T || student_T)
+                kl = torch.nn.functional.kl_div(torch.log_softmax(lg / a.kd_T, -1), torch.softmax(teacher[idx] / a.kd_T, -1), reduction="batchmean") * a.kd_T ** 2
+                loss = a.alpha * loss + (1 - a.alpha) * kl * len(idx) / len(chunk)
             loss.backward(); tot += loss.item()
         torch.nn.utils.clip_grad_norm_(params, 1.0); opt.step(); sched.step(); opt.zero_grad(set_to_none=True); step += 1
         if step % 10 == 0 or step == 1:

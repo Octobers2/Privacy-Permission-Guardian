@@ -26,3 +26,14 @@ PROMPT_VERSION = "letters-v1"
 def letter_prompt(passage: str) -> str:
     opts = "\n".join(f"{L}) {n.replace('_', ' ')}" for L, n in zip(LETTERS, NAMES))
     return f"Classify this terms-of-service passage.\n{opts}\n\nPassage: {passage.strip()}\nAnswer:"
+
+
+# ---- PII question: does this page show private information about the person using it? (2 options: A personal, B public) ----
+PII_PROMPT_VERSION = "pii-v1"
+
+def pii_prompt(url: str, text: str) -> str:
+    from urllib.parse import unquote, urlsplit
+    u = urlsplit(url); where = f"{u.netloc}{unquote(u.path)}"             # never the query string; paths are shown decoded (what a person reads)
+    return ("Decide whether this web page shows private information about the person using it "
+            "(their account, orders, messages, health, finances, contact or ID details) or is a public page.\n"
+            f"A) personal\nB) public\n\nPage address: {where}\nPage text: {' '.join(text.split())[:1200]}\nAnswer:")

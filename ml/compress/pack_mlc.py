@@ -72,10 +72,16 @@ def gsq_to_mlc(packed_i32: np.ndarray) -> np.ndarray:
 
 
 # ---------------------------------------------------------------- source weights
+def weight_map(d):
+    """tensor name -> safetensors file, for sharded checkpoints (index json) and single-file ones alike."""
+    idx = os.path.join(d, "model.safetensors.index.json")
+    if os.path.exists(idx): return json.load(open(idx))["weight_map"]
+    with safe_open(os.path.join(d, "model.safetensors"), "pt") as f: return {k: "model.safetensors" for k in f.keys()}
+
+
 class Source:
     def __init__(self, hf_dir, gsq_dir=None):
-        idx = json.load(open(os.path.join(hf_dir, "model.safetensors.index.json")))["weight_map"]
-        self.hf_dir, self.idx = hf_dir, idx
+        self.hf_dir, self.idx = hf_dir, weight_map(hf_dir)
         self.gsq = {}
         if gsq_dir:  # name (without .weight) -> (file, packed key, scale key)
             for f in sorted(glob.glob(os.path.join(gsq_dir, "*.safetensors"))):
