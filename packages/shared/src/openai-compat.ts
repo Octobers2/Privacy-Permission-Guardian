@@ -49,25 +49,22 @@ export class LlmError extends Error {
 }
 
 const HUMAN_MESSAGES: Record<LlmErrorKind, string> = {
-  auth: 'API key 唔啱或者冇權限（401/403）。檢查下設定入面嘅 key。',
-  credentials:
-    'Managed server 唔認得呢組帳號密碼。喺設定頁（managed 模式）填返 server 嗰邊用 ' +
-    '`bun run auth add` 開嘅帳號同密碼。',
-  rate_limit: '短時間內叫得太密（429）。等陣再試，或者調高敏感度門檻減少呼叫。',
-  model_not_found: '搵唔到呢個 model（404）。檢查下 model 名同 base URL 有冇填錯。',
-  timeout: '等太耐冇回應。可以喺進階設定調高 timeout。',
-  network:
-    '連唔到呢個 endpoint。檢查下 base URL；如果係本機 Ollama，記得設定 OLLAMA_ORIGINS=chrome-extension://*。',
-  server: 'Endpoint 內部錯誤。通常係對方嘅問題，等陣再試。',
+  auth: 'The API key is wrong or lacks permission (401/403). Check the key in the settings.',
+  credentials: 'The server did not accept this username and password.',
+  rate_limit: 'Too many requests in a short time (429). Wait a moment and try again.',
+  model_not_found: 'That model was not found (404). Check the model name and the base URL.',
+  timeout: 'The endpoint took too long to answer. Try again, or use a faster model.',
+  network: 'Could not reach the endpoint. Check the base URL; for a local Ollama, set OLLAMA_ORIGINS=chrome-extension://*.',
+  server: 'The endpoint reported an internal error. This is usually temporary; try again shortly.',
   token_limit:
-    '模型未答完就用晒 token 額度。如果你用緊推理模型（Qwen3、DeepSeek-R1 之類），' +
-    '思考過程會食走大部分額度 —— 喺進階設定將 max tokens 調高（推理模型建議 4000 以上）。',
-  invalid_response: '模型回覆嘅唔係有效 JSON。',
+    'The model used up its whole token allowance before answering. Reasoning models (Qwen3, DeepSeek-R1 and similar) spend most of it thinking: ' +
+    'use a model without extended thinking, or raise its max tokens (4000 or more).',
+  invalid_response: 'The model did not reply with valid JSON.',
 };
 
 export function humanMessageFor(error: unknown): string {
   if (error instanceof LlmError) return HUMAN_MESSAGES[error.kind];
-  return '出咗個預期之外嘅錯誤。';
+  return 'An unexpected error occurred.';
 }
 
 function errorKindForStatus(status: number): LlmErrorKind {
@@ -276,7 +273,7 @@ export async function chatJson<T>(
       lastProblem = error instanceof Error ? error.message : String(error);
       messages.push(
         { role: 'assistant', content: content.slice(0, 500) },
-        { role: 'user', content: `你上一次嘅回覆唔係有效 JSON（${lastProblem}）。淨係輸出 JSON 物件，唔好加任何其他文字。` },
+        { role: 'user', content: `Your last reply was not valid JSON (${lastProblem}). Output only the JSON object, with no other text.` },
       );
       continue;
     }
@@ -290,59 +287,9 @@ export async function chatJson<T>(
       .join('; ');
     messages.push(
       { role: 'assistant', content: content.slice(0, 500) },
-      { role: 'user', content: `你上一次嘅回覆唔符合要求嘅格式：${lastProblem}。請重新輸出，只要 JSON 物件。` },
+      { role: 'user', content: `Your last reply did not match the required format: ${lastProblem}. Output the JSON object again, with nothing else.` },
     );
   }
 
   throw new LlmError('invalid_response', `schema still unsatisfied after a retry: ${lastProblem}`);
-}
-
-export interface ConnectionCheck {
-  ok: boolean;
-  model?: string;
-  latencyMs: number;
-  message: string;
-}
-
-/**
- * The "test connection" button.
- *
- * Sends a real completion rather than hitting `/models`: some gateways expose
- * `/models` without a key, so a green tick there would say nothing about
- * whether the key works, the model name is real, or the model can actually
- * produce JSON within the configured token budget.
- */
-export async function testConnection(
-  config: EndpointConfig,
-  options: ChatOptions = {},
-  now: () => number = () => performance.now(),
-): Promise<ConnectionCheck> {
-  const started = now();
-  try {
-    // Deliberately the configured budget rather than a token or two. A tiny cap
-    // would pass for a plain model and fail for a reasoning one, which is the
-    // opposite of what a connection test is for: it should fail here, with an
-    // actionable message, rather than during the first real summary.
-    const { content } = await postChat(
-      { ...config, temperature: 0 },
-      [
-        { role: 'system', content: 'Reply with the JSON object {"ok":true} and nothing else.' },
-        { role: 'user', content: 'ping' },
-      ],
-      options,
-    );
-    extractJson(content);
-    return {
-      ok: true,
-      model: config.model,
-      latencyMs: Math.round(now() - started),
-      message: `連線正常（${config.model}）`,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      latencyMs: Math.round(now() - started),
-      message: humanMessageFor(error),
-    };
-  }
 }

@@ -10,11 +10,12 @@ from calibrate import fit_temperature, softmax, apply_other_bias
 import letter
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--adapter", default="kev"); ap.add_argument("--name", required=True); ap.add_argument("--base", default=letter.BASE, help="HF dir/id of the backbone (use with --adapter none for merged/quantized checkpoints)")
+ap.add_argument("--adapter", default="kev"); ap.add_argument("--name", required=True); ap.add_argument("--test-file", default="test", help="data/<name>.jsonl to score instead of the benchmark test set (same labels)")
+ap.add_argument("--base", default=letter.BASE, help="HF dir/id of the backbone (use with --adapter none for merged/quantized checkpoints)")
 a = ap.parse_args()
 H = pathlib.Path(__file__).parent
 load = lambda n: [json.loads(l) for l in (H / "data" / f"{n}.jsonl").open()]
-val, test = load("val"), load("test")
+val, test = load("val"), load(a.test_file)
 yv = np.array([NAMES.index(r["label_name"]) for r in val]); yt = np.array([NAMES.index(r["label_name"]) for r in test])
 
 m = letter.LetterModel(None if a.adapter == "none" else letter.KEV if a.adapter == "kev" else a.adapter, base=a.base)

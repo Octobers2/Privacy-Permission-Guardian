@@ -14,3 +14,4 @@ export * from './results.ts';
 export * from './summary.ts';
 export * from './classifier-prompt.ts';
 export * from './model-manifest.ts';
+export * from './classifier-text.ts';

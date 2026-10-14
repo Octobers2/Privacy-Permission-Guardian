@@ -157,21 +157,21 @@ export function showBanner(content: BannerContent, handlers: BannerHandlers): HT
     content.reasons.length ? reasons : null,
   ]);
 
-  const details = el('button', { type: 'button', textContent: '詳情' });
+  const details = el('button', { type: 'button', textContent: 'Details' });
   details.setAttribute('aria-expanded', 'false');
   details.addEventListener('click', () => {
     reasons.hidden = !reasons.hidden;
     details.setAttribute('aria-expanded', String(!reasons.hidden));
-    details.textContent = reasons.hidden ? '詳情' : '收起';
+    details.textContent = reasons.hidden ? 'Details' : 'Hide';
   });
 
-  const dismiss = el('button', { type: 'button', textContent: '暫時關閉' });
+  const dismiss = el('button', { type: 'button', textContent: 'Dismiss for now' });
   dismiss.addEventListener('click', () => {
     removeBanner();
     handlers.onDismiss();
   });
 
-  const never = el('button', { type: 'button', textContent: '呢個網站唔再提示' });
+  const never = el('button', { type: 'button', textContent: 'Do not warn me on this site' });
   never.addEventListener('click', () => {
     removeBanner();
     handlers.onNeverOnThisSite();

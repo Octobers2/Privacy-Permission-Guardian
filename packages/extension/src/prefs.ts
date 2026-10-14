@@ -6,7 +6,9 @@
  */
 import { z } from 'zod';
 
-export const PREFS_KEY = 'ppg-prefs';
+import { PREFS_STORAGE_KEY } from './messages.ts';
+
+export const PREFS_KEY = PREFS_STORAGE_KEY;
 
 /** Where the backend lives. Set at build time with VITE_PPG_SERVER; the user can change it on the setup/options page. */
 export const DEFAULT_SERVER: string = (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_PPG_SERVER ?? 'http://localhost:8787';

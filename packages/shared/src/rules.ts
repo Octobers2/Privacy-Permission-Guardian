@@ -104,11 +104,11 @@ export interface ScoreOptions {
 function lookalikeDetail(match: LookalikeMatch): string {
   switch (match.kind) {
     case 'homoglyph':
-      return `網域「${match.matched}」睇落似 ${match.brand.name}（${match.brand.domain}），但唔係同一個網站`;
+      return `The domain "${match.matched}" looks like ${match.brand.name} (${match.brand.domain}) but is a different site`;
     case 'typo':
-      return `網域「${match.matched}」同 ${match.brand.name}（${match.brand.domain}）只差 ${match.distance} 個字母`;
+      return `The domain "${match.matched}" is only ${match.distance} letter${match.distance === 1 ? '' : 's'} away from ${match.brand.name} (${match.brand.domain})`;
     case 'impersonation':
-      return `網域用咗 ${match.brand.name} 個名，但實際註冊域唔屬於 ${match.brand.domain}`;
+      return `The domain uses the name ${match.brand.name}, but is not registered to ${match.brand.domain}`;
   }
 }
 
@@ -141,27 +141,27 @@ export function scoreForm(observation: FormObservation, options: ScoreOptions = 
     hits.push({
       id: 'password_over_http',
       points: 30,
-      detail: '呢一頁要你打密碼，但連線冇加密（http），密碼會以明文傳送',
+      detail: 'This page asks for a password over an unencrypted connection (http), so it would be sent as plain text',
     });
   }
 
   if (has('credit_card') || has('card_cvv')) {
-    hits.push({ id: 'credit_card_fields', points: 25, detail: '表單要求信用卡資料' });
+    hits.push({ id: 'credit_card_fields', points: 25, detail: 'The form asks for credit card details' });
   }
 
   if (has('national_id')) {
-    hits.push({ id: 'national_id_field', points: 25, detail: '表單要求身份證明文件號碼' });
+    hits.push({ id: 'national_id_field', points: 25, detail: 'The form asks for an identity document number' });
   }
 
   if (has('bank_account')) {
-    hits.push({ id: 'bank_account_field', points: 25, detail: '表單要求銀行帳戶資料' });
+    hits.push({ id: 'bank_account_field', points: 25, detail: 'The form asks for bank account details' });
   }
 
   if (form.actionOrigin) {
     hits.push({
       id: 'cross_origin_action',
       points: 20,
-      detail: `表單會將資料送去另一個網域：${form.actionOrigin}`,
+      detail: `The form sends its data to a different domain: ${form.actionOrigin}`,
     });
   }
 
@@ -169,7 +169,7 @@ export function scoreForm(observation: FormObservation, options: ScoreOptions = 
     hits.push({
       id: 'identity_triplet',
       points: 15,
-      detail: '姓名、出生日期同地址一齊收集，已經足夠冒充你嘅身份',
+      detail: 'Name, date of birth and address are collected together, which is enough to impersonate you',
     });
   }
 
@@ -177,7 +177,7 @@ export function scoreForm(observation: FormObservation, options: ScoreOptions = 
     hits.push({
       id: 'many_personal_fields',
       points: 10,
-      detail: `表單一次過要 ${personalCount} 項個人資料`,
+      detail: `The form asks for ${personalCount} pieces of personal information at once`,
     });
   }
 
@@ -186,7 +186,7 @@ export function scoreForm(observation: FormObservation, options: ScoreOptions = 
     hits.push({
       id: 'suspicious_tld_login',
       points: 10,
-      detail: `.${tld} 網域註冊幾乎冇審查，而呢一頁要你登入`,
+      detail: `.${tld} domains are registered with almost no checks, and this page asks you to sign in`,
     });
   }
 
@@ -202,7 +202,7 @@ export function scoreForm(observation: FormObservation, options: ScoreOptions = 
     hits.push({
       id: 'known_brand_domain',
       points: 0,
-      detail: '呢個係該機構嘅正式網域，所以只作提示，唔當可疑',
+      detail: 'This is the organisation\'s real domain, so this is only a note and not treated as suspicious',
     });
   }
 

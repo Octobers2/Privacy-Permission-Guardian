@@ -28,3 +28,10 @@ Run: `bun install && bun run serve.ts &` then `bun run drive.ts <model-id>` (hea
 - The same engine answers the PII question (2 letters, A = personal, B = public) with prompt `pii-v1` (`ml/prompt.py` ↔ `piiPrompt` in `page.ts`; byte-identical on 300/300 test pages).
 - URL paths are shown **decoded** in the prompt: `URL.pathname` percent-encodes non-ASCII, Python does not, and the mismatch changed the prompt for CJK URLs until both sides decoded.
 - Real-wasm vs PyTorch on 200 PII pages: decision agreement 100% (both tiers), max |ΔP| 0.02 (0.8B) / 0.06 (4B). Speed: ~150 ms (0.8B) / ~710 ms (4B) per page (prompts are ~350 tokens).
+
+## Caution about GPU results after 2026-10-14 ~16:00
+The machine's NVIDIA userspace packages were upgraded to 615.78.08 while the loaded kernel module stayed 615.71.09 (`nvidia-smi`
+reports "Driver/library version mismatch"). Since then WebGPU on the discrete GPU is unreliable: prompts of roughly 150+ tokens lose the
+device (`mapAsync … [Device] is lost` / `Buffer was unmapped`), and in the extension the personal-data question returned wrong answers that
+PyTorch (CUDA, unaffected) does not give. Results gathered before the upgrade (parity runs, the setup wizard test) are unaffected. After a
+reboot, re-run `eval/run-analysis-e2e.ts` and `eval/run-setup-e2e.ts`; the lost-device recovery in `src/analysis/analyzer.ts` is covered by unit tests.

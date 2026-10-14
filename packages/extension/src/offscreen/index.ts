@@ -19,9 +19,10 @@
  * sandboxed iframe *without* `allow-scripts`, so nothing in it executes, but the
  * stylesheets do load and `getComputedStyle` answers truthfully.
  */
-import { extractVisibleText, pickMainContent } from '@ppg/shared/sanitize';
+import { extractVisibleText, MAX_DOCUMENT_CHARS, pickMainContent } from '@ppg/shared/sanitize';
+import type { ExtensionMessage } from '../messages.ts';
+import { startAnalysis } from './analysis-host.ts';
 
-const MAX_POLICY_CHARS = 24_000;
 const RENDER_TIMEOUT_MS = 8_000;
 
 export interface RenderedPolicy {
@@ -95,7 +96,7 @@ async function renderAndExtract(
     if (!doc) return { text: '', truncated: false, scriptCount: 0 };
     // Counted before the sanitiser removes them.
     const scriptCount = doc.querySelectorAll('script').length;
-    const { text, truncated } = extractVisibleText(pickMainContent(doc), MAX_POLICY_CHARS, (element) => {
+    const { text, truncated } = extractVisibleText(pickMainContent(doc), MAX_DOCUMENT_CHARS, (element) => {
       try {
         return frame.contentWindow?.getComputedStyle(element) ?? null;
       } catch {
@@ -159,8 +160,15 @@ export async function readFirstPolicy(urls: string[]): Promise<PolicyReadResult>
   return { policy: null, failures };
 }
 
-chrome.runtime.onMessage.addListener((message: { type?: string; urls?: string[] }, _sender, sendResponse) => {
-  if (message?.type !== 'read-policy') return false;
-  void readFirstPolicy(message.urls ?? []).then(sendResponse);
-  return true;
+chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendResponse) => {
+  if (message?.type === 'read-policy') {
+    void readFirstPolicy(message.urls ?? []).then(sendResponse);
+    return true;
+  }
+  if (message?.type === 'analyse-text') {
+    startAnalysis(message.job);
+    sendResponse({ started: true });
+    return false;
+  }
+  return false;
 });

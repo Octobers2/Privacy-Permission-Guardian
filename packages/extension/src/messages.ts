@@ -1,18 +1,22 @@
 /**
- * The message protocol between the content script, the service worker and the
- * extension pages.
+ * The message protocol between the content script, the service worker, the offscreen document and the extension pages.
  *
- * Scoring and model calls deliberately happen in the worker, not in the page.
- * The rule engine pulls in the public suffix list and zod, which together weigh
- * about 330 kB — acceptable once per browser session in the worker,
- * indefensible on every page the user visits. The content script is left with
- * DOM work, which is a few kilobytes.
+ * Who does what, and why:
+ *  - the content script does DOM work only (finding terms links, reading the live page, the form scan): the code that
+ *    runs on every page the user visits stays small;
+ *  - the service worker has the tabs API, so it finds and reads the document, then hands the text over;
+ *  - the offscreen document stays alive for minutes (a service worker is stopped after 30 s idle), so it owns the model and
+ *    runs the analysis; it reports progress back to the worker, which keeps it in `chrome.storage.session` for the popup.
  *
- * Types only; no runtime import, so this file adds nothing to either bundle.
+ * Types and two string constants only: no runtime import, so this adds nothing to any bundle.
  */
-import type { ConnectionCheck, FormObservation, PolicySummary, Verdict } from '@ppg/shared';
+import type { FormObservation, Verdict } from '@ppg/shared';
+import type { Job } from './analysis/analyzer.ts';
+import type { AnalysisResult, AnalysisState } from './analysis/state.ts';
 
-export const SETTINGS_STORAGE_KEY = 'settings';
+export const PREFS_STORAGE_KEY = 'ppg-prefs';
+export const STATE_KEY_PREFIX = 'analysis:';
+export const RESULTS_STORAGE_KEY = 'ppg-results';
 
 /* ------------------------------------------------ content script -> worker */
 
@@ -34,62 +38,32 @@ export interface AssessResponse {
 
 /* --------------------------------------------------- popup/options -> worker */
 
-export interface GetSummaryRequest {
-  type: 'get-summary';
+export interface GetStateRequest {
+  type: 'get-state';
   tabId: number;
 }
 
-export interface AnalysePolicyRequest {
-  type: 'analyse-policy';
+export interface AnalyseRequest {
+  type: 'analyse';
   tabId: number;
 }
-
-export interface TestConnectionRequest {
-  type: 'test-connection';
-}
-
-/**
- * What the popup renders.
- *
- * `unavailable` is a first-class outcome, not an error: plenty of sites have no
- * findable policy, and saying so is better than inventing a summary of a cookie
- * banner.
- */
-export type SummaryState =
-  | { status: 'idle'; domain: string }
-  | { status: 'working'; domain: string }
-  | { status: 'ready'; domain: string; cached: boolean; summary: PolicySummary }
-  /** `links` lets the popup offer the pages it found but could not read. */
-  | { status: 'unavailable'; domain: string; reason: string; links?: string[] }
-  | { status: 'error'; domain: string; message: string };
 
 /* ---------------------------------------------------- worker -> content script */
 
-/**
- * Asks the content script where the policy might be.
- *
- * Only the URLs: reading them needs an extension context (the page's CSP blocks
- * a content script's fetch) and a browsing context (a DOMParser document
- * resolves no styles), which is what the offscreen document provides.
- */
+/** Asks the content script where the terms might be. Only URLs: reading them needs the offscreen document. */
 export interface PolicyCandidatesRequest {
   type: 'policy-candidates';
 }
-
-export type PolicyCandidatesResponse = string[];
+/** `links` were found on the page; `guesses` are conventional addresses tried when the page links to nothing. */
+export interface PolicyCandidatesResponse {
+  links: string[];
+  guesses: string[];
+}
 
 /** Reads the page the user is actually looking at, scripts already run. */
 export interface ExtractCurrentPageRequest {
   type: 'extract-current-page';
-  /**
-   * Read the page even when it does not look like a policy document.
-   *
-   * The worker asks the *active* tab speculatively — usually an ordinary page
-   * whose text it will discard — so by default the content script answers those
-   * without walking the DOM. The background-tab reader has already decided the
-   * URL is a policy candidate, and some of them are named in a way the URL
-   * pattern cannot recognise ("Privacy Policy" linking to `/legal-center`).
-   */
+  /** Read the page even when it does not look like a terms document (a background tab the worker already chose). */
   force?: boolean;
 }
 
@@ -113,14 +87,34 @@ export interface ReadPolicyResponse {
   truncated: boolean;
 }
 
+export interface AnalyseTextRequest {
+  type: 'analyse-text';
+  job: Job;
+}
+
+/* ------------------------------------------------ offscreen page -> worker */
+
+export interface AnalysisStateMessage {
+  type: 'analysis-state';
+  tabId: number;
+  jobId: number;
+  state: AnalysisState;
+}
+
+/** A finished on-device result, to keep so the popup can show it instantly on the next visit. */
+export interface SaveResultMessage {
+  type: 'save-result';
+  result: AnalysisResult;
+}
+
 export type ExtensionMessage =
   | AssessRequest
   | AllowlistSiteRequest
-  | GetSummaryRequest
-  | AnalysePolicyRequest
-  | TestConnectionRequest
+  | GetStateRequest
+  | AnalyseRequest
   | PolicyCandidatesRequest
   | ExtractCurrentPageRequest
-  | ReadPolicyRequest;
-
-export type ConnectionCheckResponse = ConnectionCheck;
+  | ReadPolicyRequest
+  | AnalyseTextRequest
+  | AnalysisStateMessage
+  | SaveResultMessage;

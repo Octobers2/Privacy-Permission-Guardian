@@ -122,3 +122,22 @@ async function scorePrompts(dir: string, wasm: string, prompts: string[], nLette
 }
 ;(window as any).scorePii = (dir: string, wasm: string, rows: { url: string; text: string }[]) => scorePrompts(dir, wasm, rows.map((r) => piiPrompt(r.url, r.text)), 2)
 ;(window as any).piiPromptFor = (url: string, text: string) => piiPrompt(url, text)
+
+// ---- does a run of short prompts followed by long ones lose the device? (the extension's analysis does exactly this)
+;(window as any).runPattern = async (dir: string, wasm: string, pattern: string, longChars: number) => {
+  const tap = new LetterTap(); const id = 'self:' + dir
+  const base = (window as any).__modelsBase ?? location.origin
+  const appConfig = { model_list: [{ model: `${base}/models/${dir}`, model_id: id, model_lib: `${base}/models/${wasm}`, overrides: { context_window_size: 4096 } }] }
+  const engine = await webllm.CreateMLCEngine(id, { appConfig, logitProcessorRegistry: new Map([[id, tap]]) })
+  const tok = await (await fetch(`${base}/models/${dir}/resolve/main/tokenizer.json`)).json()
+  tap.ids = LETTERS.map((l) => tok.model.vocab['Ġ' + l])
+  const shortP = letterPrompt('We may terminate your account at any time without notice to you.')
+  const longP = piiPrompt('http://acme-demo.com:4310/terms', 'Acme Terms of Service 1. Using Acme You must be at least 16 years old to use the service. '.repeat(30).slice(0, longChars))
+  let failedAt = -1; let msg = ''
+  for (let i = 0; i < pattern.length; i++) {
+    try { await engine.resetChat(); await engine.completions.create({ prompt: pattern[i] === 'L' ? longP : shortP, max_tokens: 1, temperature: 0 }) }
+    catch (e: any) { failedAt = i; msg = String(e?.message).slice(0, 60); break }
+  }
+  await engine.unload().catch(() => {})
+  return failedAt < 0 ? 'ok' : `FAILED at request ${failedAt + 1}/${pattern.length} (${pattern[failedAt]}) ${msg}`
+}

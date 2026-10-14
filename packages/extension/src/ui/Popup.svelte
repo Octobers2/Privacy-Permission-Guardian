@@ -1,208 +1,236 @@
 <script lang="ts">
   import '@material/web/button/filled-button.js';
+  import '@material/web/button/outlined-button.js';
   import '@material/web/button/text-button.js';
-  import '@material/web/progress/circular-progress.js';
-  import { BAND_LABELS, riskBand } from '@ppg/shared/score';
-  import type { SummaryState } from '../messages.ts';
-  import PolicyPointCard from './components/PolicyPointCard.svelte';
+  import { onMount } from 'svelte';
+  import { STAGE_LABELS, type AnalysisState } from '../analysis/state.ts';
+  import { STATE_KEY_PREFIX } from '../messages.ts';
+  import ClauseList from './components/ClauseList.svelte';
+  import Progress from './components/Progress.svelte';
+  import { flaggedHeadline, sharingLine, timeAgo } from './format.ts';
 
-  let state = $state<SummaryState | null>(null);
   let tabId = $state<number | null>(null);
+  let view = $state<AnalysisState | null>(null);
 
-  async function currentTab(): Promise<chrome.tabs.Tab | undefined> {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    return tab;
-  }
-
-  async function refresh(): Promise<void> {
-    const tab = await currentTab();
-    if (tab?.id === undefined) {
-      state = { status: 'unavailable', domain: '', reason: '搵唔到目前嘅分頁。' };
-      return;
+  async function ask<T>(message: object): Promise<T | null> {
+    try {
+      return (await chrome.runtime.sendMessage(message)) as T;
+    } catch {
+      return null;
     }
-    tabId = tab.id;
-    state = await chrome.runtime.sendMessage({ type: 'get-summary', tabId: tab.id });
   }
 
-  async function analyse(): Promise<void> {
+  async function refresh() {
+    if (tabId !== null) view = await ask<AnalysisState>({ type: 'get-state', tabId });
+  }
+
+  async function analyse() {
     if (tabId === null) return;
-    state = { status: 'working', domain: state?.domain ?? '' };
-    state = await chrome.runtime.sendMessage({ type: 'analyse-policy', tabId });
+    view = { status: 'working', domain: '', stage: 'reading', done: 0, total: 0, flagged: [] };
+    view = (await ask<AnalysisState>({ type: 'analyse', tabId })) ?? { status: 'error', domain: '', message: 'The extension did not answer. Reload it and try again.' };
   }
 
-  void refresh();
+  onMount(() => {
+    // `?tab=<id>` points the popup at a specific tab, which is how the end-to-end test drives it as an ordinary page.
+    const forced = Number(new URLSearchParams(location.search).get('tab'));
+    void (forced ? Promise.resolve(forced) : chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => tab?.id ?? null)).then(async (id) => {
+      tabId = id;
+      await refresh();
+    });
+    // The worker writes progress here as the offscreen document reports it; the popup just follows.
+    const onChanged = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
+      if (area === 'session' && tabId !== null && changes[STATE_KEY_PREFIX + tabId]) void refresh();
+    };
+    chrome.storage.onChanged.addListener(onChanged);
+    return () => chrome.storage.onChanged.removeListener(onChanged);
+  });
+
+  const openSetup = () => chrome.tabs.create({ url: chrome.runtime.getURL('setup.html') });
+  const openOptions = () => chrome.runtime.openOptionsPage();
+  const percent = (s: Extract<AnalysisState, { status: 'working' }>) => (s.total > 0 ? s.done / s.total : null);
 </script>
 
 <main>
   <header>
-    <h1 class="md-typescale-title-small">Privacy &amp; Permission Guardian</h1>
-    {#if state?.domain}
-      <p class="md-typescale-body-small domain">{state.domain}</p>
-    {/if}
+    <h1 class="md-typescale-title-medium">Terms of service check</h1>
+    {#if view && 'domain' in view && view.domain}<p class="domain">{view.domain}</p>{/if}
   </header>
 
-  {#if !state}
-    <div class="centre"><md-circular-progress indeterminate></md-circular-progress></div>
-  {:else if state.status === 'idle'}
-    <p class="md-typescale-body-medium lede">
-      睇下呢個網站嘅私隱政策實際講咗啲咩。分析會將條款文字送去你設定嘅模型。
-    </p>
-    <md-filled-button onclick={analyse}>分析呢個網站</md-filled-button>
-  {:else if state.status === 'working'}
-    <div class="centre">
-      <md-circular-progress indeterminate></md-circular-progress>
-      <p class="md-typescale-body-small">搵緊條款，然後交畀模型…</p>
-    </div>
-  {:else if state.status === 'unavailable'}
-    <p class="md-typescale-body-medium lede">{state.reason}</p>
-    {#if state.links?.length}
-      <ul class="links">
-        {#each state.links as link (link)}
-          <li>
-            <a href={link} target="_blank" rel="noreferrer noopener" class="md-typescale-body-small">
-              {link.replace(/^https?:\/\//, '')}
-            </a>
-          </li>
-        {/each}
-      </ul>
-    {/if}
-    <p class="md-typescale-body-small hint">
-      搵唔到就係搵唔到 —— 我哋唔會拎第二版嘢當條款嚟摘要。
-    </p>
-  {:else if state.status === 'error'}
-    <p class="md-typescale-body-medium lede">{state.message}</p>
-    <md-filled-button onclick={analyse}>再試一次</md-filled-button>
-    <md-text-button onclick={() => chrome.runtime.openOptionsPage()}>去設定</md-text-button>
-  {:else}
-    {@const summary = state.summary}
-    <section class="score" data-band={riskBand(summary.riskScore)}>
-      <span class="value">{summary.riskScore}</span>
-      <span class="band md-typescale-body-medium">{BAND_LABELS[riskBand(summary.riskScore)]}</span>
+  {#if !view}
+    <Progress value={null} label="Loading" />
+  {:else if view.status === 'needs-setup'}
+    <section>
+      <p>Finish the one-time setup to download the model that reads terms of service on your computer.</p>
+      <md-filled-button onclick={openSetup}>Finish setup</md-filled-button>
     </section>
-
-    {#if summary.truncated}
-      <p class="md-typescale-body-small notice">
-        呢份文件太長，只分析咗開頭一部分。
+  {:else if view.status === 'idle'}
+    <section>
+      <p>Read this site’s terms of service and flag clauses that tend to work against you. This happens on your computer.</p>
+      <md-filled-button onclick={analyse}>Analyse the terms</md-filled-button>
+    </section>
+  {:else if view.status === 'working'}
+    <section aria-live="polite">
+      <Progress value={percent(view)} label="Analysis progress" />
+      <p class="stage">{STAGE_LABELS[view.stage]}{view.detail ? ` ${view.detail}` : ''}</p>
+      {#if view.total > 0 && view.stage === 'classifying'}
+        <p class="note">{view.done} of {view.total} sentences · {view.flagged.length} flagged so far</p>
+      {/if}
+      {#if view.flagged.length}<ClauseList flagged={view.flagged} />{/if}
+    </section>
+  {:else if view.status === 'ready'}
+    {@const r = view.result}
+    {@const share = sharingLine(r.sharing)}
+    <section>
+      <p class="headline md-typescale-title-large" class:clean={r.flagged.length === 0}>{flaggedHeadline(r.flagged.length, r.passageCount)}</p>
+      <p class="note">
+        {r.source === 'community' ? 'From the public cache' : 'Analysed on this device'} · {timeAgo(r.analyzedAt)}
+        {#if r.truncated}· <strong>only part of a long document was read</strong>{/if}
       </p>
-    {/if}
-    {#if summary.droppedPoints > 0}
-      <p class="md-typescale-body-small notice">
-        有 {summary.droppedPoints} 點因為引文對唔返原文而被丟棄。
-      </p>
-    {/if}
 
-    <div class="points">
-      {#each summary.points as point (point.title + point.quote)}
-        <PolicyPointCard {point} policyUrl={summary.policyUrl} />
+      {#if r.summary}
+        <div class="summary">
+          <h2 class="md-typescale-title-small">In plain language</h2>
+          <ul>
+            {#each r.summary.points as point}
+              <li class={point.severity}>
+                <strong>{point.title}</strong>
+                <span>{point.detail}</span>
+              </li>
+            {/each}
+          </ul>
+        </div>
+      {:else if r.summaryError}
+        <p class="note">Summary unavailable: {r.summaryError}</p>
+      {/if}
+
+      {#if r.flagged.length}<ClauseList flagged={r.flagged} />{/if}
+
+      <p class="sharing {share.tone}">{share.text}</p>
+
+      <div class="actions">
+        <md-text-button onclick={analyse}>Analyse again</md-text-button>
+        <md-text-button href={r.policyUrl} target="_blank">Open the terms</md-text-button>
+      </div>
+    </section>
+  {:else if view.status === 'unavailable'}
+    <section>
+      <p>{view.reason}</p>
+      {#each view.links ?? [] as link}
+        <p class="note"><a href={link} target="_blank" rel="noreferrer">{link}</a></p>
       {/each}
-    </div>
-
-    {#if summary.points.length === 0}
-      <p class="md-typescale-body-medium lede">
-        模型冇報告到任何可以喺原文核實嘅風險點。
-      </p>
-    {/if}
-
-    <footer class="meta md-typescale-body-small">
-      <span>{state.cached ? '來自快取' : '啱啱分析'}</span>
-      <md-text-button onclick={analyse}>重新分析</md-text-button>
-    </footer>
+      {#if view.domain}<md-outlined-button onclick={analyse}>Try again</md-outlined-button>{/if}
+    </section>
+  {:else}
+    <section>
+      <p class="error" role="alert">{view.message}</p>
+      {#if view.detail}<details class="tech"><summary>Technical details</summary><pre>{view.detail}</pre></details>{/if}
+      <md-outlined-button onclick={analyse}>Try again</md-outlined-button>
+    </section>
   {/if}
 
-  <p class="md-typescale-body-small disclaimer">
-    僅供參考，唔係法律意見。以原文為準。
-  </p>
+  <footer>
+    <md-text-button onclick={openOptions}>Settings</md-text-button>
+  </footer>
 </main>
 
 <style>
   main {
     width: 380px;
-    box-sizing: border-box;
+    max-height: 560px;
+    overflow-y: auto;
     padding: 16px;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     gap: 12px;
   }
-  header h1 {
+  h1,
+  h2,
+  p {
     margin: 0;
   }
   .domain {
-    margin: 2px 0 0;
     color: var(--md-sys-color-on-surface-variant);
+    font-size: 0.8125rem;
   }
-  .lede {
-    margin: 0;
-    color: var(--md-sys-color-on-surface-variant);
-  }
-  .hint,
-  .notice {
-    margin: 0;
-    color: var(--md-sys-color-on-surface-variant);
-  }
-  .notice {
-    background: var(--md-sys-color-surface-container-high);
-    border-radius: 8px;
-    padding: 8px 10px;
-  }
-  .centre {
+  section {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    padding: 24px 0;
+    gap: 12px;
+  }
+  .headline {
+    color: var(--md-sys-color-error);
+  }
+  .headline.clean {
+    color: var(--md-sys-color-primary);
+  }
+  .note,
+  .stage {
     color: var(--md-sys-color-on-surface-variant);
+    font-size: 0.8125rem;
   }
-  .score {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    border-radius: 12px;
-    padding: 12px 14px;
-  }
-  .score[data-band='low'] {
-    background: var(--md-sys-color-success-container);
-    color: var(--md-sys-color-on-success-container);
-  }
-  .score[data-band='moderate'] {
-    background: var(--md-sys-color-warning-container);
-    color: var(--md-sys-color-on-warning-container);
-  }
-  .score[data-band='high'] {
+  .error {
+    color: var(--md-sys-color-error);
     background: var(--md-sys-color-error-container);
-    color: var(--md-sys-color-on-error-container);
+    padding: 12px;
+    border-radius: 12px;
   }
-  .score .value {
-    font-size: 34px;
-    font-weight: 700;
-    line-height: 1;
+  .summary {
+    background: var(--md-sys-color-surface-container);
+    border-radius: 12px;
+    padding: 12px;
   }
-  .links {
+  .summary ul {
     list-style: none;
-    margin: 0;
+    margin: 8px 0 0;
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 10px;
   }
-  .links a {
-    color: var(--md-sys-color-primary);
-    word-break: break-all;
-  }
-  .points {
+  .summary li {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    font-size: 0.8125rem;
+    border-left: 3px solid var(--md-sys-color-outline);
+    padding-left: 10px;
   }
-  .meta {
+  .summary li.high {
+    border-left-color: var(--md-sys-color-error);
+  }
+  .summary li.medium {
+    border-left-color: var(--md-sys-color-tertiary);
+  }
+  .sharing {
+    font-size: 0.75rem;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: var(--md-sys-color-surface-container-low);
+    color: var(--md-sys-color-on-surface-variant);
+  }
+  .sharing.good {
+    background: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+  }
+  .sharing.warn {
+    background: var(--md-sys-color-tertiary-container);
+    color: var(--md-sys-color-on-tertiary-container);
+  }
+  .actions,
+  footer {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    color: var(--md-sys-color-on-surface-variant);
+    justify-content: flex-end;
+    gap: 4px;
   }
-  .disclaimer {
-    margin: 0;
-    padding-top: 4px;
-    border-top: 1px solid var(--md-sys-color-outline-variant);
-    color: var(--md-sys-color-on-surface-variant);
+  .tech pre {
+    white-space: pre-wrap;
+    word-break: break-all;
+    font-size: 0.6875rem;
+    max-height: 160px;
+    overflow: auto;
+  }
+  a {
+    color: var(--md-sys-color-primary);
+    word-break: break-all;
   }
 </style>
