@@ -7,7 +7,17 @@
  * is governed by the page's CSP) and a rendering engine (a `DOMParser` document resolves no styles), which the
  * offscreen document provides; see `src/offscreen/index.ts`. Link discovery stays here because it needs the live DOM.
  */
-export const TERMS_PATTERN = /terms|tos\b|conditions|user.?agreement|end.?user|eula|service.?agreement|條款|使用者條款|服務條款|使用條款/i;
+export const TERMS_PATTERN =
+  /terms|tos\b|(?:general|standard|website|site|use|service|sale|legal)\s*(?:&|and)?\s*conditions|conditions\s+(?:of|for)\s+(?:use|service|sale|access)|user.?agreement|end.?user|eula|service.?agreement|條款|使用者條款|服務條款|使用條款/i;
+
+/**
+ * Pages that do the job of terms without being called that: a government or institutional site often has only a "Disclaimer"
+ * or "Important Notices" page, which carries the same kinds of clause (what the provider will not answer for, which law applies).
+ * They are tried only after every link that says "terms".
+ */
+export const LEGAL_NOTICE_PATTERN = /disclaimer|legal.?notices?|important.?notices?|notice.?of.?use|免責|法律聲明|重要告示|重要事項/i;
+
+const matchesAny = (text: string) => TERMS_PATTERN.test(text) || LEGAL_NOTICE_PATTERN.test(text);
 
 /**
  * `URL.pathname` percent-encodes anything outside ASCII, so a Chinese path like
@@ -35,7 +45,7 @@ export function looksLikePolicyPage(
   } catch {
     /* fall back to matching the whole string */
   }
-  return TERMS_PATTERN.test(path) || TERMS_PATTERN.test(doc.title ?? '');
+  return matchesAny(path) || matchesAny(doc.title ?? '');
 }
 
 /** Paths worth trying when the page links to nothing useful. */
@@ -82,12 +92,18 @@ export function findPolicyLinks(doc: Document, pageUrl: string): string[] {
     if (!looksSameSite(resolved.hostname, pageHost)) continue;
 
     const text = (anchor.textContent ?? '').trim();
-    if (!TERMS_PATTERN.test(readablePath(resolved)) && !TERMS_PATTERN.test(text)) continue;
+    // The link's own words, including the ones a person never sees but a screen reader does.
+    const label = `${text} ${anchor.getAttribute('title') ?? ''} ${anchor.getAttribute('aria-label') ?? ''}`;
+    const path = readablePath(resolved);
+    const isTerms = TERMS_PATTERN.test(path) || TERMS_PATTERN.test(label);
+    if (!isTerms && !LEGAL_NOTICE_PATTERN.test(path) && !LEGAL_NOTICE_PATTERN.test(label)) continue;
 
     // Footers are where these links actually live; a "terms" mention in body copy is more often prose than a link.
-    // A link whose address says "terms" beats one that only says so in its text ("Legal" -> /legal-center is a weaker guess).
-    let score = anchor.closest('footer') ? 2 : 0;
-    if (TERMS_PATTERN.test(readablePath(resolved))) score += 1;
+    // A link whose address says "terms" beats one that only says so in its text ("Legal" -> /legal-center is a weaker guess),
+    // and a link that is only a legal notice ("Disclaimer") ranks below every link that says "terms".
+    let score = anchor.closest('footer, [role=contentinfo], #footer, .footer') ? 2 : 0;
+    if (TERMS_PATTERN.test(path)) score += 1;
+    if (!isTerms) score -= 5;
 
     scored.push({ url: resolved.origin + resolved.pathname, score });
   }

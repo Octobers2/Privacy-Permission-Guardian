@@ -21,6 +21,7 @@
  */
 import { extractVisibleText, MAX_DOCUMENT_CHARS, pickMainContent } from '@ppg/shared/sanitize';
 import type { ExtensionMessage } from '../messages.ts';
+import { looksLikeLegalText } from '../policy-text.ts';
 import { startAnalysis } from './analysis-host.ts';
 
 const RENDER_TIMEOUT_MS = 8_000;
@@ -44,7 +45,9 @@ export type PolicyFailureReason =
   | 'http-error'
   | 'not-html'
   | 'needs-javascript'
-  | 'too-short';
+  | 'too-short'
+  /** Long enough, but nothing in it reads like terms: the link was a wrong guess. */
+  | 'not-terms';
 
 export interface PolicyFailure {
   url: string;
@@ -122,8 +125,10 @@ async function renderAndExtract(
  * the feature entirely on the largest sites, which is the failure that was
  * reported.
  */
-function looksClientRendered(html: string, scriptCount: number, renderedChars: number): boolean {
-  return html.length > 2_000 && scriptCount >= 1 && renderedChars < 400;
+function looksClientRendered(_html: string, scriptCount: number, renderedChars: number): boolean {
+  // No size floor: an anti-bot interstitial (GovHK answers first visits with a 1 kB script that sets a cookie and reloads) is tiny,
+  // and is exactly the case where the page has to run its scripts before there is anything to read.
+  return scriptCount >= 1 && renderedChars < 400;
 }
 
 async function readPolicyAt(url: string): Promise<RenderedPolicy | PolicyFailure> {
@@ -145,6 +150,8 @@ async function readPolicyAt(url: string): Promise<RenderedPolicy | PolicyFailure
       reason: looksClientRendered(html, scriptCount, text.length) ? 'needs-javascript' : 'too-short',
     };
   }
+
+  if (!looksLikeLegalText(text)) return { url, reason: 'not-terms' };
 
   return { policyUrl: response.url || url, text, truncated };
 }

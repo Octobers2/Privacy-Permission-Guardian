@@ -32,6 +32,7 @@ export function explainFailures(failures: PolicyFailure[]): string {
   }
   if (count('fetch-failed') === n) return `Found ${n} link${n === 1 ? '' : 's'}, but none could be reached. Check your connection.`;
   if (count('http-error') === n) return `Found ${n} link${n === 1 ? '' : 's'}, but every one returned an error (a sign-in wall, or the page moved).`;
+  if (count('not-terms') > 0) return `Found ${n} link${n === 1 ? '' : 's'}, but ${n === 1 ? 'it does' : 'none'} not read like terms of service.`;
   return `Found ${n} link${n === 1 ? '' : 's'}, but what came back was too short to be a terms document.`;
 }
 

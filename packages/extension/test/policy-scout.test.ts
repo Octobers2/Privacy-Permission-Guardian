@@ -8,6 +8,38 @@ function domOf(body: string): Document {
 
 const PAGE = 'https://shop.example.com/products/42';
 
+describe('findPolicyLinks on a site without a terms page (GovHK)', () => {
+  const GOV = 'https://www.gov.hk/en/about/govdirectory/';
+  const doc = () =>
+    domOf(`<a href="/en/residents/transport/roadandtraffic/index.htm" title="Road and Traffic Conditions &amp; Special Arrangements">Road and Traffic Conditions &amp; Special Arrangements</a>
+      <footer><a href="/en/about/accessibility/">Accessibility</a><a href="/en/about/linkpolicy/">Linking to GovHK</a>
+      <a href="/en/about/copyright.htm">Copyright Notice</a><a href="/en/about/disclaimer.htm">Disclaimer</a>
+      <a href="/en/about/privacy.htm">Privacy Policy</a></footer>`);
+
+  test('"conditions" alone is not terms: a traffic page is not offered', () => {
+    expect(findPolicyLinks(doc(), GOV)).not.toContain('https://www.gov.hk/en/residents/transport/roadandtraffic/index.htm');
+  });
+
+  test('the disclaimer is offered instead, since the site has nothing called terms', () => {
+    expect(findPolicyLinks(doc(), GOV)).toEqual(['https://www.gov.hk/en/about/disclaimer.htm']);
+  });
+
+  test('a link that says terms always outranks a mere legal notice', () => {
+    const d = domOf('<footer><a href="/disclaimer">Disclaimer</a><a href="/conditions-of-use">Conditions of use</a></footer>');
+    expect(findPolicyLinks(d, 'https://example.org/')[0]).toBe('https://example.org/conditions-of-use');
+  });
+
+  test('terms-and-conditions wording still works', () => {
+    for (const label of ['Terms & Conditions', 'Terms and Conditions', 'Website conditions', 'Conditions of sale']) {
+      expect(findPolicyLinks(domOf(`<a href="/x/1">${label}</a>`), PAGE)).toEqual(['https://shop.example.com/x/1']);
+    }
+  });
+
+  test('reads the title and aria-label too', () => {
+    expect(findPolicyLinks(domOf('<a href="/x/1" aria-label="Terms of service"></a>'), PAGE)).toEqual(['https://shop.example.com/x/1']);
+  });
+});
+
 describe('findPolicyLinks', () => {
   test('finds a terms link by href', () => {
     const doc = domOf('<a href="/legal/terms-of-service">Legal</a>');
