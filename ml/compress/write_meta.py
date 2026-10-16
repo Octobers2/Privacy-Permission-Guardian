@@ -4,7 +4,7 @@ import argparse, json, pathlib
 ap = argparse.ArgumentParser()
 ap.add_argument("bundle"); ap.add_argument("--id", required=True); ap.add_argument("--name", required=True); ap.add_argument("--tier", required=True, choices=["fast", "accurate"])
 ap.add_argument("--lib", required=True); ap.add_argument("--quantization", default="q4f32_1"); ap.add_argument("--version", required=True)
-ap.add_argument("--tos-report", required=True); ap.add_argument("--pii-report"); ap.add_argument("--context", type=int, default=4096)
+ap.add_argument("--tos-report", required=True); ap.add_argument("--pii-report"); ap.add_argument("--context", type=int, default=2048)
 a = ap.parse_args()
 # the nine option-letter tokens (" A" … " I"): the extension reads their logits, so it must not need the 20 MB tokenizer to find them
 vocab = json.load(open(pathlib.Path(a.bundle) / "tokenizer.json"))["model"]["vocab"]

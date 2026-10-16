@@ -127,7 +127,8 @@ def tensor_nbytes(shape, dtype):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--src", required=True); ap.add_argument("--out", required=True); ap.add_argument("--official", required=True)
-    ap.add_argument("--gsq"); ap.add_argument("--context", type=int, default=4096); ap.add_argument("--check-plan-only", action="store_true")
+    # 2048: the longest prompt measured with the real tokenizer is ~1.2k tokens (a 1,200-character sentence of pathological text; real terms stay under ~400).
+    ap.add_argument("--gsq"); ap.add_argument("--context", type=int, default=2048); ap.add_argument("--check-plan-only", action="store_true")
     a = ap.parse_args()
     off = json.load(open(os.path.join(a.official, "tensor-cache.json")))
     recs = [r for f in off["records"] for r in f["records"]]
