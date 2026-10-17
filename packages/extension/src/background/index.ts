@@ -11,9 +11,10 @@ import { registrableDomain, scoreForm, type RuleResult } from '@ppg/shared';
 import type { Job } from '../analysis/analyzer.ts';
 import type { AnalysisState } from '../analysis/state.ts';
 import type { AssessResponse, ExtensionMessage } from '../messages.ts';
-import { activeAccount, loadPrefs, onPrefsChanged, savePrefs } from '../prefs.ts';
+import { activeAccount, isReady, loadPrefs, onPrefsChanged, savePrefs } from '../prefs.ts';
 import { acquire } from './acquire.ts';
 import { startAnalysisInOffscreen } from './offscreen.ts';
+import { lookupShared } from './shared-lookup.ts';
 import { clearState, readState, saveResult, savedResultFor, writeState } from './storage.ts';
 
 const COLOURS = { clean: '#1e8e3e', some: '#e37400', many: '#c5221f', busy: '#5f6368' } as const;
@@ -81,6 +82,17 @@ async function domainOfTab(tabId: number): Promise<string | null> {
   }
 }
 
+/** Addresses the page offers as its terms: the page itself if it is one, then the links it carries. Never the page's text. */
+async function policyHints(tabId: number): Promise<string[]> {
+  try {
+    const live = (await chrome.tabs.sendMessage(tabId, { type: 'extract-current-page' })) as { isPolicyPage?: boolean; policyUrl?: string } | undefined;
+    const candidates = (await chrome.tabs.sendMessage(tabId, { type: 'policy-candidates' })) as { links?: string[] } | undefined;
+    return [...(live?.isPolicyPage && live.policyUrl ? [live.policyUrl] : []), ...(candidates?.links ?? [])];
+  } catch {
+    return []; // a page that was open before the extension was installed has no content script; the domain alone still works
+  }
+}
+
 const NOT_A_SITE: AnalysisState = { status: 'unavailable', domain: '', reason: 'This is not a regular website page.' };
 
 /** What the popup should show for a tab right now. */
@@ -88,7 +100,7 @@ async function getState(tabId: number): Promise<AnalysisState> {
   const domain = await domainOfTab(tabId);
   if (!domain) return NOT_A_SITE;
   const prefs = await loadPrefs();
-  if (!prefs.setupDone || !prefs.modelId) return { status: 'needs-setup' };
+  if (!isReady(prefs)) return { status: 'needs-setup' };
 
   const stored = await readState(tabId);
   // A state belongs to the site it was computed for; after navigating elsewhere it is stale.
@@ -103,7 +115,7 @@ async function analyseTab(tabId: number): Promise<AnalysisState> {
   const domain = await domainOfTab(tabId);
   if (!domain) return NOT_A_SITE;
   const prefs = await loadPrefs();
-  if (!prefs.setupDone || !prefs.modelId) return { status: 'needs-setup' };
+  if (!isReady(prefs)) return { status: 'needs-setup' };
 
   const jobId = Date.now();
   const set = async (state: AnalysisState) => {
@@ -111,6 +123,13 @@ async function analyseTab(tabId: number): Promise<AnalysisState> {
     await paintBadge(tabId, state);
     return state;
   };
+
+  // Shared-only mode: no text is read and no model runs; ask the public cache about this site.
+  if (prefs.mode === 'shared') {
+    await set({ status: 'working', domain, stage: 'checking-cache', done: 0, total: 0, flagged: [] });
+    return set(await lookupShared({ serverUrl: prefs.serverUrl, domain, hints: await policyHints(tabId) }));
+  }
+
   await set({ status: 'working', domain, stage: 'reading', done: 0, total: 0, flagged: [] });
 
   const got = await acquire(tabId);

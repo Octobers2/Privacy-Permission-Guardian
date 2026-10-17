@@ -6,6 +6,7 @@
   import { FAMILIES, FAMILY_HINTS, FAMILY_LABELS, FAMILY_OF, type Family } from '@ppg/shared';
   import { STAGE_LABELS, type AnalysisResult, type AnalysisState } from '../analysis/state.ts';
   import { STATE_KEY_PREFIX } from '../messages.ts';
+  import { loadPrefs } from '../prefs.ts';
   import ClauseCard from './components/ClauseCard.svelte';
   import DocumentStrip from './components/DocumentStrip.svelte';
   import Icon from './components/Icon.svelte';
@@ -17,6 +18,8 @@
   let view = $state<AnalysisState | null>(null);
   let family = $state<Family | null>(null);
   let picked = $state<number | null>(null);
+  /** Shared-only mode: nothing is read on this device; the popup looks up what others have shared. */
+  let shared = $state(false);
 
   /** Set when the background worker gave no usable answer, which is how a worker left over from an older version looks. */
   let unresponsive = $state(false);
@@ -53,6 +56,7 @@
   }
 
   onMount(() => {
+    void loadPrefs().then((prefs) => (shared = prefs.mode === 'shared'));
     // `?tab=<id>` points the popup at a specific tab, which is how the end-to-end test drives it as an ordinary page.
     const forced = Number(new URLSearchParams(location.search).get('tab'));
     void (forced ? Promise.resolve(forced) : chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => tab?.id ?? null)).then(async (id) => {
@@ -108,8 +112,13 @@
     {:else if view.status === 'idle'}
       <section class="empty">
         <DocumentStrip total={64} flagged={[]} ghost height={36} />
-        <h2>Read these terms for you</h2>
-        <p>Finds the clauses that tend to work against you, such as forced arbitration or closing your account without notice. It runs on your computer, and nothing you read leaves it.</p>
+        {#if shared}
+          <h2>Look up these terms</h2>
+          <p>Shows the clauses that tend to work against you, as found by other people’s computers. Nothing is read on this one. Only the name of this website is sent to the results server.</p>
+        {:else}
+          <h2>Read these terms for you</h2>
+          <p>Finds the clauses that tend to work against you, such as forced arbitration or closing your account without notice. It runs on your computer, and nothing you read leaves it.</p>
+        {/if}
       </section>
     {:else if view.status === 'working'}
       {@const w = view}
@@ -122,7 +131,7 @@
           <Progress value={w.stage === 'loading-model' && w.total > 0 ? percent(w) : null} label={STAGE_LABELS[w.stage]} />
           {#if w.detail}<p class="meta">{w.detail}</p>{/if}
         {/if}
-        <p class="reassure"><Icon name="laptop" size={16} /> Running on your computer</p>
+        {#if !shared}<p class="reassure"><Icon name="laptop" size={16} /> Running on your computer</p>{/if}
         {#if w.flagged.length}
           <div class="list">
             {#each w.flagged.slice(-3) as clause (clause.index)}<ClauseCard {clause} total={w.total} />{/each}
@@ -183,6 +192,10 @@
           <p class="note good"><Icon name="check" size={16} /> Nothing in these terms matched the clause types this model looks for. That is not a guarantee, so skim the document if it matters.</p>
         {/if}
 
+        {#if r.site && r.site.documents > 1}
+          <p class="note info"><Icon name="info" size={16} /> This is one of {r.site.documents} documents for this site. <a class="link" href={r.site.url} target="_blank" rel="noreferrer">See all of them</a></p>
+        {/if}
+
         <p class="note {share.tone}">
           <Icon name={share.tone === 'good' ? 'upload' : share.tone === 'warn' ? 'lock' : 'info'} size={16} />
           <span>{share.text}</span>
@@ -191,7 +204,7 @@
     {:else if view.status === 'unavailable'}
       <section class="state">
         <Icon name="document" size={28} />
-        <h2>No terms to read here</h2>
+        <h2>{shared ? 'No shared result yet' : 'No terms to read here'}</h2>
         <p>{view.reason}</p>
         {#each view.links ?? [] as link}<a class="link" href={link} target="_blank" rel="noreferrer">{link}</a>{/each}
       </section>
@@ -209,10 +222,10 @@
     {#if view?.status === 'needs-setup'}
       <md-filled-button onclick={openSetup}>Finish setup</md-filled-button>
     {:else if view?.status === 'idle'}
-      <md-filled-button onclick={analyse}>Read the terms</md-filled-button>
+      <md-filled-button onclick={analyse}>{shared ? 'Look up results' : 'Read the terms'}</md-filled-button>
     {:else if view?.status === 'ready'}
       <md-text-button href={view.result.policyUrl} target="_blank">Open the terms</md-text-button>
-      <md-filled-tonal-button onclick={analyse}>Read again</md-filled-tonal-button>
+      <md-filled-tonal-button onclick={analyse}>{shared ? 'Look up again' : 'Read again'}</md-filled-tonal-button>
     {:else if unresponsive}
       <md-filled-button onclick={reloadExtension}>Reload extension</md-filled-button>
     {:else if view?.status === 'unavailable' || view?.status === 'error'}

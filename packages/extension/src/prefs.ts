@@ -15,11 +15,18 @@ export const DEFAULT_SERVER: string = (import.meta as unknown as { env?: Record<
 
 export const SUMMARY_MODES = ['off', 'server', 'byok'] as const;
 
+/**
+ * Where findings come from. `device`: an on-device model reads the terms (the default). `shared`: no model is installed, and the
+ * extension only looks up what others have already read, which needs no GPU.
+ */
+export const ENGINE_MODES = ['device', 'shared'] as const;
+
 export const PrefsSchema = z
   .object({
     setupDone: z.boolean().default(false),
     serverUrl: z.string().url().default(DEFAULT_SERVER),
-    /** Manifest id of the downloaded model, or null before setup. */
+    mode: z.enum(ENGINE_MODES).default('device'),
+    /** Manifest id of the downloaded model, or null before setup (and always null in shared mode). */
     modelId: z.string().nullable().default(null),
     /** Plain-language summaries: off, from the backend, or from the user's own OpenAI-compatible endpoint. */
     summary: z.enum(SUMMARY_MODES).default('off'),
@@ -66,4 +73,9 @@ export function onPrefsChanged(callback: (prefs: Prefs) => void): void {
 /** The signed-in account, or null once its token has expired. */
 export function activeAccount(prefs: Prefs, now = Date.now()): Prefs['account'] {
   return prefs.account && prefs.account.expiresAt > now ? prefs.account : null;
+}
+
+/** Whether setup has been completed in a way that lets the popup do something: a model is installed, or shared-only mode was chosen. */
+export function isReady(prefs: Prefs): boolean {
+  return prefs.setupDone && (prefs.mode === 'shared' || prefs.modelId !== null);
 }

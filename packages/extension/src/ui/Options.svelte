@@ -78,13 +78,13 @@
     <section class="setting">
       <div class="what">
         <h2>On-device model</h2>
-        <p>The model that reads terms of service on your computer.</p>
+        <p>{prefs.mode === 'shared' ? 'None is installed: this browser looks up results that other people have shared.' : 'The model that reads terms of service on your computer.'}</p>
       </div>
       <div class="how">
         <p class="value">
-          {#if prefs.setupDone && prefs.modelId}Installed: <strong>{prefs.modelId}</strong>{:else}Not set up yet.{/if}
+          {#if prefs.setupDone && prefs.mode === 'shared'}Shared results only{:else if prefs.setupDone && prefs.modelId}Installed: <strong>{prefs.modelId}</strong>{:else}Not set up yet.{/if}
         </p>
-        <div class="row"><md-outlined-button onclick={openSetup}>{prefs.setupDone ? 'Change model or run setup again' : 'Run setup'}</md-outlined-button></div>
+        <div class="row"><md-outlined-button onclick={openSetup}>{prefs.setupDone && prefs.mode === 'shared' ? 'Install an on-device model' : prefs.setupDone ? 'Change model or run setup again' : 'Run setup'}</md-outlined-button></div>
         <TextField label="Server address" bind:value={serverUrl} type="url" supportingText="Where models are downloaded from and results are looked up." />
         <div class="row">
           <md-filled-button onclick={saveServer}>Save address</md-filled-button>

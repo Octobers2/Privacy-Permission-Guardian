@@ -45,6 +45,8 @@ export interface AnalysisResult {
   personal: { reasons: string[] } | null;
   summary: Summary | null;
   summaryError: string | null;
+  /** Set for a result looked up from the public cache: how many documents the site has there, and where to see them. */
+  site?: { documents: number; url: string };
 }
 
 export type AnalysisState =

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { activeAccount, DEFAULT_PREFS, parsePrefs } from '../src/prefs.ts';
+import { activeAccount, DEFAULT_PREFS, isReady, parsePrefs } from '../src/prefs.ts';
 
 describe('parsePrefs', () => {
   test('nothing stored -> defaults, with the summary off', () => {
@@ -23,5 +23,22 @@ describe('activeAccount', () => {
     expect(activeAccount({ ...DEFAULT_PREFS, account }, 999)).toEqual(account);
     expect(activeAccount({ ...DEFAULT_PREFS, account }, 1_000)).toBeNull();
     expect(activeAccount(DEFAULT_PREFS)).toBeNull();
+  });
+});
+
+describe('shared-only mode', () => {
+  test('is off by default and a model is then required to be ready', () => {
+    expect(parsePrefs({}).mode).toBe('device');
+    expect(isReady(parsePrefs({ setupDone: true }))).toBe(false);
+    expect(isReady(parsePrefs({ setupDone: true, modelId: 'ppg-fast-0.8b-q4f32' }))).toBe(true);
+  });
+
+  test('shared mode is ready without a model, but not before setup finished', () => {
+    expect(isReady(parsePrefs({ setupDone: true, mode: 'shared' }))).toBe(true);
+    expect(isReady(parsePrefs({ setupDone: false, mode: 'shared' }))).toBe(false);
+  });
+
+  test('an unknown mode falls back to the default instead of locking the user out', () => {
+    expect(parsePrefs({ setupDone: true, modelId: 'x', mode: 'cloud' }).mode).toBe('device');
   });
 });

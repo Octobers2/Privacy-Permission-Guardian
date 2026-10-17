@@ -13,7 +13,7 @@
   import Progress from '../ui/components/Progress.svelte';
   import Switch from '../ui/components/Switch.svelte';
   import TextField from '../ui/components/TextField.svelte';
-  import { fetchModels, normaliseServer, signIn } from './api.ts';
+  import { checkServer, fetchModels, normaliseServer, signIn } from './api.ts';
   import { CLAUSE_SAMPLES, PAGE_SAMPLES } from './samples.ts';
 
   type Step = 'welcome' | 'device' | 'model' | 'download' | 'test' | 'options' | 'done';
@@ -70,6 +70,10 @@
   let signInError = $state('');
   let account = $state<{ username: string; token: string; expiresAt: number } | null>(null);
   let finishing = $state(false);
+
+  // shared-only mode: no model, only what others have already shared
+  let sharedOnly = $state(false);
+  let sharedBusy = $state(false);
 
   const stepIndex = $derived(STEPS.findIndex((s) => s.id === step));
 
@@ -182,9 +186,27 @@
     }
   }
 
+  async function useSharedOnly() {
+    checkError = '';
+    sharedBusy = true;
+    try {
+      serverUrl = normaliseServer(serverUrl);
+      await checkServer(serverUrl);
+      await engine?.unload();
+      engine = null;
+      await savePrefs({ setupDone: true, serverUrl, mode: 'shared', modelId: null, summary: 'off', account: null });
+      sharedOnly = true;
+      step = 'done';
+    } catch (error) {
+      checkError = error instanceof Error ? error.message : String(error);
+    } finally {
+      sharedBusy = false;
+    }
+  }
+
   async function finish() {
     finishing = true;
-    await savePrefs({ setupDone: true, serverUrl, modelId: selected?.id ?? null, summary: summaryOn ? 'server' : 'off', account });
+    await savePrefs({ setupDone: true, serverUrl, mode: 'device', modelId: selected?.id ?? null, summary: summaryOn ? 'server' : 'off', account });
     await engine?.unload(); // the offscreen document loads it again from the cache when it is needed
     engine = null;
     step = 'done';
@@ -255,6 +277,17 @@
           {#if models.length === 0 && !device.problems.length}
             <p class="error" role="alert"><Icon name="alert" size={18} />The server has no models for this version of the extension.</p>
           {/if}
+        {/if}
+
+        {#if device && !checking}
+          <div class="panel" id="shared-option">
+            <h2>{device.problems.length ? 'No model on this computer' : 'Or skip the model'}</h2>
+            <p>
+              You can use the extension without a model. It then looks up what other people’s computers have already found in a site’s terms. Nothing is read or analysed on this
+              computer, and no graphics card is needed. The server is told the name of each website you look up, nothing else. Sites nobody has read yet show no result.
+            </p>
+            <div class="actions left"><md-outlined-button onclick={useSharedOnly} disabled={sharedBusy}>Use shared results only</md-outlined-button></div>
+          </div>
         {/if}
 
         <div class="actions">
@@ -376,12 +409,20 @@
       {:else}
         <div class="done-mark" aria-hidden="true"><Icon name="check" size={30} /></div>
         <h1 bind:this={heading} tabindex="-1">You’re all set</h1>
-        <p class="lead">Browse as usual. When you open a site’s terms of service, open the toolbar icon and choose <strong>Read the terms</strong>. Pin the extension to keep it in view.</p>
-        <ul class="summary-list">
-          <li>Model: <strong>{selected?.name ?? 'installed'}</strong>, kept in this browser.</li>
-          <li>Summaries: <strong>{summaryOn ? 'on' : 'off'}</strong>. Sharing: <strong>{account ? `on, as ${account.username}` : 'off'}</strong>.</li>
-        </ul>
-        <p class="note">You can change all of this, switch models, or remove the download from the extension’s settings.</p>
+        {#if sharedOnly}
+          <p class="lead">Browse as usual. On any site, open the toolbar icon and choose <strong>Look up results</strong> to see what others found in its terms. Pin the extension to keep it in view.</p>
+          <ul class="summary-list">
+            <li>Mode: <strong>shared results only</strong>. No model is installed.</li>
+          </ul>
+          <p class="note">You can add an on-device model later from the extension’s settings.</p>
+        {:else}
+          <p class="lead">Browse as usual. When you open a site’s terms of service, open the toolbar icon and choose <strong>Read the terms</strong>. Pin the extension to keep it in view.</p>
+          <ul class="summary-list">
+            <li>Model: <strong>{selected?.name ?? 'installed'}</strong>, kept in this browser.</li>
+            <li>Summaries: <strong>{summaryOn ? 'on' : 'off'}</strong>. Sharing: <strong>{account ? `on, as ${account.username}` : 'off'}</strong>.</li>
+          </ul>
+          <p class="note">You can change all of this, switch models, or remove the download from the extension’s settings.</p>
+        {/if}
         <div class="actions"><md-filled-button onclick={() => window.close()}>Close this tab</md-filled-button></div>
       {/if}
     </section>

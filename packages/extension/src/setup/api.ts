@@ -35,3 +35,15 @@ export async function signIn(serverUrl: string, username: string, password: stri
   const body = LoginResponse.parse(await response.json());
   return { username, token: body.token, expiresAt: body.expiresAt };
 }
+
+/** Is a results server there? Shared-only mode needs nothing else from it. */
+export async function checkServer(serverUrl: string): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`${serverUrl}/health`, { cache: 'no-cache' });
+  } catch {
+    throw new Error(`Could not reach ${serverUrl}. Check the address and that the server is running.`);
+  }
+  const body = (await response.json().catch(() => null)) as { ok?: boolean } | null;
+  if (!response.ok || !body?.ok) throw new Error(`${serverUrl} does not look like a results server.`);
+}
