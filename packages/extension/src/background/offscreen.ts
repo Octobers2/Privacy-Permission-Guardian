@@ -1,25 +1,23 @@
 /**
- * Owns the offscreen document that reads policy pages.
+ * Owns the offscreen document: the one place that has both a rendering engine (to read terms pages with their CSS applied)
+ * and a lifetime longer than a service worker's (to hold the on-device model through a minutes-long analysis).
  *
- * A service worker has neither a DOM nor a rendering engine, and a content
- * script's requests are governed by the page's CSP. An offscreen document is an
- * extension page with both, so that is where fetching and rendering happen.
+ * Chrome allows one offscreen document per extension, so reading pages and running the model share it.
  */
 import type { PolicyReadResult } from '../offscreen/index.ts';
+import type { AnalyseTextRequest } from '../messages.ts';
 
 const PATH = 'offscreen.html';
 
 let creating: Promise<void> | null = null;
 
 async function exists(): Promise<boolean> {
-  const contexts = await chrome.runtime.getContexts({
-    contextTypes: ['OFFSCREEN_DOCUMENT' as chrome.runtime.ContextType],
-  });
+  const contexts = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT' as chrome.runtime.ContextType] });
   return contexts.length > 0;
 }
 
 /** Idempotent, and safe to call concurrently — creating twice is an error. */
-async function ensure(): Promise<void> {
+export async function ensureOffscreen(): Promise<void> {
   if (await exists()) return;
   if (creating) return creating;
 
@@ -28,7 +26,7 @@ async function ensure(): Promise<void> {
       url: PATH,
       reasons: [chrome.offscreen.Reason.DOM_PARSER],
       justification:
-        'Render a fetched privacy policy so that text hidden with CSS can be identified before it is summarised.',
+        'Render fetched terms-of-service pages so hidden text can be identified, and keep the on-device classification model loaded while a document is analysed.',
     })
     .finally(() => {
       creating = null;
@@ -39,8 +37,11 @@ async function ensure(): Promise<void> {
 
 export async function readPolicy(urls: string[]): Promise<PolicyReadResult> {
   if (urls.length === 0) return { policy: null, failures: [] };
-  await ensure();
-  return (
-    (await chrome.runtime.sendMessage({ type: 'read-policy', urls })) ?? { policy: null, failures: [] }
-  );
+  await ensureOffscreen();
+  return (await chrome.runtime.sendMessage({ type: 'read-policy', urls })) ?? { policy: null, failures: [] };
+}
+
+export async function startAnalysisInOffscreen(job: AnalyseTextRequest['job']): Promise<void> {
+  await ensureOffscreen();
+  await chrome.runtime.sendMessage({ type: 'analyse-text', job } satisfies AnalyseTextRequest);
 }

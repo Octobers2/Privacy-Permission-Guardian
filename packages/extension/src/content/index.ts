@@ -11,15 +11,15 @@ import type {
   ExtractCurrentPageResponse,
   PolicyCandidatesResponse,
 } from '../messages.ts';
-import { SETTINGS_STORAGE_KEY } from '../messages.ts';
+import { PREFS_STORAGE_KEY } from '../messages.ts';
 import { removeBanner, showBanner } from './banner.ts';
 import { scanDocument, watchDocument } from './form-scanner.ts';
 import { extractVisibleText, pickMainContent } from '@ppg/shared/sanitize';
-import { looksLikePolicyPage, policyCandidates } from './policy-scout.ts';
+import { findPolicyLinks, guessedPaths, looksLikePolicyPage } from './policy-scout.ts';
 
 const TITLES = {
-  danger: '呢個表單好可疑，唔好喺度輸入個人資料',
-  caution: '呢個表單要求敏感個人資料，請確認網站可信',
+  danger: 'This form looks suspicious. Do not enter personal information here.',
+  caution: 'This form asks for sensitive personal information. Make sure you trust this site.',
 } as const;
 
 async function send<T>(message: ExtensionMessage): Promise<T | null> {
@@ -66,7 +66,7 @@ watchDocument((observations) => void assess(observations));
 // Pausing or allowlisting has to take effect on the page the user is looking
 // at, not on the next navigation.
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && changes[SETTINGS_STORAGE_KEY]) void assess(scanDocument());
+  if (area === 'local' && changes[PREFS_STORAGE_KEY]) void assess(scanDocument());
 });
 
 // Only the live page knows where its own policy is linked from, so the search
@@ -74,7 +74,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
 // which is not bound by this page's CSP and has a real rendering engine.
 chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendResponse) => {
   if (message?.type === 'policy-candidates') {
-    sendResponse(policyCandidates() satisfies PolicyCandidatesResponse);
+    sendResponse({ links: findPolicyLinks(document, location.href), guesses: guessedPaths(location.href) } satisfies PolicyCandidatesResponse);
     return false;
   }
 

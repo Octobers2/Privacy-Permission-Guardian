@@ -19,9 +19,11 @@
  * sandboxed iframe *without* `allow-scripts`, so nothing in it executes, but the
  * stylesheets do load and `getComputedStyle` answers truthfully.
  */
-import { extractVisibleText, pickMainContent } from '@ppg/shared/sanitize';
+import { extractVisibleText, MAX_DOCUMENT_CHARS, pickMainContent } from '@ppg/shared/sanitize';
+import type { ExtensionMessage } from '../messages.ts';
+import { looksLikeLegalText } from '../policy-text.ts';
+import { startAnalysis } from './analysis-host.ts';
 
-const MAX_POLICY_CHARS = 24_000;
 const RENDER_TIMEOUT_MS = 8_000;
 
 export interface RenderedPolicy {
@@ -43,7 +45,9 @@ export type PolicyFailureReason =
   | 'http-error'
   | 'not-html'
   | 'needs-javascript'
-  | 'too-short';
+  | 'too-short'
+  /** Long enough, but nothing in it reads like terms: the link was a wrong guess. */
+  | 'not-terms';
 
 export interface PolicyFailure {
   url: string;
@@ -95,7 +99,7 @@ async function renderAndExtract(
     if (!doc) return { text: '', truncated: false, scriptCount: 0 };
     // Counted before the sanitiser removes them.
     const scriptCount = doc.querySelectorAll('script').length;
-    const { text, truncated } = extractVisibleText(pickMainContent(doc), MAX_POLICY_CHARS, (element) => {
+    const { text, truncated } = extractVisibleText(pickMainContent(doc), MAX_DOCUMENT_CHARS, (element) => {
       try {
         return frame.contentWindow?.getComputedStyle(element) ?? null;
       } catch {
@@ -121,8 +125,10 @@ async function renderAndExtract(
  * the feature entirely on the largest sites, which is the failure that was
  * reported.
  */
-function looksClientRendered(html: string, scriptCount: number, renderedChars: number): boolean {
-  return html.length > 2_000 && scriptCount >= 1 && renderedChars < 400;
+function looksClientRendered(_html: string, scriptCount: number, renderedChars: number): boolean {
+  // No size floor: an anti-bot interstitial (GovHK answers first visits with a 1 kB script that sets a cookie and reloads) is tiny,
+  // and is exactly the case where the page has to run its scripts before there is anything to read.
+  return scriptCount >= 1 && renderedChars < 400;
 }
 
 async function readPolicyAt(url: string): Promise<RenderedPolicy | PolicyFailure> {
@@ -145,6 +151,8 @@ async function readPolicyAt(url: string): Promise<RenderedPolicy | PolicyFailure
     };
   }
 
+  if (!looksLikeLegalText(text)) return { url, reason: 'not-terms' };
+
   return { policyUrl: response.url || url, text, truncated };
 }
 
@@ -159,8 +167,15 @@ export async function readFirstPolicy(urls: string[]): Promise<PolicyReadResult>
   return { policy: null, failures };
 }
 
-chrome.runtime.onMessage.addListener((message: { type?: string; urls?: string[] }, _sender, sendResponse) => {
-  if (message?.type !== 'read-policy') return false;
-  void readFirstPolicy(message.urls ?? []).then(sendResponse);
-  return true;
+chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendResponse) => {
+  if (message?.type === 'read-policy') {
+    void readFirstPolicy(message.urls ?? []).then(sendResponse);
+    return true;
+  }
+  if (message?.type === 'analyse-text') {
+    startAnalysis(message.job);
+    sendResponse({ started: true });
+    return false;
+  }
+  return false;
 });

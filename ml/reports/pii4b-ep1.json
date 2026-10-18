@@ -1,0 +1,39 @@
+{
+ "test": {
+  "n": 2016,
+  "tp": 1117,
+  "fp": 31,
+  "fn": 23,
+  "tn": 845,
+  "precision": 0.9729965156794426,
+  "recall": 0.9798245614035088,
+  "by_kind": {
+   "P:inbox": 1.0,
+   "N:tos_real": 0.0,
+   "P:insurance_policy": 1.0,
+   "P:payslip": 1.0,
+   "P:dashboard": 1.0,
+   "N:tos": 0.0,
+   "N:landing": 0.0,
+   "P:profile_settings": 1.0,
+   "N:blog": 0.0,
+   "P:patient_portal": 1.0,
+   "P:social_profile": 1.0,
+   "P:checkout_prefilled": 1.0,
+   "N:real_policy": 0.0,
+   "N:bio_public": 0.25833333333333336,
+   "P:stealth_orders": 1.0,
+   "P:stealth_messages": 0.8083333333333333,
+   "P:bank_statement": 1.0,
+   "N:login": 0.0,
+   "N:product": 0.0,
+   "N:faq": 0.0,
+   "P:stealth_dashboard": 1.0,
+   "P:order_confirmation": 1.0,
+   "P:stealth_health": 1.0,
+   "N:docs": 0.0,
+   "N:privacy": 0.0,
+   "N:contact": 0.0
+  }
+ }
+}

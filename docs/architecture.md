@@ -1,200 +1,114 @@
-# 架構
+# Architecture
 
-## 一句話
+This is how the pieces fit and why they are shaped this way. For what each is made of, see the [README](../README.md); for the threats the design answers, see [threat-model.md](threat-model.md).
 
-Content script 抽 DOM、畫橫額；service worker 做評分、快取同模型呼叫；
-`packages/shared/` 係兩條路（本機 BYOK 同 managed server）唯一嗰份邏輯。
+## The idea in one paragraph
 
-## 圖
+A language model reads a site's terms on the user's computer and labels every sentence. Reading is slow and needs a GPU, so the result can be shared: a contributor's extension uploads the flagged clauses of a public document, the server keeps them for 30 days, and everyone else (including people with no GPU) looks them up. What leaves the device is therefore only flagged clauses of public pages, only from signed-in contributors, and only after a personal-data check.
 
 ```
-┌──────────────────── Browser (Chrome / Edge, MV3) ─────────────────────┐
-│                                                                       │
-│  content script  (25 KB，每頁載入)     service worker (一個 session 一次)│
-│  ├─ form-scanner ────────────────►    ├─ scoreForm（規則引擎）          │
-│  │   extractForms(document)            ├─ chrome.storage 摘要快取       │
-│  ├─ policy-scout（只搵連結）──────►     ├─ badge 顏色                   │
-│  ├─ 讀 live DOM（唯讀，唔改頁面）        └─ llm-router ─┬── managed ──┐  │
-│  └─ banner (Shadow DOM，零 library)                    └── direct    │  │
-│                                                                     │  │
-│  offscreen document：fetch + sandbox iframe（唔行 script）           │  │
-│  背景分頁：畀網站自己 render（BYOK 模式先用）                          │  │
-│  popup.html / options.html  (Svelte 5 + @material/web)              │  │
-└─────────────────────────────────────────────────────────────────────┼──┘
-                                                                      │
-         managed（預設，要登入）                 direct / BYOK          │
-               │                                        │              │
-               ▼                                        ▼              │
-   ┌──── Hono on Bun :8787 ────┐         ┌── 用戶自填 endpoint ──┐      │
-   │  /api/login（bcrypt）      │         │  POST {base}/chat/    │◄────┘
-   │  /api/policy/render ──┐    │────────►│       completions     │
-   │  /api/policy/summarize│    │         └───────────────────────┘
-   │  /api/form/assess     │    │
-   │  /api/status          ▼    │   auth.txt（username:bcrypt-hash）
-   │  bun:sqlite 共用快取  headless Chromium（CDP，冇 Puppeteer）
-   └────────────────────────────┘
+ ┌──────────────── browser ────────────────┐            ┌────────── results server ──────────┐
+ │ content script   policy links, forms,    │            │ /api/v1/*   public reads           │
+ │                  form-warning banner     │            │ /api/results   upload (contributor)│
+ │ service worker   finds the terms, keeps  │   HTTPS    │ /api/summary   metered, optional   │
+ │                  state, talks to server  │ ◄────────► │ /models/*      model bundles       │
+ │ offscreen doc    WebLLM engine + analysis│            │ /  /site/<d>  /docs   query site   │
+ │ popup/settings/setup   Svelte pages      │            │ SQLite: results, passages, summaries│
+ └──────────────────────────────────────────┘            └────────────────────────────────────┘
+        ▲ model files are downloaded once, from the server, into the browser's cache
 ```
 
-## 四個唔明顯但關鍵嘅決定
+## Packages
 
-### 1. 評分喺 service worker，唔喺頁面
-
-規則引擎要 public suffix list（tldts）同 zod，合共約 330 kB。喺 worker
-入面一個 browser session 載入一次，可以接受；喺用戶去嘅每一個網站都載入，
-就同「輕量私隱工具」呢個前提直接矛盾。
-
-Content script 淨低 DOM 抽取同繪圖，實測 **25 KB**（入面 6 KB 係 sanitizer）。呢件事回歸過兩次
-（一次係 import 咗規則引擎，一次係 `@ppg/shared` 未聲明 `sideEffects: false`），
-兩次都冇報錯 —— 插件照行，只係靜靜雞肥咗。所以 `eval/bundle-budget.ts`
-喺 e2e 度守住個 60 KB 預算。
-
-### 2. 條款頁點讀：server 行先，瀏覽器喺後面接住
-
-呢一節之前寫住「唔會喺 server 讀」，理由係 server-side fetch 會撞
-Cloudflare、bot 攔截同地區重導向，攞返嚟嘅未必係用戶被要求同意嗰一版。
-嗰啲理由到今日一樣成立 —— 但另一邊嘅代價變咗：**而家大站嘅條款頁基本上
-全部係 client-rendered**（Next.js、Meta、TikTok）。純 fetch 攞到嘅只係一個
-殼，入面一個字都冇。
-
-所以而家係咁分工：
-
-| | |
+| Package | Role |
 |---|---|
-| **Managed 模式** | Server 開一個 headless Chromium（CDP，唔用 Puppeteer）去 render。要登入先用得。 |
-| **Direct / BYOK** | 冇 server，全部喺瀏覽器度做 —— 落面條階梯 |
-| **Server 幫唔到手時**（未登入、連唔到、佢都讀唔到） | 一樣跌返落條階梯 |
+| `packages/shared` | Everything that must behave identically in the extension, the server and the Python code: labels and families, the two prompts, the text pipeline, personal-data rules, zod schemas for uploads and views, the form-warning rules. Pure TypeScript, no browser or server APIs. |
+| `packages/extension` | The MV3 extension, built with Vite and CRXJS. |
+| `packages/server` | Hono on Bun. Also holds the query site (`public/`) and `scripts/demo.ts`. |
+| `ml/` | Training, evaluation, quantisation and packaging, in Python. Talks to the rest only through files: the model bundles and `ppg-model.json`. |
 
-階梯（詳見 threat-model.md）：
+## The extension
 
-1. 用戶身處嘅就係條款頁 → **唯讀**咁讀 live DOM
-2. Offscreen sandbox iframe（唔執行任何 script）→ 靜態條款頁喺呢級搞掂
-3. 背景分頁 → 畀網站喺自己 origin render，然後讀。分頁 `active: false`，
-   用戶見唔到，讀完即關。
+Manifest V3 gives a service worker that sleeps after seconds, and a model that takes minutes to read a long document. The design follows from that.
 
-階梯留住唔係為咗保險咁簡單：**server 冇用戶嘅 session**，要登入先睇到嘅
-條款頁得瀏覽器讀到；而畀人 block 資料中心流量嘅網站，block 嘅係 server，
-唔係用戶。
+- **Content script** (every page, about 29 KB). Scans forms for the warning banner, and answers two questions for the service worker: which links on this page look like terms, and, if this page is itself a terms page, what its text is. It never reads the page unless asked.
+- **Service worker.** Thin on purpose. It finds the terms (`background/acquire.ts`): the live page if it is a terms page, otherwise the linked and guessed addresses fetched and rendered in the offscreen document, otherwise a hidden background tab for pages that only exist once their scripts run. It hands the text to the offscreen document, keeps per-tab state in `chrome.storage.session` and saved results in `chrome.storage.local` (30 days, at most 50), and paints the toolbar badge. Nothing it needs later lives only in memory.
+- **Offscreen document.** Owns the model (one engine, jobs queued) and runs the analysis (`analysis/analyzer.ts`), because it outlives the service worker. It reports progress by messages, which the service worker writes into session storage. The popup just follows storage.
+- **Engine** (`engine/engine.ts`). WebLLM loads a model bundle served by our server. The model is used as a classifier: for each prompt, the logits of the option letters at the first answer position become probabilities (a `LogitProcessor` reads them, because WebLLM's `top_logprobs` stops at five and there are nine options). If the GPU is lost mid-run, the engine reloads once and carries on.
+- **Setup wizard** (`setup/`). Opens on install: checks WebGPU (reporting why it fails), offers the two models with their sizes, downloads and verifies one, runs a five-question self-test, and asks about the two optional extras (summaries, contributor sign-in). A computer with no usable GPU can choose shared results only.
+- **Popup, settings, banner.** Svelte 5 with hand-written Material 3 tokens (`scripts/gen-theme.ts`). The popup's central picture is the *document strip*: one tick per sentence, the flagged ones tall and coloured by family.
 
-#### 點解唔喺 content script 度 fetch
+Preferences (`prefs.ts`) hold the server address, the model, the mode (`device` or `shared`), the summary choice, the contributor token, and the form-warning allowlist. They live in `chrome.storage.local`, not `sync`, because they contain a token.
 
-錯咗兩重：content script 個 `fetch` 受**該網頁自己嘅 CSP** 管（GitHub、
-Reddit 連自己嗰版私隱政策都 fetch 唔到），而 `DOMParser` 文件冇 browsing
-context，`getComputedStyle` 全部返空字串 —— 所有靠 computed style 嘅剝離
-檢查靜靜雞失效。Offscreen document 兩樣都有：extension 權限加真渲染引擎。
+### The analysis flow
 
-連結搜尋仍然留喺 content script —— 得 live 頁面知道自己個 footer 連去邊。
+For one tab, in order. Each step can stop the flow, and the earlier ones are the privacy gate.
 
-#### 抽文字**唔可以**改個 DOM
+1. **Acquire** the terms text and its address (service worker).
+2. **Rules check** (`shared/pii.ts`): does the text contain personal data about a person (a private email address, a card number that passes the Luhn check, a national ID, an IBAN, a date of birth, account markers)? Terms pages legitimately print company contact details, so phone numbers, role mailboxes and street addresses count only alongside other cues. If the page looks personal, the extension never contacts the server about it.
+3. **Cache lookup** (`/api/v1/lookup?url=…&hash=…`). A hit whose text hash matches is shown straight away. A changed text is read again.
+4. **Classify** on the device: split the text into sentences (`segmentDocument`), normalise each the way the training text was, ask the model for the nine-way answer, calibrate with the fitted temperature. Progress streams to the popup.
+5. **Model personal-data question** on the page (`pii-v1`, two options, threshold 0.5). This is the second opinion after the rules.
+6. **Share**, only if the user is signed in as a contributor and everything above passed: upload the flagged passages with their probabilities, the address (without query or fragment), the text hash, and the model id. Fair sentences travel as a count. Every passage is checked again with the strict rules.
+7. **Summary**, only if the user opted in at setup and the page passed: the flagged passages go to the server's `/api/summary` (or to the user's own OpenAI-compatible endpoint, kept as an advanced option).
 
-`stripInvisibleContent` 係喺原地 `remove()` 嘢嘅。落喺 fetch 返嚟嘅文件度
-冇問題；落喺用戶望緊嗰一版，就係自己拆人哋個頁 —— body 入面每個
-`<style>`、每個 `aria-hidden` 子樹都會消失，React 一 re-render 就散。
-Instagram、Facebook 撳「分析」之後成版走晒 style，就係呢件事。
+Shared-results-only mode replaces steps 1 to 7 with one request, `GET /api/v1/sites/<domain>`, and shows the best document for the page (the one the page links to, then one that looks like terms, then the newest). Only the registrable domain of a public site is sent; localhost, private addresses and bare host names are refused before any request.
 
-而家 `extractVisibleText` 行 `collectVisibleText`：同一套 `isHidden` 規則，
-一次**唯讀**遍歷，見到睇唔到嘅嘢就連整個子樹跳過。順帶平反咗一件事 ——
-跳過一個 `display:none` 嘅 menu 只使一次 `getComputedStyle`，而唔係入面
-每個元素一次。`test/sanitize.test.ts` 有個測試比對行完前後個 `innerHTML`，
-一個字唔同就紅燈。
+### Text pipeline
 
-### 3. Managed backend 要登入
+The classifier was trained on lower-cased, Penn-Treebank-tokenised sentences, which is not how a web page reads. `shared/classifier-text.ts` splits a document into sentences (dropping fragments under 25 characters or 5 words, cutting any over 1,200 characters) and normalises each (lower-case, URLs and emails protected, Treebank rules). 99.7% of the benchmark's sentences reproduce exactly. The prompts and the normaliser are **locked to the Python reference by golden files**: `ml/golden_prompts.py` and `ml/golden_text.py` write them, and unit tests require the TypeScript to match byte for byte. Change one side and the other's tests fail.
 
-Server 手上有 API key，同埋一個開得到任何網址嘅瀏覽器。冇登入嘅話，
-個 port 就係其他人嘅免費 LLM 加免費 fetcher。
+## The results server
 
-- `auth.txt`（repo 根目錄，gitignore 咗）：`username:bcrypt-hash` 一行一個。
-  `bun run auth add <name>` 加，用 `Bun.password`，唔使裝 bcrypt。
-- `POST /api/login` 用密碼換一個 token，token 淨係擺喺 server 個 `Map` 入面。
-  冇 JWT、冇 secret 要管；代價係重啟 server 之後所有 token 失效 —— 插件收到
-  401 會自己登入多次再試，所以用戶唔會察覺。
-- 插件將 token 擺喺 `chrome.storage.session`（service worker 隨時會被殺，
-  每次醒返都重新 bcrypt 一次太蠢），瀏覽器閂咗就冇。
-- `/api/policy/render` 會擋私有網段（`169.254.169.254`、`10/8`、loopback…）。
-  登入決定「邊個」問得，呢個決定「問得啲乜」。
+Hono on Bun, SQLite through `bun:sqlite`, one process. Source in `packages/server/src`.
 
-### 4. `packages/shared/` 用 TypeScript，唔用 Python server
+**Routes**
 
-因為要支援 BYOK 直連，prompt、zod schema、sanitizer、引文核對、計分
-喺 extension 同 server **兩邊都要跑**。放喺 shared 就寫一次；分兩種語言
-就要各維護一份 prompt，一個禮拜就會走樣，然後兩個模式靜靜雞畀唔同答案。
+| Route | Who | What |
+|---|---|---|
+| `GET /health` | anyone | `{ ok, ttlDays, authRequired }` and nothing else |
+| `POST /api/login` | anyone | username and password, answers a bearer token (12 hours, held in memory). Locks a name out for 15 minutes after repeated failures |
+| `POST /api/results` | contributor | upload a result. Validated by a strict schema, the host must be public, the domain must match the address, and the passages are checked again for personal data |
+| `GET /api/v1/sites/:domain` | anyone | the current result of every document of a site, with passages |
+| `GET /api/v1/lookup?url=&hash=` | anyone | the current result for one document, and whether the text changed |
+| `GET /api/v1/results/:id`, `/history?url=` | anyone | one result; every unexpired version of one document |
+| `GET /api/v1/recent`, `/rankings?by=count\|share`, `/stats` | anyone | lists for the site |
+| `POST /api/summary` | anyone (metered) | plain-language summary of flagged passages. Per-client and global hourly limits; answers cached by passages |
+| `GET /models/manifest.json`, `/models/<bundle>/…` | anyone | model bundles with HTTP Range, ETag and immutable cache headers |
+| `GET /`, `/site/<domain>`, `/docs`, static files | anyone | the query site |
+| `GET /api/status`, `POST /api/form/assess` | contributor | operator status; optional model-assisted form assessment |
 
-## 資料流：表單提示
+Reads are public by design; the point is that results are shared. CORS is open for reads and for the public preflight; writes answer only extension origins and an optional allow-list.
 
-```
-DOMContentLoaded / MutationObserver
-  → extractForms(document, location.href)      shared/extract-form.ts
-  → { page, form } 只有欄位 metadata，冇 value
-  → sendMessage({ type: 'assess', observations })
-      worker: scoreForm(observation, { allowlist }) shared/rules.ts
-              ├─ detectLookalike(hostname)          shared/lookalike.ts
-              └─ classifyField × N
-      → { verdict, reasons[] }
-  → showBanner(...)                             content/banner.ts
-```
+**Storage** (`store.ts`)
 
-`ruleScore ≥ llmThreshold`（預設 30）先會問模型。`≥ 60` 就算完全冇網絡
-都直接出警告。
+- `results` (one row per upload: address, domain, text hash, model, counts, `created_at`, `expires_at`), `passages` (flagged sentences with their nine probabilities), `summaries` (cached by passages, prompt version and model).
+- **Cache key:** the policy address with query string and fragment removed. **Latest wins:** the newest unexpired row for an address is "current"; older rows stay as history until they expire. A change in the text hash is what marks a real change in the terms.
+- **TTL:** 30 days from upload. Reads ignore expired rows at once; a daily job (and one at boot) deletes them. The clock is injectable, which is how the tests cover expiry.
 
-## 資料流：條款摘要
+**Models.** `scripts/model-manifest.ts` walks `data/models`, reads each bundle's `ppg-model.json`, hashes the files and writes `manifest.json`. The extension reads the manifest, shows each model's size and held-out test scores, and verifies the kernel it loads against a SHA-256 integrity value.
 
-```
-用戶撳 popup 「分析呢個網站」
-  → worker: chrome.tabs.sendMessage({ type: 'extract-current-page' })
-      content: 呢版本身就係條款頁？係就唯讀咁抽（唔改 DOM）
-                                               content/index.ts
-  → worker: chrome.tabs.sendMessage({ type: 'policy-candidates' })
-      content: policyCandidates(document)       content/policy-scout.ts
+## The query site
 
-  → managed：worker: renderPolicy(urls)         background/llm-router.ts
-      server: POST /api/policy/render（要 Bearer token）
-              → isPublicUrl 擋私有網段            server/render.ts
-              → headless Chromium 開分頁，等佢 render
-              → 注入 render-probe（就係 extractVisibleText 本身）
-  → 讀唔到 / 冇 server：worker: readPolicy(urls) background/offscreen.ts
-      offscreen: fetch(url, credentials:'include')
-                 → sandboxed iframe（冇 allow-scripts）→ 真 computed style
-                 → pickMainContent → extractVisibleText
-  → 仲係讀唔到：readInBackgroundTab(url)         background/background-tab.ts
+Plain files in `packages/server/public`, mounted by `src/site.ts` after every API route so the API's prefixes (`/api`, `/models`, `/health`) are never answered with a page. No build step. Clean URLs: `/`, `/site/<domain>`, `/docs`. The pages call the same server's public API. Passages are inserted as text only, and the pages are served with a policy that allows scripts, styles and fonts from the site's own origin and requests to nothing else. The stylesheet's colours are generated by the same script as the extension's.
 
-                                               shared/sanitize.ts  ← 防禦第 1 層
-  → sha256Hex(text) → 查快取（domain + hash + PROMPT_VERSION）
-  → buildPolicyPrompt → wrapUntrusted           shared/prompts.ts   ← 第 2 層
-  → chatJson(..., PolicySummaryResponseSchema)  shared/openai-compat.ts ← 第 3 層
-  → finalisePolicySummary → isVerbatim 逐點核對  shared/policy.ts    ← 第 4 層
-  → riskScore(kept)                             shared/score.ts
-  → 寫快取 → popup 用文字插值 render              ← 第 5 層
-```
+## Model bundles
 
-五層防禦嘅細節同量度結果見 [threat-model.md](threat-model.md) 同
-[evaluation.md](evaluation.md)。
+Two bundles, built by `ml/` and served from `data/models`:
 
-## 目錄
+| Tier | Base | Weights | Notes |
+|---|---|---|---|
+| Fast | Qwen3.5-0.8B | 451 MB | recommended first |
+| Accurate | Qwen3.5-4B | 2.4 GB | slower to load; many fewer false alarms on the personal-data question (see [evaluation.md](evaluation.md)) |
 
-| 位置 | 內容 |
+Both are 4-bit (`q4f32_1`) and reuse WebLLM's prebuilt Qwen3.5 kernels, with the context window set to 2,048 tokens (the longest measured prompt is about 1.2k). Each bundle carries a `ppg-model.json` with its id, tier, size, the token ids of the answer letters, the fitted temperatures and the held-out scores.
+
+## Testing map
+
+| What | Where |
 |---|---|
-| `packages/shared/src/` | schemas、rules、lookalike、sanitize、prompts、openai-compat、policy、score、domain、extract-form |
-| `packages/extension/src/content/` | form-scanner、policy-scout、banner（唯一喺人哋頁面跑嘅 code） |
-| `packages/extension/src/background/` | service worker、llm-router（連 managed 登入）、cache、offscreen 同背景分頁管理 |
-| `packages/extension/src/offscreen/` | 條款頁嘅 fetch 同渲染（唯一有渲染引擎又唔受網頁 CSP 管嘅地方） |
-| `packages/extension/src/ui/` | Popup、Options、MD3 components、生成嘅 token |
-| `packages/server/src/` | Hono app、auth（auth.txt + token）、render（headless Chromium）、chromium（CDP client）、render-probe、bun:sqlite 快取 |
-| `scripts/auth.ts` | `bun run auth add / list / remove` |
-| `eval/` | fixtures、labels.csv、三個 harness、fixture server（CDP client 喺 server 度，兩邊共用） |
-
-## 建置
-
-`@crxjs/vite-plugin` 由 `manifest.json` 出發，一個 config 處理三種 target
-（extension 頁、service worker ESM、content script）。
-
-**冇用 SvelteKit**：MV3 嘅 `extension_pages` CSP 唔准任何遠端 script source，
-所以 Vite dev server 嘅 HMR 連唔到 extension 頁面 —— 而 HMR 正正係
-SvelteKit dev server 嘅主要價值。Routing / SSR / load / form actions
-喺插件度全部用唔著，仲會 emit inline hydration script 撞 CSP，要一個會隨
-版本更新而爛嘅 post-build hack 去補。CRXJS 用 background-script reload
-繞開 CSP，component 寫法完全一樣。
-
-**MD3 色彩**由 `scripts/gen-theme.ts` 喺開發時生成一次，
-`@material/material-color-utilities` 留喺 devDependencies，唔會入 bundle。
-出兩份：`:root` 畀 extension 頁，`:host` 畀 Shadow DOM 入面嘅 banner。
-MD3 本身只有 `error` 一個語意色，`success` 同 `warning` 係用 custom color
-功能額外生成，令三個風險等級喺 light / dark 行為一致。
+| Prompts and text pipeline match Python | `packages/shared/test` with the golden files |
+| Personal-data rules, schemas, form rules | `packages/shared/test` |
+| Store, TTL, latest-wins, routes, rate limits, models, site | `packages/server/test` |
+| Analyzer, engine, shared lookup, prefs, scout | `packages/extension/test` |
+| Whole flows in a real browser | `eval/run-*-e2e.ts` |

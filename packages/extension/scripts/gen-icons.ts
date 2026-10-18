@@ -12,7 +12,7 @@
  */
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { Browser } from '../../server/src/chromium.ts';
+import { Browser } from '../../../eval/lib/chromium.ts';
 
 const SIZES = [16, 32, 48, 128];
 const OUT = resolve(import.meta.dir, '../src/assets/icons');

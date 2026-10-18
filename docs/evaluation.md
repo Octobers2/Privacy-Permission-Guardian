@@ -1,182 +1,99 @@
-# 評測
+# Evaluation
 
-> 數字係由 `eval/` 入面三個 harness 產生嘅，全部跑同一份 production code。
-> 重跑方法喺每一節底下。
+What was measured, how, and what the numbers do not show. The model training and data are described in [ml.md](ml.md).
 
-## 0. 一個要先講清楚嘅限制
+Every score for the classifier is on the **MTEB `UnfairTOSLegalBenchClassification` test set: 2,048 sentences, never used for training, choosing settings or fitting calibration.** 1,855 of them are "other"; the 193 unfair ones are spread over eight classes, the smallest with 8 sentences. Reports are JSON files in `ml/reports/`, one per run.
 
-目前 9 個表單 fixture **全部係 `synthetic`** —— 由我哋一路望住規則一路
-寫出嚟。佢哋喺呢啲規則上考 100% 係預期之內，**唔可以當成偵測率放入報告**。
-`labels.csv` 有一個 `source` 欄分開 `synthetic` 同 `collected`，
-`run-rules-eval.ts` 喺全部都係 synthetic 嗰陣會出警告。
+## Clause classifier
 
-收集真實樣本嘅方法同安全守則見 [`eval/fixtures/README.md`](../eval/fixtures/README.md)。
-收到之後跑：
+Macro-F1 averages the nine classes equally, so a rare class counts as much as "other". "Unfair F1" scores the binary question "is this sentence one of the eight unfair types".
 
-```bash
-bun run eval/run-rules-eval.ts --collected-only --markdown
-```
-
-## 1. 表單偵測
-
-Positive = 「呢個係釣魚」。插件只喺 `danger` 先作出呢個聲稱，所以只有
-`danger` 算 positive；`caution` 係叫用戶核實，唔係同一個聲稱。
-
-```bash
-bun run eval/run-rules-eval.ts                # 規則組
-bun run eval/run-rules-eval.ts --with-llm     # 三組（要 PPG_BASE_URL）
-```
-
-### 目前（9 個 synthetic fixture，4 個釣魚）
-
-| Arm | TP | FP | TN | FN | Precision | Recall | F1 | FP rate |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Rules only | 4 | 0 | 5 | 0 | 100.0% | 100.0% | 100.0% | 0.0% |
-
-*（LLM only 同 Rules + LLM 兩組要一個 endpoint 先跑得到，見上面。）*
-
-### 逐個 fixture
-
-| 標籤 | 網域 | 分數 | 判定 |
-|---|---|---:|---|
-| legit | blog.example.com | 0 | safe |
-| legit | shop.example.com | 25 | safe |
-| legit | **www.hsbc.com.hk** | 40 | **caution** |
-| legit | www.wikipedia.org | 0 | safe |
-| phishing | secure-paypa1.xyz | 80 | danger |
-| phishing | hsbc-verify.top | 100 | danger |
-| phishing | dhl-tracking.click | 80 | danger |
-| phishing | login.microsoft-verify.sbs | 75 | danger |
-| legit | www.datahungry.example | 0 | safe |
-
-**HSBC 嗰行係整份評測最有意思嘅一行。** 一個真實嘅銀行開戶表單本身就要
-身份證、地址、出生日期，會直接衝到 40 分。喺自己嘅正式註冊域上，
-`scoreForm` 會將判定封頂喺 `caution` 而**唔會隱藏原因** —— 用戶照樣見到
-佢哋收緊咩。同一份表單放喺 `hsbc-verify.top` 就照樣 `danger`（100 分）。
-
-呢個係「壓低 false positive」同「唔隱瞞資訊」之間嘅取捨，值得喺報告展開講。
-
-### 點解報告要領住 false positive rate
-
-Recall 單獨睇會令「每一頁都出警告」睇落係個完美偵測器。誤報太多，
-用戶就會關咗個插件，之後所有 recall 都等於零。`metrics.ts` 有一個測試
-就係鎖住呢個論點。
-
-## 2. Prompt injection 防禦
-
-```bash
-bun run eval/run-injection-eval.ts
-```
-
-呢個 harness **唔會**扮量度「模型有幾易被騙」—— 嗰樣嘢每個 model 每日都
-唔同，模擬出嚟嘅數字冇意義。佢量度兩件呢個 codebase 真正決定得到、
-而且完全確定嘅事。
-
-量度方式係**驅動真實 extension**：每個 fixture 有自己一個網站
-（`inj-NN.test`，首頁 footer 連去 `/privacy`），跑完整條路 —— 搵連結、
-offscreen fetch、渲染、剝離、prompt、驗證、核對引文。Payload 有冇到達
-模型，係向 mock endpoint 讀返佢**實際收到**嗰段 prompt。
-
-| 技巧 | 無 CSS（舊做法） | 實際 pipeline | 虛構引文 |
+| System | Macro-F1 | Accuracy | Unfair F1 |
 |---|---|---|---|
-| `display:none` | stripped | stripped | refused |
-| HTML comment | stripped | stripped | refused |
-| `aria-hidden` | stripped | stripped | refused |
-| 螢幕外定位 | stripped | stripped | refused |
-| `font-size:0` | stripped | stripped | refused |
-| 偽造結束標籤 | REACHES | REACHES | refused |
-| **白底白字** | REACHES | **stripped** | refused |
-| 明文寫畀分析器睇 | REACHES | REACHES | refused |
+| Kev-4B zero-shot, class names in the prompt | 0.531 | 0.794 | 0.460 |
+| Kev-4B zero-shot, class definitions in the prompt | 0.614 | 0.853 | 0.553 |
+| Kev adapter with our letter scoring, no further training | 0.378 | 0.469 | 0.264 |
+| 4B fine-tuned (bf16) | 0.793 | 0.961 | 0.815 |
+| 4B fine-tuned, 4-bit rounding | 0.811 | 0.966 | 0.844 |
+| 4B fine-tuned, 4-bit GSQ (MLP layers) | 0.789 | 0.961 | 0.820 |
+| 0.8B (bf16) | 0.782 | 0.958 | 0.789 |
+| 0.8B, 4-bit rounding | 0.774 | 0.958 | 0.793 |
+| **Shipped Accurate (4B), 4-bit, with the personal-data task** | **0.760** | 0.954 | 0.793 |
+| **Shipped Fast (0.8B), 4-bit, with the personal-data task** | **0.769** | 0.956 | 0.793 |
 
-```
-containment   6/8 payload 到唔到模型（驅動真實 extension 量度）
-              5/8 如果文件係冇渲染引擎咁解析 —— 差異就係所有靠
-                  computed style 嘅檢查
-display       8/8 虛構發現喺顯示前被拒絕
-fidelity      8/8 攻擊想隱藏嗰句真條款都保留咗
-```
+Reading this table honestly:
 
-### 一個要記錄低嘅修正
+- **The 95% confidence intervals are wide.** For the shipped models the macro-F1 interval is about 0.70 to 0.81 (bootstrap over the test sentences). Differences of a few hundredths between rows are inside it. What the table does show is the large gaps: fine-tuning moves a zero-shot 0.53 to 0.61 up to about 0.8.
+- **4-bit rounding cost nothing measurable** (0.793 to 0.811), which is why plain rounding ships. GSQ, a learned quantiser, was slightly worse than rounding on the paired comparison (−0.022).
+- **Adding the personal-data task costs some ToS accuracy.** Paired on the same sentences, the 4B lost 0.035 macro-F1 (interval −0.070 to +0.002); the 0.8B lost 0.013, not significant. The shipped 0.8B and 4B are therefore close to each other on this benchmark. The larger model's advantage is on the personal-data question (below).
+- **Calibration is good.** Expected calibration error is 0.025 (4B) and 0.015 (0.8B) after the single fitted temperature, so "99% sure" means roughly that.
+- **Ordinary web text.** The benchmark's sentences are lower-cased and tokenised. The same 2,048 sentences turned back into ordinary prose and then put through the extension's own normaliser score the same as the original (0.760 for the 4B), and 99.7% of the sentences reproduce exactly. Left un-normalised, the prose scores 0.7725, which is not different within the noise: the model copes with ordinary text, and the normaliser mainly guards against pages that look unlike the training text.
 
-呢份 harness 之前係**量錯咗嘢**，而且結論表面上一樣，所以更加值得寫低。
+### Per class, shipped models
 
-舊版將 sanitizer 直接跑喺 harness 自己載入嘅 `document` 上面 —— 一個
-真正渲染咗嘅頁面。但 production 唔係咁做：佢係 fetch 返 HTML 再用
-`DOMParser` 解析，而 `DOMParser` 文件冇 browsing context，
-`getComputedStyle` 對每個 property 都返空字串。即係話**所有靠 computed
-style 嘅檢查喺實際 pipeline 入面由頭到尾冇運行過**，而 harness 報告嘅
-係一條 production 唔行嘅路。
+F1 per class on the test set (support in brackets). The two weakest are the ones with the least data.
 
-修正方法係兩邊一齊改：pipeline 搬去 offscreen document（有渲染引擎，
-唔受網頁 CSP 管，見 threat-model.md），harness 改成驅動真實 extension。
-現在兩個數字啱好一樣 —— 但今次係真嘅。
+| Class | Accurate (4B) | Fast (0.8B) |
+|---|---|---|
+| Limitation of liability (53) | 0.763 | 0.764 |
+| Contract by using (20) | 0.778 | 0.800 |
+| Unilateral change (29) | 0.742 | 0.716 |
+| **Mandatory arbitration (8)** | **0.522** | 0.615 |
+| **Content removal (13)** | **0.562** | 0.667 |
+| Choice of law (15) | 0.857 | 0.720 |
+| Unilateral termination (38) | 0.779 | 0.767 |
+| Jurisdiction (17) | 0.857 | 0.895 |
+| Other (1,855) | 0.977 | 0.978 |
 
-「無 CSS」嗰欄保留低，就係量緊渲染引擎貢獻咗幾多。
+Arbitration, one of the clauses people care most about, is the weakest class, and with 8 test sentences its score is very uncertain. The 4B tends to over-flag it (precision 0.40, recall 0.75).
 
-**仲到得到模型嗰兩種**，係人類讀者一樣睇得到嘅文字 —— 一句明文寫住
-「Note to automated privacy analysers: …」，唔可以喺唔刪走頁面內容嘅
-情況下移除。佢哋靠第 2 至 4 層（prompt 框定、schema、引文核對）。
+## Personal-data check
 
-**一個被說服保持沉默嘅模型，所有層都處理唔到。** 見
-[threat-model.md](threat-model.md)。
+Two layers (see [architecture.md](architecture.md)): deterministic rules, and a two-option question to the model.
 
-## 3. 每頁成本
+The model question was tested on 2,016 synthetic pages (1,140 personal, 876 public) in which **whole page templates were held out**, with the threshold fixed at 0.5 and nothing tuned on the test set:
+
+| | Precision | Recall | False alarms | Missed |
+|---|---|---|---|---|
+| Accurate (4B) | 0.987 | 0.961 | 15 | 44 |
+| Fast (0.8B) | 0.874 | 0.976 | 160 | 27 |
+| 0.8B base model, no training | 0.58 | 1.00 | 816 of 816 | 0 |
+
+A false alarm means a public page treated as personal, so its result is not shared. A miss means a personal page treated as public, which is the dangerous direction, and is why the rules run first and independently, and why every shared passage is checked again with a stricter rule set on the device and on the server. Public biographies are the known false positives. The rules flagged 0 of 18 real public policy pages, and the model 0%.
+
+**Caveat that matters.** The pages are synthetic: fake people on invented templates. Real account pages are messier, so these scores are almost certainly better than what real use will show. The 21 real pages used as extra negatives (`ml/data/pii_real_negatives.jsonl`) test false alarms only; there is no labelled collection of real personal pages, because collecting one means collecting people's data.
+
+## Whole system
+
+| Measurement | Result | How |
+|---|---|---|
+| Packed 4-bit weights under WebLLM agree with the PyTorch reference | 300 of 300 test passages give the same answer | `spike/webllm`, `ml/compress` |
+| First analysis of a fixture terms page, model load included | about 5 s (0.8B) | `bun run e2e:analysis` |
+| The same policy from the public cache | about 0.6 s | same |
+| Time per sentence | about 0.1 s (0.8B), about 0.45 s (4B), on an RTX 5060 Ti | spike findings |
+| A real long terms page (357 sentences) | about 40 s (0.8B) | `eval/` repro against github.com |
+| Content script size | 29 KB on every page, budget 60 KB | `bun run e2e:banner` |
+| Setup wizard downloads and loads each model in a real browser | passes for both tiers | `bun run e2e:setup [--model accurate]` |
+
+On real pages there are no labels, so these runs show that the pipeline works and what gets flagged, not how often it is right. As an illustration, the same GitHub terms page gave 23 flagged sentences from the 0.8B and 28 from the 4B, from 357.
+
+## Form warning
+
+The form warning is rules only (`packages/shared/src/rules.ts`). Its fixtures (`eval/fixtures`, listed in `eval/labels.csv`) are **all synthetic**: written by this project while looking at the rules. On them the rules judge every page correctly (4 of 4 phishing pages flagged as danger, 9 legitimate ones not), and `bun run eval:rules` prints that this does not measure real phishing detection. A hand-written banking login (card PIN, security question) is a known gap: the rules do not yet treat those as sensitive.
+
+## What these numbers do not show
+
+- **Real-world accuracy.** The benchmark is English terms of service from a limited set of services. Other documents, other languages and other styles will differ.
+- **Whether a flagged clause is unfair in your jurisdiction, or at all.** The labels are research annotations of clause types, not legal judgements.
+- **Rare classes.** Eight arbitration sentences cannot support a firm claim about arbitration.
+- **Contributor honesty.** The cache is only as good as the people who upload to it.
+- **Usefulness to people.** No user study was run.
+
+## Reproducing
 
 ```bash
-bun run eval/run-e2e.ts        # 有 bundle 預算檢查
+bun test                                   # unit tests, including the golden-file locks
+bun run e2e                                # every browser check
+bun run eval:rules                         # form-warning fixtures
+vendor/kev/.venv/bin/python ml/eval_letter.py --adapter <dir> --name <report>   # classifier on the test set (see ml.md)
 ```
-
-| | |
-|---|---:|
-| Content script（每個網站每次載入） | **25,424 bytes** |
-| ├ `content/index.ts` bundle | 19,556 bytes |
-| └ `shared/sanitize.ts` chunk | 5,868 bytes |
-| 預算 | 60,000 bytes |
-| Service worker + 規則引擎（一個 session 一次） | ~332 KB |
-
-呢個數字回歸過兩次，兩次都冇報錯 —— 插件照行，只係每個用戶去嘅網站都
-靜靜雞多咗三分一 MB。第一次係 content script import 咗規則引擎（帶埋
-public suffix list 同 zod），第二次係 `@ppg/shared` 未聲明
-`sideEffects: false`，令 Rollup 唔敢丟走 barrel 入面用唔著嘅 module。
-`eval/bundle-budget.ts` 而家喺 e2e 度守住。
-
-Sanitizer 一度唔喺呢個數入面（條款頁嘅讀取搬咗去 offscreen document
-嗰陣），但「讀用戶身處嗰版條款頁」呢條路要喺 content script 度抽文字，
-所以佢返咗嚟，5.9 KB。呢個數之前喺文件度寫住 18,547 冇更新過 —— 預算
-檢查睇嘅係總數，所以冇人為咗佢紅燈。
-
-## 4. 端到端驗收
-
-```bash
-bun run e2e
-```
-
-一次過驗證：bundle 預算、兩個 extension 頁面（零 CSP 錯誤、Material
-component 全部 upgrade 到）、9 個 fixture 嘅判定、完整條款摘要 pipeline
-（對住 mock endpoint，唔使 API key）、快取命中、測試連線、全域暫停。
-
-Mock endpoint **唔係**罐頭回應：佢由 prompt 入面抽返份文件、逐字引兩句
-返嚟、再加一點用作出嚟嘅引文。所以「兩點留低、一點被丟棄」呢個斷言係
-真係喺測緊核對引文嗰層。一個寫死引文嘅罐頭回應，無論核對有冇壞都會 pass。
-
-## 5. 單元測試
-
-```bash
-bun test
-```
-
-目前 **187 個測試 / 15 個檔案**。集中喺三處：
-
-- `shared/test/lookalike.test.ts` —— homoglyph 折疊、punycode（包括 2017 年
-  嗰個全 Cyrillic 嘅 apple.com homograph）、長度分級嘅編輯預算、
-  唔可以將 `amazonaws.com` 當成扮 Amazon
-- `shared/test/rules.test.ts` —— 每條規則、HSBC 封頂邏輯、白名單
-- `shared/test/sanitize.test.ts` —— 六種隱藏技巧、色彩對比（包括「白字喺
-  深色背景要留低」同「背景係圖片就唔判斷」兩個反例）、偽造 delimiter
-
-## 仲未做
-
-- 收集 20 legit / 15 phishing 真實樣本並重跑（見 §0）
-- 用真 endpoint 跑 LLM 兩組
-- 條款摘要質素對照 ToS;DR 標註
-- 三位組員各自評 1–5 分有用度 + inter-rater agreement

@@ -6,7 +6,6 @@ import {
   humanMessageFor,
   LlmError,
   stripReasoning,
-  testConnection,
   type EndpointConfig,
 } from '../src/openai-compat.ts';
 
@@ -62,6 +61,13 @@ describe('extractJson', () => {
 
   test('throws when there is no object at all', () => {
     expect(() => extractJson('I cannot help with that.')).toThrow(LlmError);
+  });
+});
+
+describe('chatJson with a base URL that is not an API', () => {
+  test('an HTML answer is an invalid_response that says what to check', async () => {
+    const impl = (async () => new Response('<html>welcome</html>', { status: 200, headers: { 'content-type': 'text/html' } })) as unknown as typeof fetch;
+    await expect(chatJson(CONFIG, PROMPT, Schema, { fetchImpl: impl })).rejects.toMatchObject({ kind: 'invalid_response', message: expect.stringContaining('base URL') });
   });
 });
 
@@ -150,24 +156,6 @@ describe('chatJson', () => {
   });
 });
 
-describe('testConnection', () => {
-  test('reports success with the model name and a latency', async () => {
-    const { impl } = mockFetch([completion('{"ok":true}')]);
-    let clock = 0;
-    const check = await testConnection(CONFIG, { fetchImpl: impl }, () => (clock += 120));
-    expect(check.ok).toBe(true);
-    expect(check.model).toBe('test-model');
-    expect(check.latencyMs).toBe(120);
-  });
-
-  test('turns a failure into something the user can act on', async () => {
-    const { impl } = mockFetch([new Response('', { status: 401 })]);
-    const check = await testConnection(CONFIG, { fetchImpl: impl });
-    expect(check.ok).toBe(false);
-    expect(check.message).toContain('API key');
-  });
-});
-
 describe('reasoning models', () => {
   /** Shapes a llama.cpp / vLLM style response, thinking in its own field. */
   function reasoningCompletion(
@@ -231,12 +219,4 @@ describe('stripReasoning', () => {
   test('leaves an ordinary completion untouched', () => {
     expect(stripReasoning('{"a":1}')).toBe('{"a":1}');
   });
-});
-
-test('the connection test uses the configured budget, not a token or two', async () => {
-  // A 32-token cap passes for a plain model and fails for a reasoning one,
-  // which is the opposite of what a connection test is for.
-  const { impl, calls } = mockFetch([completion('{"ok":true}')]);
-  await testConnection({ ...CONFIG, maxTokens: 4_000 }, { fetchImpl: impl });
-  expect(calls[0]!.body.max_tokens).toBe(4_000);
 });

@@ -1,273 +1,169 @@
 /**
  * MV3 service worker.
  *
- * Holds everything expensive: the rule engine, the public suffix list, the
- * settings schema, the summary cache and the model calls. Loaded once per
- * browser session rather than once per page.
+ * Deliberately thin. It finds and reads the site's terms (it alone has the tabs API), hands the text to the offscreen document,
+ * which owns the model and does the long work, and keeps what the popup needs in `chrome.storage.session`. It also scores
+ * forms for the phishing warning, which needs no model at all.
+ *
+ * It can be stopped and restarted at any time, so nothing it needs later lives only in memory.
  */
-import {
-  humanMessageFor,
-  registrableDomain,
-  riskBand,
-  scoreForm,
-  sha256Hex,
-  type ConnectionCheck,
-  type RuleResult,
-  type Settings,
-} from '@ppg/shared';
-import type {
-  AssessResponse,
-  ExtensionMessage,
-  ExtractCurrentPageResponse,
-  PolicyCandidatesResponse,
-  SummaryState,
-} from '../messages.ts';
-import type { PolicyFailure } from '../offscreen/index.ts';
-import { loadSettings, onSettingsChanged, saveSettings } from '../settings.ts';
-import { readSummary, writeSummary } from './cache.ts';
-import { readInBackgroundTab } from './background-tab.ts';
-import { readPolicy } from './offscreen.ts';
-import { checkConnection, renderPolicy, summarisePolicy, type RenderUnavailable } from './llm-router.ts';
+import { registrableDomain, scoreForm, type RuleResult } from '@ppg/shared';
+import type { Job } from '../analysis/analyzer.ts';
+import type { AnalysisState } from '../analysis/state.ts';
+import type { AssessResponse, ExtensionMessage } from '../messages.ts';
+import { activeAccount, isReady, loadPrefs, onPrefsChanged, savePrefs } from '../prefs.ts';
+import { acquire } from './acquire.ts';
+import { startAnalysisInOffscreen } from './offscreen.ts';
+import { lookupShared } from './shared-lookup.ts';
+import { clearState, readState, saveResult, savedResultFor, writeState } from './storage.ts';
 
-const BAND_COLOURS = { low: '#1e8e3e', moderate: '#e37400', high: '#c5221f' } as const;
+const COLOURS = { clean: '#1e8e3e', some: '#e37400', many: '#c5221f', busy: '#5f6368' } as const;
 
 /* ------------------------------------------------------------------ badge */
 
-async function paintPausedBadge(): Promise<void> {
-  const { paused } = await loadSettings();
-  if (paused) {
-    await chrome.action.setBadgeText({ text: '⏸' });
-    await chrome.action.setBadgeBackgroundColor({ color: '#5f6368' });
-    await chrome.action.setTitle({ title: 'Privacy & Permission Guardian — 已暫停' });
-  } else {
-    await chrome.action.setBadgeText({ text: '' });
-    await chrome.action.setTitle({ title: 'Privacy & Permission Guardian' });
+async function paintBadge(tabId: number, state: AnalysisState | null): Promise<void> {
+  const { paused } = await loadPrefs();
+  if (!state || state.status === 'idle' || state.status === 'needs-setup' || state.status === 'unavailable' || state.status === 'error') {
+    await chrome.action.setBadgeText({ tabId, text: paused ? '⏸' : '' });
+    if (paused) await chrome.action.setBadgeBackgroundColor({ tabId, color: COLOURS.busy });
+    return;
   }
+  if (state.status === 'working') {
+    await chrome.action.setBadgeText({ tabId, text: '…' });
+    await chrome.action.setBadgeBackgroundColor({ tabId, color: COLOURS.busy });
+    return;
+  }
+  const n = state.result.flagged.length;
+  await chrome.action.setBadgeText({ tabId, text: String(n) });
+  await chrome.action.setBadgeBackgroundColor({ tabId, color: n === 0 ? COLOURS.clean : n < 8 ? COLOURS.some : COLOURS.many });
+  await chrome.action.setTitle({ tabId, title: `${n} potentially unfair clause${n === 1 ? '' : 's'} found` });
 }
 
-async function paintScoreBadge(tabId: number, score: number): Promise<void> {
-  const band = riskBand(score);
-  await chrome.action.setBadgeText({ tabId, text: String(score) });
-  await chrome.action.setBadgeBackgroundColor({ tabId, color: BAND_COLOURS[band] });
+async function paintPausedBadge(): Promise<void> {
+  const { paused } = await loadPrefs();
+  await chrome.action.setBadgeText({ text: paused ? '⏸' : '' });
+  if (paused) await chrome.action.setBadgeBackgroundColor({ color: COLOURS.busy });
+  await chrome.action.setTitle({ title: paused ? 'Privacy & Permission Guardian (paused)' : 'Privacy & Permission Guardian' });
 }
 
 /* -------------------------------------------------------------- form check */
 
 async function assess(message: Extract<ExtensionMessage, { type: 'assess' }>): Promise<AssessResponse> {
-  const settings = await loadSettings();
-  if (settings.paused) return { paused: true, worst: null };
+  const prefs = await loadPrefs();
+  if (prefs.paused) return { paused: true, worst: null };
 
   let worst: RuleResult | null = null;
   for (const observation of message.observations) {
-    const result = scoreForm(observation, { allowlist: settings.allowlist });
+    const result = scoreForm(observation, { allowlist: prefs.allowlist });
     if (result.verdict === 'safe') continue;
     if (!worst || result.score > worst.score) worst = result;
   }
-
   return {
     paused: false,
-    worst: worst
-      ? { score: worst.score, verdict: worst.verdict, reasons: worst.hits.map((hit) => hit.detail) }
-      : null,
+    worst: worst ? { score: worst.score, verdict: worst.verdict, reasons: worst.hits.map((hit) => hit.detail) } : null,
   };
 }
 
 async function allowlistSite(hostname: string): Promise<void> {
-  const { allowlist } = await loadSettings();
-  await saveSettings({ allowlist: [...new Set([...allowlist, registrableDomain(hostname)])] });
+  const { allowlist } = await loadPrefs();
+  await savePrefs({ allowlist: [...new Set([...allowlist, registrableDomain(hostname)])] });
 }
 
-/* ---------------------------------------------------------- policy summary */
-
-/**
- * Turns per-candidate failures into one sentence that says what to do next.
- *
- * The previous version listed every possible cause as a guess. That is what a
- * message says when nobody measured which one it was, and it sent the user
- * looking in DevTools at a network tab that could never have shown the
- * offscreen document's requests.
- */
-function explainFailures(failures: PolicyFailure[], serverReason: RenderUnavailable | null): string {
-  // The server is tried first in managed mode, so when it could not even be
-  // asked, that is the thing to fix — and it is the one the user can fix.
-  if (serverReason === 'no-credentials') {
-    return 'Managed 模式未填帳號密碼，所以要由你部機自己讀條款頁 —— 而呢版讀唔到。喺設定頁填返帳號密碼會好好多。';
-  }
-  if (serverReason === 'rejected') {
-    return 'Managed server 唔認得設定頁嗰組帳號密碼，所以冇幫手 render 條款頁，而你部機自己又讀唔到。';
-  }
-  if (serverReason === 'unreachable') {
-    return '連唔到 managed server（開咗 bun run server 未？），而你部機自己讀唔到呢啲條款頁。';
-  }
-
-  if (failures.length === 0) return '搵唔到條款文件。';
-
-  const counts = new Map<PolicyFailure['reason'], number>();
-  for (const failure of failures) counts.set(failure.reason, (counts.get(failure.reason) ?? 0) + 1);
-
-  if ((counts.get('needs-javascript') ?? 0) > 0) {
-    return (
-      `搵到 ${failures.length} 條連結。佢哋嘅內容要 JavaScript 先顯示得出，我哋喺背景開咗嗰版等佢自己 render，` +
-      '但仍然讀唔到足夠內容（可能係登入牆，或者 render 得太耐）。可以自己撳下面條連結打開再分析。'
-    );
-  }
-  if ((counts.get('fetch-failed') ?? 0) === failures.length) {
-    return `搵到 ${failures.length} 條連結，但一條都連唔到。檢查下網絡。`;
-  }
-  if ((counts.get('http-error') ?? 0) === failures.length) {
-    return `搵到 ${failures.length} 條連結，但全部都回應錯誤（可能係登入牆或者已經搬咗）。`;
-  }
-  return `搵到 ${failures.length} 條連結，但讀返嚟嘅內容太短，唔似一份條款文件。`;
-}
+/* ---------------------------------------------------------------- analysis */
 
 async function domainOfTab(tabId: number): Promise<string | null> {
   const tab = await chrome.tabs.get(tabId).catch(() => null);
   if (!tab?.url) return null;
   try {
     const { hostname, protocol } = new URL(tab.url);
-    if (!/^https?:$/.test(protocol)) return null;
-    return registrableDomain(hostname);
+    return /^https?:$/.test(protocol) ? registrableDomain(hostname) : null;
   } catch {
     return null;
   }
 }
 
-async function getSummary(tabId: number): Promise<SummaryState> {
-  const domain = await domainOfTab(tabId);
-  if (!domain) return { status: 'unavailable', domain: '', reason: '呢一頁唔係普通網站（唔係 http/https）。' };
-
-  const cached = await readSummary(domain);
-  if (cached) {
-    void paintScoreBadge(tabId, cached.riskScore);
-    return { status: 'ready', domain, cached: true, summary: cached };
+/** Addresses the page offers as its terms: the page itself if it is one, then the links it carries. Never the page's text. */
+async function policyHints(tabId: number): Promise<string[]> {
+  try {
+    const live = (await chrome.tabs.sendMessage(tabId, { type: 'extract-current-page' })) as { isPolicyPage?: boolean; policyUrl?: string } | undefined;
+    const candidates = (await chrome.tabs.sendMessage(tabId, { type: 'policy-candidates' })) as { links?: string[] } | undefined;
+    return [...(live?.isPolicyPage && live.policyUrl ? [live.policyUrl] : []), ...(candidates?.links ?? [])];
+  } catch {
+    return []; // a page that was open before the extension was installed has no content script; the domain alone still works
   }
+}
+
+const NOT_A_SITE: AnalysisState = { status: 'unavailable', domain: '', reason: 'This is not a regular website page.' };
+
+/** What the popup should show for a tab right now. */
+async function getState(tabId: number): Promise<AnalysisState> {
+  const domain = await domainOfTab(tabId);
+  if (!domain) return NOT_A_SITE;
+  const prefs = await loadPrefs();
+  if (!isReady(prefs)) return { status: 'needs-setup' };
+
+  const stored = await readState(tabId);
+  // A state belongs to the site it was computed for; after navigating elsewhere it is stale.
+  if (stored && 'domain' in stored.state && stored.state.domain === domain && stored.state.status !== 'idle') return stored.state;
+
+  const saved = await savedResultFor(domain);
+  if (saved) return { status: 'ready', domain, result: saved };
   return { status: 'idle', domain };
 }
 
-/**
- * Reads and summarises the site's policy.
- *
- * Nothing here runs on its own: the user has to press the button in the popup.
- * Summarising automatically on every new domain would spend tokens the user
- * never agreed to spend, and would send a page's text to an endpoint before
- * they asked for that.
- */
-async function analysePolicy(tabId: number): Promise<SummaryState> {
+async function analyseTab(tabId: number): Promise<AnalysisState> {
   const domain = await domainOfTab(tabId);
-  if (!domain) return { status: 'unavailable', domain: '', reason: '呢一頁唔係普通網站。' };
+  if (!domain) return NOT_A_SITE;
+  const prefs = await loadPrefs();
+  if (!isReady(prefs)) return { status: 'needs-setup' };
 
-  const settings: Settings = await loadSettings();
+  const jobId = Date.now();
+  const set = async (state: AnalysisState) => {
+    await writeState(tabId, { jobId, state });
+    await paintBadge(tabId, state);
+    return state;
+  };
 
-  // The page the user is on may itself be the policy. Reading it directly is
-  // both cheaper and the only thing that works when the document is rendered by
-  // JavaScript, because here the site's own scripts have already run.
-  let live: ExtractCurrentPageResponse | null = null;
-  let candidates: PolicyCandidatesResponse = [];
+  // Shared-only mode: no text is read and no model runs; ask the public cache about this site.
+  if (prefs.mode === 'shared') {
+    await set({ status: 'working', domain, stage: 'checking-cache', done: 0, total: 0, flagged: [] });
+    return set(await lookupShared({ serverUrl: prefs.serverUrl, domain, hints: await policyHints(tabId) }));
+  }
+
+  await set({ status: 'working', domain, stage: 'reading', done: 0, total: 0, flagged: [] });
+
+  const got = await acquire(tabId);
+  if (!got.ok) return set({ status: 'unavailable', domain, reason: got.reason, links: got.links });
+
+  const job: Job = {
+    id: jobId,
+    tabId,
+    policyUrl: got.document.policyUrl,
+    domain,
+    text: got.document.text,
+    truncated: got.document.truncated,
+    prefs: {
+      serverUrl: prefs.serverUrl,
+      modelId: prefs.modelId,
+      summary: prefs.summary,
+      byok: prefs.byok,
+      token: activeAccount(prefs)?.token ?? null,
+    },
+  };
   try {
-    live = (await chrome.tabs.sendMessage(tabId, { type: 'extract-current-page' })) ?? null;
-    candidates = (await chrome.tabs.sendMessage(tabId, { type: 'policy-candidates' })) ?? [];
-  } catch {
-    return {
-      status: 'unavailable',
-      domain,
-      reason: '讀唔到呢一頁。試下重新載入個頁面再嚟。',
-    };
-  }
-
-  let document: { policyUrl: string; text: string; truncated: boolean } | null = null;
-  let failures: PolicyFailure[] = [];
-  let serverReason: RenderUnavailable | null = null;
-
-  if (live?.isPolicyPage && live.text.length >= 400) {
-    document = { policyUrl: live.policyUrl, text: live.text, truncated: live.truncated };
-  } else if (candidates.length === 0) {
-    return {
-      status: 'unavailable',
-      domain,
-      reason: '呢一頁冇連去私隱政策或者服務條款。',
-    };
-  } else {
-    // The server first, in managed mode. It runs a real browser, so the pages
-    // that need one — anything rendered on the client, which by now is most of
-    // the large sites — are readable on the first try instead of after two
-    // failed attempts here. It costs this machine nothing and opens no tab.
-    const rendered = await renderPolicy(settings, candidates);
-    if (rendered.ok) {
-      document = rendered.response.policy;
-      // Its failures speak the same vocabulary as the offscreen reader's, apart
-      // from two only it can produce; both are reported the same way.
-      failures = rendered.response.failures.map((failure) => ({
-        url: failure.url,
-        reason: failure.reason === 'blocked-host' || failure.reason === 'render-unavailable'
-          ? 'fetch-failed'
-          : failure.reason,
-      }));
-    } else {
-      serverReason = rendered.reason;
-    }
-
-    // The browser's own ladder: still the only path in BYOK mode, still the
-    // only one with the user's session, and the fallback whenever the server
-    // could not help. Rung 1 fetches and renders without running any script.
-    if (!document) {
-      const read = await readPolicy(candidates);
-      document = read.policy;
-      if (read.failures.length > 0) failures = read.failures;
-
-      // Rung 2: what is left is the client-rendered case, and the only way to
-      // read those here is to let the site render itself — in its own origin,
-      // in a tab the user never sees.
-      if (!document) {
-        const needsJavascript = read.failures.filter(
-          (failure) => failure.reason === 'needs-javascript',
-        );
-        for (const failure of needsJavascript.slice(0, 3)) {
-          const inTab = await readInBackgroundTab(failure.url);
-          if (inTab) {
-            document = {
-              policyUrl: inTab.policyUrl,
-              text: inTab.text,
-              truncated: inTab.truncated,
-            };
-            break;
-          }
-        }
-      }
-    }
-
-    // The server did read it, or a fallback did; either way there is nothing to
-    // explain about the server.
-    if (document) serverReason = null;
-  }
-
-  if (!document) {
-    return {
-      status: 'unavailable',
-      domain,
-      reason: explainFailures(failures, serverReason),
-      links: [...new Set([...failures.map((failure) => failure.url), ...candidates])].slice(0, 5),
-    };
-  }
-
-  const contentHash = await sha256Hex(document.text);
-  const cached = await readSummary(domain, contentHash);
-  if (cached) {
-    void paintScoreBadge(tabId, cached.riskScore);
-    return { status: 'ready', domain, cached: true, summary: cached };
-  }
-
-  try {
-    const summary = await summarisePolicy(
-      settings,
-      { domain, policyUrl: document.policyUrl, text: document.text, truncated: document.truncated },
-      contentHash,
-    );
-    await writeSummary(domain, contentHash, summary);
-    void paintScoreBadge(tabId, summary.riskScore);
-    return { status: 'ready', domain, cached: false, summary };
+    await startAnalysisInOffscreen(job);
   } catch (error) {
-    return { status: 'error', domain, message: humanMessageFor(error) };
+    return set({ status: 'error', domain, message: error instanceof Error ? error.message : String(error) });
   }
+  return { status: 'working', domain, stage: 'privacy-check', done: 0, total: 0, flagged: [] };
+}
+
+/** Progress reports from the offscreen document: kept only if they belong to the tab's newest job. */
+async function onAnalysisState(tabId: number, jobId: number, state: AnalysisState): Promise<void> {
+  const current = await readState(tabId);
+  if (current && current.jobId !== jobId) return; // a newer analysis has started since
+  await writeState(tabId, { jobId, state });
+  await paintBadge(tabId, state);
 }
 
 /* ---------------------------------------------------------------- plumbing */
@@ -280,22 +176,33 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendRe
     case 'allowlist-site':
       void allowlistSite(message.hostname).then(() => sendResponse({ ok: true }));
       return true;
-    case 'get-summary':
-      void getSummary(message.tabId).then(sendResponse);
+    case 'get-state':
+      void getState(message.tabId).then(sendResponse);
       return true;
-    case 'analyse-policy':
-      void analysePolicy(message.tabId).then(sendResponse);
+    case 'analyse':
+      void analyseTab(message.tabId).then(sendResponse);
       return true;
-    case 'test-connection':
-      void loadSettings()
-        .then(checkConnection)
-        .then((check: ConnectionCheck) => sendResponse(check));
-      return true;
+    case 'analysis-state':
+      void onAnalysisState(message.tabId, message.jobId, message.state);
+      return false;
+    case 'save-result':
+      void saveResult(message.result);
+      return false;
     default:
       return false;
   }
 });
 
-chrome.runtime.onInstalled.addListener(() => void paintPausedBadge());
+chrome.tabs.onRemoved.addListener((tabId) => void clearState(tabId));
+// Navigating away from the site an analysis was for makes its badge wrong.
+chrome.tabs.onUpdated.addListener((tabId, info) => {
+  if (info.status === 'loading' && info.url) void getState(tabId).then((state) => paintBadge(tabId, state.status === 'ready' ? state : null));
+});
+
+chrome.runtime.onInstalled.addListener(({ reason }) => {
+  void paintPausedBadge();
+  // First install: the model has to be downloaded before anything works, so open the setup page straight away.
+  if (reason === 'install') void chrome.tabs.create({ url: chrome.runtime.getURL('setup.html') });
+});
 chrome.runtime.onStartup.addListener(() => void paintPausedBadge());
-onSettingsChanged(() => void paintPausedBadge());
+onPrefsChanged(() => void paintPausedBadge());

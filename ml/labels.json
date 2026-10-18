@@ -1,0 +1,24 @@
+{
+  "_note": "MTEB/LegalBench label ids, verified by reading sample rows of each class (not alphabetical).",
+  "mteb": {
+    "0": "limitation_of_liability",
+    "1": "contract_by_using",
+    "2": "unilateral_change",
+    "3": "arbitration",
+    "4": "content_removal",
+    "5": "choice_of_law",
+    "6": "other",
+    "7": "unilateral_termination",
+    "8": "jurisdiction"
+  },
+  "lexglue_to_name": {
+    "0": "limitation_of_liability",
+    "1": "unilateral_termination",
+    "2": "unilateral_change",
+    "3": "content_removal",
+    "4": "contract_by_using",
+    "5": "choice_of_law",
+    "6": "jurisdiction",
+    "7": "arbitration"
+  }
+}

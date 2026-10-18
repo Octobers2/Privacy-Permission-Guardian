@@ -279,6 +279,12 @@ export function normaliseWhitespace(text: string): string {
     .trim();
 }
 
+/**
+ * The longest document read. Terms of service run to 30,000-100,000 characters; this covers the long ones (about 800
+ * sentences) while bounding the time a very long page can take on a laptop GPU. A document cut short says so.
+ */
+export const MAX_DOCUMENT_CHARS = 120_000;
+
 export interface ExtractedText {
   text: string;
   truncated: boolean;
@@ -299,7 +305,7 @@ export interface ExtractedText {
  */
 export function extractVisibleText(
   root: Document | Element,
-  maxChars = 24_000,
+  maxChars = MAX_DOCUMENT_CHARS,
   readStyle = defaultStyleReader(),
 ): ExtractedText {
   const { text, stats } = collectVisibleText(root, readStyle);

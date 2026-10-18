@@ -1,108 +1,97 @@
 # Privacy & Permission Guardian
 
-A Chrome / Edge MV3 extension that does two things:
+Terms of service are written to be skipped. This project reads them for you and points at the clauses that tend to work against you: forced arbitration, accounts closed without notice, terms that change whenever the company likes.
 
-- **Policy summary** — finds the site's privacy policy or terms of service and
-  turns it into 3–5 plain-language risk points, each backed by a quote that is
-  checked, word for word, against the source document.
-- **Form risk warning** — scans forms for sensitive personal-data fields and
-  warns when the combination of domain, field set and form target looks like
-  phishing. This half runs entirely offline: no API key, no network.
+The reading happens **on your own computer**. A small language model runs inside the browser through WebGPU, so the text of the page you are looking at is not sent anywhere. What people choose to share is a short list of flagged clauses, and that list is public.
 
-一個 GenAI + Cybersecurity 課程 project。中文文件喺 [`docs/`](docs/)。
+It has four parts:
 
-## The design principle
+| Part | What it is | Where |
+|---|---|---|
+| **Extension** | Chrome and Edge (Manifest V3). Finds a site's terms, classifies them on the device, warns about suspicious forms. | [`packages/extension`](packages/extension) |
+| **Results server** | Bun and SQLite. Keeps shared results for 30 days, hosts the model files, serves the public API and the query site. | [`packages/server`](packages/server) |
+| **Query site** | Plain HTML, CSS and JavaScript, served by the results server. Look up any site that has been read. | [`packages/server/public`](packages/server/public) |
+| **Classifier** | Two Qwen3.5 models (4B and 0.8B) trained on unfair terms-of-service clauses, plus a personal-data question. Python training and packaging code. | [`ml`](ml) |
 
-A tool that talks about privacy has to be private itself. **Field values never
-leave the page** — only field metadata (type, name, label) — and URLs are
-stripped of their query string before anything is sent. The `FormField` schema
-has no `value` key, it is `.strict()`, and there is a test on both the extension
-and the server side that fails if one is ever added.
+Shared code (labels, prompts, text splitting, personal-data rules, schemas) lives in [`packages/shared`](packages/shared).
 
-## Stack
+## How it works
 
-Bun · TypeScript · Svelte 5 · Vite + CRXJS · Material Design 3 · Hono · zod
+1. You open a site and press the toolbar icon. The extension finds the site's terms (the page itself, a link on it, or a usual address such as `/terms`) and reads the text.
+2. A rule check and a model question decide whether the page shows **your own personal data**. If it does, nothing leaves the device.
+3. Otherwise the extension asks the server whether someone has already read this document. If so, you get that result in under a second.
+4. If not, the on-device model reads the document sentence by sentence and picks one of nine classes for each (eight kinds of unfair clause, or "other"). You see the flagged clauses, grouped into four families: your rights, liability, their control, consent.
+5. If you are signed in as a contributor, the flagged clauses of a public page are shared, so the next visitor gets step 3. You can also ask for an optional plain-language summary.
 
-Deliberately few dependencies: `bun test`, `bun:sqlite`, `Bun.password` and
-Bun's TypeScript support are built in, the headless browser is driven over the
-DevTools protocol by ~250 lines rather than by Puppeteer, and the content
-script — the only code that runs on every page the user visits — is **25 KB**
-with nothing else behind it.
+A computer without a usable graphics card can skip the model and use **shared results only**: the popup then looks up what others have already found and reads nothing itself.
 
-## Quick start
+The form warning is separate and needs no model. It scores forms on the page for signs of phishing and shows a banner.
+
+## Run it
+
+You need [Bun](https://bun.sh) and Chromium or Chrome.
 
 ```bash
 bun install
-bun run build          # → packages/extension/dist/
+bun run build                 # builds the extension to packages/extension/dist
+bun run demo                  # a throwaway server with invented sites, on http://localhost:8788
 ```
 
-`chrome://extensions` → Developer mode → Load unpacked → pick
-`packages/extension/dist/`.
-
-The form warnings work immediately. For the policy summary, open the options
-page and pick one of the two modes.
-
-**Direct / BYOK** — point it at your own OpenAI-compatible endpoint. Any
-`/chat/completions` works: OpenAI, OpenRouter, DeepSeek, Groq, or a local
-Ollama. For Ollama, set `OLLAMA_ORIGINS=chrome-extension://*` so it accepts
-requests from the extension.
-
-**Managed** — run the backend. It holds the API key, shares one cache between
-everybody testing, and opens policy pages in a headless Chromium, which is the
-only way to read the ones that are rendered by JavaScript (Next.js sites, Meta,
-TikTok — by now most large sites).
+Open `http://localhost:8788` to see the query site. To use the real thing:
 
 ```bash
-cp packages/server/.env.example packages/server/.env    # fill in the endpoint
-bun run auth add yourname                               # asks for a password
-bun run server                                          # localhost:8787
+cp packages/server/.env.example packages/server/.env     # optional: a model endpoint for summaries
+bun run auth add yourname                                  # a contributor account (asks for a password)
+bun run server                                             # http://localhost:8787
 ```
 
-Then put that username and password into the extension's options page and press
-測試連線. **Nobody can use the server until `auth add` has been run**: it holds
-an API key and a browser, so an open one is a free LLM and a free page fetcher
-for anyone who finds the port. Credentials live in `auth.txt` at the repository
-root — `username:bcrypt-hash`, one per line, gitignored — and the server rereads
-it when it changes, so adding a user needs no restart.
+The server needs model bundles in `data/models` before the extension can download one: see [docs/ml.md](docs/ml.md) for how they are made and [docs/operations.md](docs/operations.md) for hosting them (`bun run models:manifest` indexes them).
 
-The server needs a `chromium` on `PATH` (`PPG_CHROMIUM` to point elsewhere).
+Then load the extension: open `chrome://extensions`, turn on developer mode, choose **Load unpacked** and pick `packages/extension/dist`. The setup page opens by itself. After every rebuild, press the reload icon on the extension's card, or the browser keeps running the old version.
 
-## Commands
+## Test it
 
-| | |
+```bash
+bun test                      # unit tests (390 across 32 files)
+bun run e2e                   # builds, then runs every browser check below
+```
+
+| Check | What it drives |
 |---|---|
-| `bun test` | Unit tests (225 across 17 files) |
-| `bun run build` | Build the extension |
-| `bun run dev` | Build with HMR |
-| `bun run server` | Managed backend |
-| `bun run auth add <name>` | Add a backend user (also `list`, `remove`) |
-| `bun run fixtures` | Serve the evaluation fixtures under their real hostnames |
-| `bun run e2e` | Load the built extension in headless Chromium and check everything |
-| `bun run eval:rules` | Precision / recall / confusion matrix |
-| `bun run eval:injection` | Prompt injection defence measurements |
-| `bun run fixtures:check` | Verify no fixture in the repo is still live |
+| `bun run e2e:analysis` | The full flow on fake sites: read on the device, public cache, a changed policy, a page showing personal data, no terms, signed out |
+| `bun run e2e:setup` | The setup wizard end to end, downloading and loading a real model (`--model accurate` for the 4B) |
+| `bun run e2e:shared` | Shared-results-only mode in a browser with no GPU |
+| `bun run e2e:site` | The query site: search, filters, history, a hostile passage shown as text |
+| `bun run e2e:banner` | The form warning on phishing and legitimate fixtures |
 
-## Documentation
+The analysis and setup checks need a WebGPU-capable Chromium (`CHROMIUM=/path/to/chromium` to override) and the model bundles in `data/models`. More in [docs/evaluation.md](docs/evaluation.md).
 
-| | |
-|---|---|
-| [`docs/architecture.md`](docs/architecture.md) | How the pieces fit, and the three decisions that are not obvious |
-| [`docs/threat-model.md`](docs/threat-model.md) | What leaves the browser, the five injection defences, and what none of them can stop |
-| [`docs/evaluation.md`](docs/evaluation.md) | The measurements, and why the current numbers should not go in a report yet |
-| [`docs/demo-script.md`](docs/demo-script.md) | Six steps, five minutes, with an automated equivalent |
-| [`eval/fixtures/README.md`](eval/fixtures/README.md) | How to collect and defuse phishing samples safely |
+## What it can and cannot do
 
-## Status
+- It finds **clause types that research has shown to be unfair**. It does not judge whether a clause is legal where you live, and a clean result is not a guarantee: skim the document when it matters.
+- On the benchmark it was built against (2,048 clauses, never used for training) the shipped models score a macro-F1 of 0.76 (4B) and 0.77 (0.8B). Most clauses are fair, so the numbers per clause type matter more than the average: see [docs/evaluation.md](docs/evaluation.md).
+- Results come from contributors you trust. There is no moderation tool yet, and a contributor can upload a wrong result. See [docs/threat-model.md](docs/threat-model.md).
+- English terms only. The classifier was trained on English.
 
-| | |
-|---|---|
-| Rule engine, banner, options, offline detection | done (`w1-rules-only`) |
-| Policy summary end to end, both modes, managed backend | done (`w2-llm-e2e`) |
-| Evaluation harnesses, injection measurements, docs | done |
-| **Collected (non-synthetic) fixtures** | **outstanding — see `docs/evaluation.md` §0** |
-| LLM arms of the detection evaluation | needs an endpoint |
+## Where to read next
 
-Every fixture in the repository today was written by this project, so the
-detection numbers measure whether the code does what it was written to do, not
-whether it detects phishing. That gap is the next piece of work, and
-`eval/fixtures/README.md` is the instructions for closing it.
+- [docs/architecture.md](docs/architecture.md): how the pieces fit, the analysis flow, the API
+- [docs/ml.md](docs/ml.md): data, training, quantisation, packaging and how to reproduce them
+- [docs/evaluation.md](docs/evaluation.md): the numbers, how they were measured and what they do not show
+- [docs/threat-model.md](docs/threat-model.md): what is protected, from whom, and what is not
+- [docs/operations.md](docs/operations.md): running and hosting the server
+- [docs/demo-script.md](docs/demo-script.md): a ten-minute walk through for showing it
+
+## Repository layout
+
+```
+packages/extension   MV3 extension (Svelte 5): popup, settings, setup wizard, banner, on-device engine
+packages/server      results server (Hono on Bun) and the query site in public/
+packages/shared      labels, prompts, text pipeline, personal-data rules, schemas (used by all three)
+ml/                  training, evaluation, quantisation and packaging (Python)
+eval/                end-to-end checks, fixtures, screenshots, small measurements
+scripts/             `auth` (contributor accounts) and `models:manifest`
+spike/               early experiments, kept for their findings (WebLLM)
+data/                runtime data: the results database and model bundles (not in git)
+docs/                the documentation above
+```

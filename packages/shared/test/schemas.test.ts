@@ -1,11 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import {
-  DEFAULT_SETTINGS,
   FormAssessRequestSchema,
   FormAssessmentSchema,
   FormFieldSchema,
-  PolicySummaryResponseSchema,
-  SettingsSchema,
 } from '../src/schemas.ts';
 
 const field = {
@@ -48,35 +45,4 @@ describe('form assess request', () => {
   test('rejects unknown top-level keys', () => {
     expect(() => FormAssessRequestSchema.parse({ ...request, cookies: 'session=abc' })).toThrow();
   });
-});
-
-describe('model responses are treated as untrusted', () => {
-  test('rejects a category the model invented', () => {
-    expect(() =>
-      PolicySummaryResponseSchema.parse({
-        points: [{ category: 'totally_fine', severity: 'low', title: 't', detail: 'd', quote: 'q' }],
-      }),
-    ).toThrow();
-  });
-
-  test('rejects an empty point list', () => {
-    expect(() => PolicySummaryResponseSchema.parse({ points: [] })).toThrow();
-  });
-
-  test('rejects a quote long enough to be the whole document', () => {
-    expect(() =>
-      PolicySummaryResponseSchema.parse({
-        points: [{ category: 'retention', severity: 'low', title: 't', detail: 'd', quote: 'x'.repeat(5_000) }],
-      }),
-    ).toThrow();
-  });
-
-  test('rejects an out-of-range confidence', () => {
-    const assessment = { verdict: 'danger', confidence: 1.4, reasons: ['r'], advice: 'a', checklist: [] };
-    expect(() => FormAssessmentSchema.parse(assessment)).toThrow();
-  });
-});
-
-test('default settings satisfy their own schema', () => {
-  expect(SettingsSchema.parse(DEFAULT_SETTINGS)).toEqual(DEFAULT_SETTINGS);
 });

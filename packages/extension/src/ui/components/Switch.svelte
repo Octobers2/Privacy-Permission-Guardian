@@ -24,7 +24,7 @@
 <!--
   svelte-ignore a11y_label_has_associated_control
   md-switch is a form-associated custom element, so wrapping it in a label does
-  associate at runtime; Svelte only recognises native controls. run-e2e.ts
+  associate at runtime; Svelte only recognises native controls. run-banner-e2e.ts
   clicks the label text rather than the switch, so this claim is tested.
 -->
 <label class="row">

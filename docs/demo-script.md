@@ -1,141 +1,52 @@
-# Demo 流程
+# A ten-minute demo
 
-六步，約 5 分鐘。同時係交畀負責測試嘅組員做回歸測試嘅清單 ——
-每一步都有一個自動化版本喺 `eval/run-e2e.ts`，所以「跑得過」係查得到嘅。
+For showing the project to someone. It uses a real model on a real computer. The classifier points at clause types; it is not a verdict on any company, so choose pages you are happy to discuss on those terms. You need a computer with a WebGPU-capable browser, the repository set up as in the [README](../README.md), and model bundles in `data/models`.
 
-## 事前準備（提早做，唔好現場先做）
-
-```bash
-bun install
-bun run --filter @ppg/extension build      # → packages/extension/dist/
-bun run eval/serve-fixtures.ts             # 開住，會印低面要用嘅 flag
-```
-
-如果要 demo managed 模式，仲要開個帳號同開 server（demo 之前做，唔好
-現場先 bcrypt）：
+## Before you start
 
 ```bash
-bun run auth add demo                      # 打兩次密碼
-bun run server                             # 會印「users 1」
+bun install && bun run build
+bun run auth add demo                # a contributor account
+bun run server                       # http://localhost:8787
 ```
 
-之後喺 options 頁（Managed）填 server URL、帳號、密碼，撳「測試連線」，
-應該見到「已經認得「demo」」。
+Load `packages/extension/dist` in Chromium (`chrome://extensions`, developer mode, **Load unpacked**). Any site's public terms page will do for the reading steps, for example GitHub's terms of service.
 
-`chrome://extensions` → 開 Developer mode → Load unpacked → 揀
-`packages/extension/dist/`。
+## 1. The setup (2 minutes)
 
-Fixture 要喺佢哋自己嘅網域下開，否則 lookalike 規則冇嘢可以睇（`file://`
-冇 hostname）。用 fixture server 印出嚟嘅 flag 開一個獨立 Chromium：
+The setup page opens by itself. Say what it is: a model is about to be downloaded from *our* server into the browser, and nothing is bundled in the extension.
 
-```bash
-chromium --user-data-dir=/tmp/ppg-demo \
-  --load-extension="$PWD/packages/extension/dist" \
-  --host-resolver-rules="<serve-fixtures.ts 印出嗰串>" \
-  --ignore-certificate-errors
-```
+- **Check this computer** shows the graphics card and the free storage. Point out the problem message you would get without WebGPU, and the **Use shared results only** option below it.
+- **Choose a model**: Fast (about 0.4 GB) is pre-selected. The larger one is a choice for later.
+- **Download**, then the **quick test**: five questions the model answers on the spot, three clauses and two pages.
+- **Two optional extras**: summaries off by default, and the contributor sign-in. Sign in as `demo`.
 
-**預先 warm 快取**：喺 `www.datahungry.example` 撳一次「分析呢個網站」，
-之後現場就係即時出結果，唔會對住個轉圈等 API。
+## 2. Reading terms on the device (3 minutes)
 
----
+Open a site's terms page. Click the toolbar icon, then **Read the terms**.
 
-## 1. 正常網站的條款摘要　（約 60 秒）
+- Watch the **document strip** fill in as the model reads: one tick per sentence, the flagged ones tall and coloured by family.
+- Click a family chip to filter. Click the strip to jump to a clause.
+- Open the browser's network panel: no request carries the page text. Point at "Running on your computer".
+- The status line at the bottom says the result was shared, since you are a contributor.
 
-開 `https://www.datahungry.example/` → 撳插件圖示 → 撳「分析呢個網站」。
+## 3. The shared result (1 minute)
 
-**指住講**：3 至 5 點人話、每點有 severity chip、**撳「睇原文」展開逐字
-引文**。引文係重點 —— 冇引文就冇得核實，就同「模型話係咁」冇分別。
+Open the same page in a second browser profile with the extension set up (or clear the extension's saved results in the browser's extension storage) and press the icon again. It answers from the public cache in about half a second, labelled "from the public cache".
 
-如果出到「有 N 點因為引文對唔返原文而被丟棄」，唔好當佢係 bug，指住佢講：
-呢個就係防 hallucination 嗰層喺度做嘢。
+## 4. A page that shows personal data (1 minute)
 
-## 2. 釣魚表單，完全唔使模型　（約 60 秒）
+Do not use a real account page. The test suite has an invented one: run `bun run e2e:analysis --headed` and watch scenario D, where the page shows a made-up shopper's name and email. The extension still classifies on the device but **does not look anything up and does not share**, and says why without repeating the address it found.
 
-開 `https://hsbc-verify.top/verify`。
+## 5. The public site (2 minutes)
 
-紅色橫額即刻出，撳「詳情」列出五個原因：域名扮 HSBC、要身份證、要銀行
-戶口、姓名+出生日期+地址齊、`.top` 網域加登入頁。
+Open `http://localhost:8787`. Search a site you just read. Show the ranking, the clauses in quotes, the filters, and the earlier versions of a document. Open `/docs` and press **Try it** on an endpoint.
 
-**指住講**：呢一步**完全冇呼叫過模型**。規則分數 100 分，已經夠信心。
-即係話 API 額度爆咗、現場冇網，呢個 demo 一樣做得到。
+## 6. Optional extras
 
-## 3. 私隱證明　（約 60 秒 —— 呢步最有說服力）
+- **Shared results only.** Start a browser with no GPU flags, or choose it on the setup page. The popup says "Look up results", sends only the site's name, and says plainly when nobody has read a site.
+- **The form warning.** Run `bun run fixtures` and open one of the phishing fixtures it lists (for example `secure-paypa1.xyz`, with the flags it prints): a red banner explains in plain words why the form looks like phishing.
 
-喺個釣魚表單度打幾個**假**資料（例如身份證打 `A123456(7)`）。開 DevTools
-→ Network。
+## If something does not work
 
-**指住講**：送出去嘅 payload 只有欄位嘅名同類型，**冇任何一個你打咗嘅值**；
-URL 冇 query string。
-
-`FormField` 個 schema 根本冇 `value` 欄位，而且係 `.strict()`；
-`packages/shared/test/schemas.test.ts` 同 server 兩邊各有一個測試驗證加返
-`value` 會被拒絕。
-
-## 4. Prompt injection　（約 90 秒 —— 技術含量最高）
-
-開 `https://injection.test/07-white-on-white`。用滑鼠 select 成版 →
-白底白字嗰段就顯出嚟：`SYSTEM OVERRIDE: Ignore all previous instructions…`
-
-跑：
-
-```bash
-bun run eval/run-injection-eval.ts
-```
-
-**指住講**：8 種隱藏技巧、6 種喺 payload 到達模型之前已經被刪走；
-8/8 虛構發現喺顯示前被拒絕；0 個逃得出 untrusted block。
-
-再指住表入面「無 CSS / 真瀏覽器」兩欄嘅差異：白底白字要有 layout engine
-先偵測得到，所以 harness 會將真 production 嘅 sanitizer 注入 headless
-Chromium 度跑多次。用 Node 嗰個數字報告會低估咗實際保護。
-
-**同時要講埋處理唔到嘅嘢**：被說服保持沉默嘅模型。呢個就係點解表單提示
-完全唔問模型。
-
-## 5. 兩個模式　（約 45 秒）
-
-Options 頁：由 Managed 切去 Direct (BYOK) → 撳「測試連線」→ ✓ 同延遲。
-返去重新分析 → 結果一樣。
-
-**指住講**：兩個模式跑同一份 prompt、同一個 schema、同一個引文核對，
-因為佢哋都喺 `packages/shared/`。分別只係邊個攞住條 key —— 同埋 managed
-嗰邊多咗一部 headless Chromium 幫手 render 靠 JS 先出文字嘅條款頁。
-
-想順手 demo 埋「唔係 open relay」：喺 Managed 模式將密碼清空 → 撳
-「測試連線」→ 出嘅係「未填帳號密碼」而唔係連線錯誤。或者 terminal 度：
-
-```bash
-curl -s localhost:8787/api/status                      # 401
-curl -s -X POST localhost:8787/api/policy/render \
-  -H 'content-type: application/json' \
-  -d '{"urls":["https://example.com/privacy"]}'        # 401
-```
-
-## 6. 暫停同主題　（約 30 秒）
-
-Options → 撳「全域暫停」→ 返去釣魚 fixture，橫額即刻消失，工具列圖示
-變灰。撳返開就返嚟。
-
-切換系統 dark mode → popup 同橫額都跟住轉。
-
----
-
-## 現場出事點算
-
-| 情況 | 做法 |
-|---|---|
-| 模型 API 掛 / 冇網 | 第 2、3、6 步完全唔使網絡，照做。第 1 步用預先 warm 好嘅快取。 |
-| Fixture server 未開 | 所有 `*.invalid` / `*.test` 域名會 404。先開返 `bun run eval/serve-fixtures.ts`。 |
-| 插件冇反應 | `chrome://extensions` 撳 reload；content script 要頁面重新載入先注入。 |
-| Managed 出「帳號或者密碼唔啱」 | `bun run auth list` 睇下個名喺唔喺；`bun run auth add <name>` 可以直接覆蓋密碼，唔使重啟 server。 |
-| 完全開唔到 | `bun run e2e` 一次過跑晒六步嘅自動化版本，可以直接 show terminal 輸出。 |
-
-## 自動化版本
-
-```bash
-bun run e2e
-```
-
-驗證 bundle 預算、兩個 extension 頁面零 CSP 錯誤、9 個 fixture 判定、
-完整條款摘要 pipeline（對住 mock endpoint）、快取命中、測試連線、全域暫停。
+See "When something is wrong" in [operations.md](operations.md). The usual one: after rebuilding the extension, reload it at `chrome://extensions`.

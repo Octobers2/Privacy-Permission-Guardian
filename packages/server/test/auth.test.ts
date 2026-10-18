@@ -1,9 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import type { EndpointConfig } from '@ppg/shared';
 import { AuthStore, EXAMPLE_HASH, formatAuthFile, isValidUsername, parseAuthFile } from '../src/auth.ts';
-import { SummaryCache } from '../src/cache.ts';
 import { createApp } from '../src/index.ts';
-import type { Renderer } from '../src/render.ts';
+import { ResultStore } from '../src/store.ts';
 
 const CONFIG: EndpointConfig = {
   baseUrl: 'https://model.invalid/v1',
@@ -22,10 +21,8 @@ async function storeWith(username = 'demo', password = PASSWORD): Promise<AuthSt
   return new AuthStore({ users: new Map([[username, await hashOf(password)]]) });
 }
 
-const neverRenders: Renderer = async () => ({ policy: null, failures: [] });
-
-function appWith(auth: AuthStore, renderImpl: Renderer = neverRenders) {
-  return createApp({ config: CONFIG, cache: new SummaryCache(':memory:'), auth, renderImpl });
+function appWith(auth: AuthStore) {
+  return createApp({ config: CONFIG, store: new ResultStore({ file: ':memory:' }), auth, modelsDir: '/nonexistent' });
 }
 
 function login(app: ReturnType<typeof appWith>, body: unknown) {
@@ -154,17 +151,14 @@ describe('POST /api/login', () => {
 });
 
 describe('the token gate', () => {
-  const RENDER_BODY = JSON.stringify({ urls: ['https://example.com/privacy'] });
-
-  test('refuses every /api route without a token', async () => {
+  test('refuses the write and account routes without a token, and leaves the public ones open', async () => {
     const app = appWith(await storeWith());
-    for (const path of ['/api/status', '/api/policy/render', '/api/policy/summarize', '/api/form/assess']) {
-      const response = await app.request(path, {
-        method: path === '/api/status' ? 'GET' : 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: path === '/api/status' ? undefined : '{}',
-      });
+    for (const [method, path] of [['GET', '/api/status'], ['POST', '/api/results'], ['POST', '/api/form/assess']] as const) {
+      const response = await app.request(path, { method, headers: { 'content-type': 'application/json' }, body: method === 'POST' ? '{}' : undefined });
       expect(response.status).toBe(401);
+    }
+    for (const path of ['/health', '/api/v1/stats', '/api/v1/recent']) {
+      expect((await app.request(path)).status).toBe(200);
     }
   });
 
@@ -173,70 +167,18 @@ describe('the token gate', () => {
     const app = appWith(auth);
     const { token } = auth.issue('demo');
 
-    const response = await app.request('/api/policy/render', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-      body: RENDER_BODY,
-    });
+    const response = await app.request('/api/status', { headers: { authorization: `Bearer ${token}` } });
     expect(response.status).toBe(200);
+    expect(((await response.json()) as { username: string }).username).toBe('demo');
   });
 
-  test('refuses an expired token', async () => {
+  test('refuses a revoked token', async () => {
     const auth = await storeWith();
     const app = appWith(auth);
     const { token } = auth.issue('demo');
     auth.revoke(token);
 
-    const response = await app.request('/api/status', {
-      headers: { authorization: `Bearer ${token}` },
-    });
+    const response = await app.request('/api/status', { headers: { authorization: `Bearer ${token}` } });
     expect(response.status).toBe(401);
-  });
-});
-
-describe('POST /api/policy/render', () => {
-  async function authedApp(renderImpl: Renderer) {
-    const auth = await storeWith();
-    return { app: appWith(auth, renderImpl), token: auth.issue('demo').token };
-  }
-
-  test('returns what the renderer read', async () => {
-    const policy = { policyUrl: 'https://example.com/privacy', text: 'We collect x.', truncated: false };
-    const { app, token } = await authedApp(async () => ({ policy, failures: [] }));
-
-    const response = await app.request('/api/policy/render', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-      body: JSON.stringify({ urls: ['https://example.com/privacy'] }),
-    });
-
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ policy, failures: [] });
-  });
-
-  test('passes the per-candidate failures through', async () => {
-    const failures = [{ url: 'https://example.com/privacy', reason: 'http-error' as const }];
-    const { app, token } = await authedApp(async () => ({ policy: null, failures }));
-
-    const response = await app.request('/api/policy/render', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-      body: JSON.stringify({ urls: ['https://example.com/privacy'] }),
-    });
-    expect((await response.json()).failures).toEqual(failures);
-  });
-
-  test('refuses a list that is not URLs, or is too long', async () => {
-    const { app, token } = await authedApp(neverRenders);
-    const send = (urls: unknown) =>
-      app.request('/api/policy/render', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-        body: JSON.stringify({ urls }),
-      });
-
-    expect((await send([])).status).toBe(400);
-    expect((await send(['not a url'])).status).toBe(400);
-    expect((await send(new Array(6).fill('https://example.com/privacy'))).status).toBe(400);
   });
 });

@@ -1,0 +1,28 @@
+# GSQ 4-bit on the merged fine-tuned Qwen3.5-4B. groupsize 32 matches MLC's q4f16_1/q4f32_1 layout.
+model: {name: "/ironwolf/ppg-cache/merged/qwen3.5-4b-ppg-run1", device: "cuda", dtype: "bfloat16"}
+data: {dataset_name: "tos", batch_size: 8, num_samples: 192, max_length: 1024, num_workers: 0, val_samples: 32}
+quantization:
+  gsq_bits: 4
+  init_method: "gptq"
+  gsq_enabled: true
+  start_layer: 0
+  self_attn: false
+  std: 0.01
+  temperature: [2, 0.05]
+  scale: [100, 500]
+  groupsize: 32
+  strength: 6
+  logits_dtype: "bfloat16"
+training:
+  num_epochs: 5
+  device_microbatch_size: 2
+  lr1: 0.0002
+  lr2: 0.0001
+  weight_decay: 1.0
+  checkpoint_dir: "/ironwolf/ppg-cache/gsq/run1-w4g32/ckpt"
+  log_dir: "/ironwolf/ppg-cache/gsq/run1-w4g32/logs"
+  act_cache_dir: "/ironwolf/ppg-cache/gsq/run1-w4g32/act"
+  eval_baseline: false
+  ppl_eval_every_n_layers: 0
+gptq: {nsamples: 128, wbits: 4, sym: true, trits: false, percdamp: 0.1, blocksize: 128, groupsize: 32, static_groups: false, prunen: 0, prunem: 0}
+wandb: false

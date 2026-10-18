@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Terms check</title>
+  <meta name="description" content="Look up how a website's terms of service read: which clauses tend to work against you, found by a model and shared publicly.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/site.css">
+  <script type="module" src="/js/home.js"></script>
+</head>
+<body>
+  <div class="page" id="top"></div>
+  <main class="page" id="main">
+    <section class="hero">
+      <h1>How do a site’s terms read?</h1>
+      <p class="lede">Type a website and see the clauses in its terms of service that tend to work against you, such as forced arbitration or closing your account without notice.</p>
+      <form id="search" class="search" role="search" action="/" autocomplete="off">
+        <label for="q" class="visually-hidden">Website</label>
+        <input id="q" name="q" type="text" inputmode="url" spellcheck="false" autocapitalize="off" placeholder="example.com" aria-describedby="search-help" required>
+        <button class="button" type="submit">Look up</button>
+      </form>
+      <p id="search-help" class="help">Enter a domain or paste a link. Only sites that a contributor has already read are listed.</p>
+      <p id="search-status" class="status" role="status" aria-live="polite"></p>
+      <div id="hero-strip" class="hero-strip" aria-hidden="true"></div>
+    </section>
+
+    <section aria-labelledby="rank-h" class="block">
+      <div class="block-head">
+        <h2 id="rank-h">Most clauses that work against you</h2>
+        <div class="segmented" role="group" aria-label="Rank by">
+          <button type="button" data-by="count" aria-pressed="true">Number of clauses</button>
+          <button type="button" data-by="share" aria-pressed="false">Share of the document</button>
+        </div>
+      </div>
+      <div id="rankings" aria-live="polite"><p class="loading">Loading…</p></div>
+    </section>
+
+    <section aria-labelledby="recent-h" class="block">
+      <div class="block-head"><h2 id="recent-h">Read recently</h2></div>
+      <div id="recent" aria-live="polite"><p class="loading">Loading…</p></div>
+    </section>
+  </main>
+  <div class="page" id="bottom"></div>
+</body>
+</html>

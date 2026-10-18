@@ -7,12 +7,15 @@
     "dev": "vite",
     "build": "vite build",
     "theme": "bun run scripts/gen-theme.ts",
-    "check": "vite build && bun run ../../eval/run-e2e.ts",
+    "check": "vite build && bun run ../../eval/run-banner-e2e.ts",
     "icons": "bun run scripts/gen-icons.ts"
   },
   "dependencies": {
+    "@fontsource-variable/source-serif-4": "^5.3.1",
     "@material/web": "^2.3.0",
-    "@ppg/shared": "workspace:*"
+    "@mlc-ai/web-llm": "^0.2.86",
+    "@ppg/shared": "workspace:*",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.0.0-beta.28",
