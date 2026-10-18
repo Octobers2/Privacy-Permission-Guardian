@@ -3,11 +3,14 @@
  * Chromium, opens every labelled fixture under its real hostname, and asserts
  * that the banner says what the rule engine says it should.
  *
- *   bun run eval/run-e2e.ts
+ *   bun run eval/run-banner-e2e.ts
  *
  * This is the automated form of the W1 acceptance criterion — "open a phishing
  * fixture, get a red banner; open a legitimate one, get nothing" — plus the
- * "console 零 error" criterion for the extension's own pages.
+ * "no console errors" criterion for the extension's own pages.
+ *
+ * Covers the form warning (the part of the extension that needs no model). The analysis, setup, shared-mode and site flows have
+ * their own end-to-end checks: run-analysis-e2e.ts, run-setup-e2e.ts, run-shared-e2e.ts and run-site-e2e.ts.
  *
  * Exits non-zero when a fixture is judged wrongly or any page logs an error.
  */
@@ -18,7 +21,7 @@ import { readFileSync } from 'node:fs';
 import { parseHTML } from 'linkedom';
 import { extractVisibleText, isVerbatim, pickMainContent } from '@ppg/shared/sanitize';
 import { loadFixtures } from './fixtures.ts';
-import { hostResolverRules, MOCK_LLM_HOST } from './serve-fixtures.ts';
+import { hostResolverRules } from './serve-fixtures.ts';
 
 const DIST = resolve(import.meta.dir, '../packages/extension/dist');
 
@@ -114,129 +117,6 @@ for (const fixture of loadFixtures()) {
   if (!correct) failures.push(`${fixture.hostname}: labelled ${fixture.label} but got ${summary}`);
 }
 
-console.log('\n=== policy summary, end to end ===');
-{
-  const optionsUrl = `chrome-extension://${browser.extensionId}/options.html`;
-  const site = 'https://www.datahungry.example/';
-
-  // Point the extension at the mock endpoint the fixture server exposes, so the
-  // whole pipeline runs without an API key: scout the policy link, fetch it,
-  // sanitise, prompt, validate, verify quotes, score, cache.
-  await browser.visit(
-    optionsUrl,
-    `chrome.storage.local.set({ settings: {
-      mode: 'direct',
-      baseUrl: 'https://${MOCK_LLM_HOST}/v1',
-      apiKey: 'test-key',
-      model: 'mock',
-    } })`,
-    300,
-  );
-
-  // Rebuild the text the extension would have extracted, using the same
-  // production code, so the check compares like with like. Comparing against
-  // the raw HTML fails for any quote that spans a tag boundary.
-  const policyDoc = parseHTML(
-    readFileSync(resolve(import.meta.dir, 'fixtures/sites/www.datahungry.example/privacy.html'), 'utf8'),
-  ).document as unknown as Document;
-  const policySource = extractVisibleText(pickMainContent(policyDoc)).text;
-
-  const siteTab = await browser.openTab(site);
-  const options = await browser.openTab(optionsUrl);
-
-  const summary = await options.evaluate<any>(`(async () => {
-    const [tab] = await chrome.tabs.query({ url: '${site}*' });
-    return chrome.runtime.sendMessage({ type: 'analyse-policy', tabId: tab.id });
-  })()`);
-
-  const checks: [string, boolean][] = [
-    ['the policy was found and summarised', summary?.status === 'ready'],
-    ['two verifiable points survived', summary?.summary?.points?.length === 2],
-    ['the invented quote was dropped', summary?.summary?.droppedPoints === 1],
-    ['the score came from the surviving severities', summary?.summary?.riskScore === 37],
-    [
-      'every surviving quote appears verbatim in the policy file',
-      // Checked against the fixture on disk rather than against sentences this
-      // test picked in advance: the point is that the extension verified them,
-      // not that the mock happened to choose the ones we guessed.
-      (summary?.summary?.points ?? []).length > 0 &&
-        (summary?.summary?.points ?? []).every((point: any) => isVerbatim(point.quote, policySource)),
-    ],
-  ];
-
-  for (const [label, passed] of checks) {
-    console.log(`  ${passed ? 'ok  ' : 'FAIL'} ${label}`);
-    if (!passed) failures.push(`policy pipeline: ${label}`);
-  }
-  for (const point of summary?.summary?.points ?? []) {
-    console.log(`         · ${point.title} — 「${point.quote.slice(0, 60)}…」`);
-  }
-  if (summary?.status !== 'ready') console.log(`       got: ${JSON.stringify(summary)}`);
-
-  // A second run must come from the cache rather than the endpoint.
-  const again = await options.evaluate<any>(`(async () => {
-    const [tab] = await chrome.tabs.query({ url: '${site}*' });
-    return chrome.runtime.sendMessage({ type: 'analyse-policy', tabId: tab.id });
-  })()`);
-  const cached = again?.cached === true;
-  console.log(`  ${cached ? 'ok  ' : 'FAIL'} the second request is served from the cache`);
-  if (!cached) failures.push('policy pipeline: the summary was not cached');
-
-  // The "test connection" button, against the same mock endpoint.
-  const check = await options.evaluate<any>(
-    `chrome.runtime.sendMessage({ type: 'test-connection' })`,
-  );
-  const connectionOk = check?.ok === true && check.model === 'mock';
-  console.log(`  ${connectionOk ? 'ok  ' : 'FAIL'} the connection test reaches the configured endpoint`);
-  if (!connectionOk) failures.push(`connection test: ${JSON.stringify(check)}`);
-
-  await options.evaluate(`chrome.storage.local.clear()`);
-  await options.close();
-  await siteTab.close();
-}
-
-console.log('\n=== client-rendered policy ===');
-{
-  // The reported failure: large sites serve a shell and fill it in on the
-  // client, so a reader that runs no scripts sees a spinner. The extension has
-  // to fall back to letting the site render itself in a background tab —
-  // without asking the user to go and open the page.
-  const optionsUrl = `chrome-extension://${browser.extensionId}/options.html`;
-  const site = 'https://spa-policy.example/';
-
-  // The previous section clears storage, so point at the mock endpoint again.
-  await browser.visit(
-    optionsUrl,
-    `chrome.storage.local.set({ settings: {
-      mode: 'direct', baseUrl: 'https://${MOCK_LLM_HOST}/v1', apiKey: 'k', model: 'mock' } })`,
-    300,
-  );
-
-  const siteTab = await browser.openTab(site);
-  const options = await browser.openTab(optionsUrl);
-
-  const summary = await options.evaluate<any>(`(async () => {
-    const [tab] = await chrome.tabs.query({ url: '${site}*' });
-    return chrome.runtime.sendMessage({ type: 'analyse-policy', tabId: tab.id });
-  })()`);
-
-  const read = summary?.status === 'ready';
-  console.log(`  ${read ? 'ok  ' : 'FAIL'} a policy that only exists after its own script runs is still read`);
-  if (!read) failures.push(`client-rendered policy: ${JSON.stringify(summary).slice(0, 200)}`);
-
-  // The background tab must not be left behind.
-  const leftOpen = await options.evaluate<number>(
-    `chrome.tabs.query({ url: '${site}*' }).then((tabs) => tabs.length)`,
-  );
-  const cleanedUp = leftOpen === 1;
-  console.log(`  ${cleanedUp ? 'ok  ' : 'FAIL'} the background tab was closed again (${leftOpen} tab open)`);
-  if (!cleanedUp) failures.push(`client-rendered policy: ${leftOpen} tabs left open`);
-
-  await options.evaluate(`chrome.storage.local.clear()`);
-  await options.close();
-  await siteTab.close();
-}
-
 console.log('\n=== global pause ===');
 {
   const optionsUrl = `chrome-extension://${browser.extensionId}/options.html`;
@@ -248,10 +128,10 @@ console.log('\n=== global pause ===');
     // a11y check cannot see that and is suppressed at the source, which makes
     // this the test that keeps the suppression honest.
     `(async () => {
-      document.querySelector('label.row').click();
+      [...document.querySelectorAll('label.row')].find((l) => l.textContent.includes('Pause warnings')).click();
       await new Promise((done) => setTimeout(done, 400));
-      const stored = await chrome.storage.local.get('settings');
-      return { paused: stored.settings?.paused ?? null };
+      const stored = await chrome.storage.local.get('ppg-prefs');
+      return { paused: stored['ppg-prefs']?.paused ?? null };
     })()`,
   );
   const pausedOk = toggled.value?.paused === true;
@@ -265,7 +145,7 @@ console.log('\n=== global pause ===');
   if (!silencedOk) failures.push('paused mode still drew a banner');
 
   // Leave the profile in its default state so a rerun starts clean.
-  await browser.visit(optionsUrl, `chrome.storage.local.remove('settings')`, 300);
+  await browser.visit(optionsUrl, `chrome.storage.local.remove('ppg-prefs')`, 300);
 }
 
 browser.close();

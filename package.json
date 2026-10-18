@@ -12,13 +12,17 @@
     "server": "bun run --filter '@ppg/server' dev",
     "auth": "bun run scripts/auth.ts",
     "eval:rules": "bun run eval/run-rules-eval.ts",
-    "eval:injection": "bun run eval/run-injection-eval.ts",
-    "e2e": "bun run --filter @ppg/extension build && bun run eval/run-e2e.ts",
     "fixtures": "bun run eval/serve-fixtures.ts",
     "fixtures:check": "bun run eval/sanitize-fixture.ts --check eval/fixtures/phishing/*.html eval/fixtures/legit/*.html",
     "models:manifest": "bun run scripts/model-manifest.ts",
     "demo": "bun run packages/server/scripts/demo.ts",
-    "e2e:site": "bun run eval/run-site-e2e.ts"
+    "theme": "bun run --filter '@ppg/extension' theme",
+    "e2e:banner": "bun run eval/run-banner-e2e.ts",
+    "e2e:analysis": "bun run eval/run-analysis-e2e.ts",
+    "e2e:setup": "bun run eval/run-setup-e2e.ts",
+    "e2e:shared": "bun run eval/run-shared-e2e.ts",
+    "e2e:site": "bun run eval/run-site-e2e.ts",
+    "e2e": "bun run build && bun run e2e:banner && bun run e2e:analysis && bun run e2e:setup && bun run e2e:shared && bun run e2e:site"
   },
   "devDependencies": {
     "@types/bun": "latest",
