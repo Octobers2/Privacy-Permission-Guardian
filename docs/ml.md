@@ -85,7 +85,7 @@ vendor/kev/.venv/bin/python eval_letter.py --adapter /path/to/run1/best --name r
 vendor/kev/.venv/bin/python merge.py /path/to/run1/best /path/to/merged
 ```
 
-The remaining steps (distillation, multi-task training, packing) take the same pattern: each script's docstring names its arguments. The scripts keep run outputs and merged models under `/ironwolf/ppg-cache` (a large disk outside the repository), and write reports to `ml/reports/` (committed, JSON). For the GSQ experiment, `ml/compress/setup_gsq.sh` registers the ToS calibration set in a GSQ checkout (`https://github.com/IST-DASLab/GSQ`).
+The remaining steps (distillation, multi-task training, packing) take the same pattern: each script's docstring names its arguments. The scripts keep run outputs and merged models under `/ironwolf/ppg-cache` (a large disk outside the repository), and write reports to `ml/reports/` (committed, JSON). For the GSQ experiment, clone `https://github.com/IST-DASLab/GSQ` into `ml/vendor/GSQ`, create its environment from `ml/env/gsq.txt` the same way, and run `ml/compress/setup_gsq.sh` to register the ToS calibration set. `ml/env/mlc.txt` lists the MLC nightly toolchain used in the attempts to compile new kernels (wheels from `https://mlc.ai/wheels`); the packer itself does not need it.
 
 ## Keeping Python and TypeScript in step
 
