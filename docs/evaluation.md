@@ -72,7 +72,7 @@ A false alarm means a public page treated as personal, so its result is not shar
 | The same policy from the public cache | about 0.6 s | same |
 | Time per sentence | about 0.1 s (0.8B), about 0.45 s (4B), on an RTX 5060 Ti | spike findings |
 | A real long terms page (357 sentences) | about 40 s (0.8B) | `eval/` repro against github.com |
-| Content script size | about 33 KB on every page, budget 60 KB | `bun run e2e:banner` |
+| Content script size | about 37 KB on every page, budget 60 KB | `bun run e2e:banner` |
 | Setup wizard downloads and loads each model in a real browser | passes for both tiers | `bun run e2e:setup [--model accurate]` |
 
 On real pages there are no labels, so these runs show that the pipeline works and what gets flagged, not how often it is right. As an illustration, the same GitHub terms page gave 23 flagged sentences from the 0.8B and 28 from the 4B, from 357.
