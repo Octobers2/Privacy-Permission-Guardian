@@ -31,7 +31,7 @@ A language model reads a site's terms on the user's computer and labels every se
 
 Manifest V3 gives a service worker that sleeps after seconds, and a model that takes minutes to read a long document. The design follows from that.
 
-- **Content script** (every page, about 29 KB). Scans forms for the warning banner, and answers two questions for the service worker: which links on this page look like terms, and, if this page is itself a terms page, what its text is. It never reads the page unless asked.
+- **Content script** (every page, about 33 KB). Scans forms and collects page-level signals for the warning banner (see *The form warning* below), and answers two questions for the service worker: which links on this page look like terms, and, if this page is itself a terms page, what its text is. It never reads the page's text for the classifier unless asked.
 - **Service worker.** Thin on purpose. It finds the terms (`background/acquire.ts`): the live page if it is a terms page, otherwise the linked and guessed addresses fetched and rendered in the offscreen document, otherwise a hidden background tab for pages that only exist once their scripts run. It hands the text to the offscreen document, keeps per-tab state in `chrome.storage.session` and saved results in `chrome.storage.local` (30 days, at most 50), and paints the toolbar badge. Nothing it needs later lives only in memory.
 - **Offscreen document.** Owns the model (one engine, jobs queued) and runs the analysis (`analysis/analyzer.ts`), because it outlives the service worker. It reports progress by messages, which the service worker writes into session storage. The popup just follows storage.
 - **Engine** (`engine/engine.ts`). WebLLM loads a model bundle served by our server. The model is used as a classifier: for each prompt, the logits of the option letters at the first answer position become probabilities (a `LogitProcessor` reads them, because WebLLM's `top_logprobs` stops at five and there are nine options). If the GPU is lost mid-run, the engine reloads once and carries on.
@@ -57,6 +57,19 @@ Shared-results-only mode replaces steps 1 to 7 with one request, `GET /api/v1/si
 ### Text pipeline
 
 The classifier was trained on lower-cased, Penn-Treebank-tokenised sentences, which is not how a web page reads. `shared/classifier-text.ts` splits a document into sentences (dropping fragments under 25 characters or 5 words, cutting any over 1,200 characters) and normalises each (lower-case, URLs and emails protected, Treebank rules). 99.7% of the benchmark's sentences reproduce exactly. The prompts and the normaliser are **locked to the Python reference by golden files**: `ml/golden_prompts.py` and `ml/golden_text.py` write them, and unit tests require the TypeScript to match byte for byte. Change one side and the other's tests fail.
+
+### The form warning
+
+Separate from the classifier and needing no model. Two kinds of evidence go into one score, so the thresholds (60 for danger, 30 for caution), the allow-list and the cap for well-known brands act on a single number.
+
+1. **Form rules** (`shared/rules.ts`, `shared/extract-form.ts`): what a form asks for (card numbers, CVV, national IDs, bank accounts, passwords), where it posts (another domain), look-alike domains, cheap top-level domains, passwords over plain HTTP.
+2. **Page signals** (`shared/page-signals.ts`, collected by `content/page-signals.ts`): the text of the page's scripts (read, never run) and the list of hosts the page has contacted (from a `PerformanceObserver` over resource timing, which needs no permission and shows addresses only). From these, rules look for data sent to a Telegram bot, a webhook, a form relay or a test endpoint; sensitive fields on a page that talks to unrelated hosts (common infrastructure such as payment, analytics and error-reporting hosts is ignored); a script that keeps triggering the debugger, blocks F12 or detects open developer tools; and an icon hot-linked from another site.
+
+A page with no form can still raise a warning: the standalone rules (a bot token, an icon that belongs to a known brand, a data-exfiltration destination) are enough on their own, while blocking developer tools alone is not. The banner says "this site" instead of "this form" in that case.
+
+**Icon check.** The one check that makes a request of its own. When a page has already scored something (a form of at least 15 points, or another page-level hit), the service worker fetches the page's icon from the site the user is already on, decodes it locally (`createImageBitmap` and `OffscreenCanvas`, since it is an image and nothing is parsed as markup), reduces it to a 64-bit perceptual hash and compares it with a committed table of well-known brands. The result is cached per registered domain for a month, and the setting "Check site icons" turns it off. The table ships empty: `bun run favicons` generates it from the brands' own sites and needs the network, and until then this rule never fires.
+
+Page signals travel from the content script to the service worker and stop there; they are not part of anything sent to a server.
 
 ## The results server
 

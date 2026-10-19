@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<title>作品集 — 攝影工作室</title>
+<link rel="icon" href="/favicon.ico">
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; background: #111; color: #eee; }
+  .wrap { max-width: 900px; margin: 32px auto; padding: 0 16px; }
+  h1 { font-size: 22px; font-weight: 500; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 20px; }
+  .tile { aspect-ratio: 3/2; background: linear-gradient(135deg, #333, #555); border-radius: 4px; }
+  form { margin-top: 32px; }
+  input { padding: 9px 10px; font-size: 14px; border: 1px solid #444; border-radius: 6px;
+          background: #1c1c1c; color: #eee; }
+  p.note { color: #999; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>作品集</h1>
+<p class="note">所有相片版權屬工作室所有，請勿轉載。</p>
+
+<div class="grid">
+  <div class="tile"></div><div class="tile"></div><div class="tile"></div>
+  <div class="tile"></div><div class="tile"></div><div class="tile"></div>
+</div>
+
+<form action="/subscribe" method="post">
+  <input name="email" type="email" placeholder="訂閱最新作品" required>
+</form>
+
+</div>
+
+<!-- A photographer stopping people saving the images. It is not a phishing
+     technique, it is the most common thing on the image web, and a rule that
+     called this dangerous would be wrong about thousands of sites. -->
+<script type="text/plain" data-ppg-defused="1">
+  document.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+  document.addEventListener("dragstart", function (e) { e.preventDefault(); });
+  document.addEventListener("selectstart", function (e) { e.preventDefault(); });
+</script>
+</body>
+</html>

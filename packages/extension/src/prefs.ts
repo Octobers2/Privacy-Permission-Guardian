@@ -34,6 +34,12 @@ export const PrefsSchema = z
     /** Present when the user signed in as a contributor (allowed to share results). */
     account: z.object({ username: z.string(), token: z.string(), expiresAt: z.number() }).nullable().default(null),
     paused: z.boolean().default(false),
+    /**
+     * Whether the worker may fetch a page's favicon to compare it with well-known brand icons. It is the only form-warning check that
+     * makes a request of its own, so it has a switch. The request goes to the site the user is already on, and only on a page that
+     * has already scored something.
+     */
+    faviconCheck: z.boolean().default(true),
     /** Registrable domains where the form warning stays quiet. */
     allowlist: z.array(z.string()).default([]),
   })

@@ -13,17 +13,34 @@
  * Without one it runs the rules arm and says so, rather than printing numbers
  * nothing produced.
  *
- * Everything here calls the same `extractForms` and `scoreForm` the extension
- * runs in the browser. A separate "close enough" implementation for the harness
- * would make every number in the report meaningless.
+ * Everything here calls the same `extractForms`, `collectPageSignals`,
+ * `scorePageSignals` and `scoreForm` the extension runs in the browser. A
+ * separate "close enough" implementation for the harness would make every
+ * number in the report meaningless.
+ *
+ * Two things the browser does are missing here, and neither can be faked:
+ *
+ * - **The favicon hash.** Deciding that an icon is Apple's needs an image
+ *   decoder, and linkedom has none. `favicon_brand_mismatch` is therefore not
+ *   represented in these numbers at all; its arithmetic is unit-tested in
+ *   `packages/shared/test/favicon.test.ts` and its end-to-end behaviour in
+ *   `eval/run-e2e.ts`. `favicon_hotlinked`, which is pure DOM, is measured.
+ * - **Observed requests.** `PerformanceObserver` needs a running page, so
+ *   `sendingHosts` is empty and `sensitive_post_third_party` is measured only
+ *   on the hosts a page names statically.
  */
 import { parseHTML } from 'linkedom';
 import {
   buildFormPrompt,
   chatJson,
+  classifyField,
+  collectPageSignals,
   extractForms,
   FormAssessmentSchema,
+  describePage,
   scoreForm,
+  scorePageSignals,
+  scoreStandalonePage,
   stripQuery,
   type EndpointConfig,
   type FormAssessment,
@@ -51,20 +68,39 @@ interface Scored {
   rules: RuleResult | null;
 }
 
+/** Categories whose presence makes a third-party destination worth naming; mirrors the worker. */
+const SENSITIVE_CATEGORIES = new Set(['password', 'credit_card', 'card_cvv', 'national_id', 'bank_account']);
+
 /** Runs the production extraction and scoring over a fixture's HTML. */
 function scoreFixture(fixture: Fixture): Scored {
   const doc = parseHTML(fixtureHtml(fixture)).document as unknown as Document;
   const observations = extractForms(doc, fixture.url);
 
+  // The same order the service worker uses: page signals first, folded into
+  // every form's score, and standing on their own when there is no form.
+  const page = observations[0]?.page ?? describePage(fixture.url, doc.title ?? '');
+  const signals = collectPageSignals(doc, fixture.url);
+  const pageHits = scorePageSignals(signals, page, {
+    hasSensitiveFields: observations.some((observation) =>
+      observation.form.fields.some((field) => SENSITIVE_CATEGORIES.has(classifyField(field))),
+    ),
+  });
+
   let worstObservation: FormObservation | null = null;
   let worst: RuleResult | null = null;
   for (const observation of observations) {
-    const result = scoreForm(observation);
+    const result = scoreForm(observation, { pageHits });
     if (!worst || result.score > worst.score) {
       worst = result;
       worstObservation = observation;
     }
   }
+
+  if (!worst) {
+    const standalone = scoreStandalonePage(pageHits, page);
+    if (standalone.verdict !== 'safe') worst = standalone;
+  }
+
   return { fixture, observation: worstObservation, rules: worst };
 }
 

@@ -14,7 +14,7 @@ This is the most important table, because most of the design exists to keep it s
 | Sharing a result (contributor signed in, page passed both personal-data checks) | The address (no query or fragment), the text hash, the model id, and the **flagged sentences** with their probabilities. Fair sentences are sent only as a count. |
 | Plain-language summary (opted in at setup) | The flagged sentences of a page that passed both checks, to the results server, or to the user's own endpoint if they chose that. |
 | First setup and settings | The browser requests the model files and manifest from the configured server. A sign-in sends the contributor's username and password to that server once. |
-| Form warning | Nothing. It runs on the page's form metadata locally. |
+| Form warning | Nothing is sent anywhere. One optional request is made: when a page already looks suspicious, the site's own icon is fetched from the site the user is on, once a month per domain, and compared locally. It can be turned off in settings. |
 
 The results server therefore learns, from a user who is not a contributor and not using summaries: which public documents they ask about (on-device mode) or which public sites (shared mode), and their network address, like any web server. It does not learn page contents.
 
@@ -57,6 +57,14 @@ Remaining risk: the checks can miss. Rules cannot recognise personal data in a f
 - **Prompt injection in the summary.** Flagged passages from a page reach a language model. The risk score is computed from severities in code, never asked of the model, and every quote the model returns must appear word for word in the submitted passages or it is dropped.
 - **Scripts or markup in a passage.** Passages are rendered as text only, in the popup and on the query site. A test feeds a passage containing `<img onerror>` and `<script>` through the site and checks that nothing is created or run; the popup has a similar test (`no-html-injection`).
 - **Fake forms and phishing.** The form warning scores sensitive fields, destinations on other domains, look-alike domains and cheap top-level domains. It is rules only and can be wrong in both directions.
+
+### What the form warning reads
+
+The page-level checks look at the **text of the page's scripts** (never run) and at the **addresses of requests the page has made**. Both stay in the browser: they go from the content script to the service worker and no further, and the schema for anything sent to a server has no field for them.
+
+- **No new permissions.** The list of contacted hosts comes from the browser's resource timing, which shows addresses and no request bodies. A permission such as `webRequest` was considered and rejected: it would not show bodies either.
+- **Nothing on the page is run to find out.** Detecting that a page blocks developer tools by sending it a synthetic F12 key press would run the page's own handlers, so the check reads the scripts' text instead.
+- **The icon request** is the only request the warning makes by itself. It goes to the site the user is already on, never to a third party, only when the page already scored something, at most once a month per domain, and the image is decoded in the service worker (an image, not a document: nothing is parsed as markup). The setting "Check site icons" turns it off.
 
 ### A malicious or mistaken contributor
 

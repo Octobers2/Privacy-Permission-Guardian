@@ -9,3 +9,7 @@ phishing/dhl-tracking.click.html,https://dhl-tracking.click/redelivery,phishing,
 phishing/login.microsoft-verify.sbs.html,http://login.microsoft-verify.sbs/signin,phishing,Credentials over plain http with no <form> element at all,synthetic
 sites/www.datahungry.example/index.html,https://www.datahungry.example/,legit,Policy-summary fixture: a homepage whose footer links to a deliberately greedy privacy policy,synthetic
 sites/spa-policy.example/index.html,https://spa-policy.example/,legit,Client-rendered policy: the text only exists after the page's own script runs,synthetic
+phishing/secure-hsbc.top.html,https://secure-hsbc.top/login,phishing,"Loose inputs with no <form>; posts credentials to a Telegram bot and blocks DevTools",synthetic
+phishing/appleid-locked.sbs.html,https://appleid-locked.sbs/verify,phishing,"Apple icon hot-linked from apple.com; card details to a form relay; disable-devtool",synthetic
+legit/shop.goodstore.example.html,https://shop.goodstore.example/checkout,legit,"False-positive guard: a real checkout talks to Stripe, GTM, GA and Sentry on every load",synthetic
+legit/gallery.photostudio.example.html,https://gallery.photostudio.example/portfolio,legit,"False-positive guard: a photographer blocking right-click is not a phishing technique",synthetic

@@ -25,7 +25,7 @@ Shared code (labels, prompts, text splitting, personal-data rules, schemas) live
 
 A computer without a usable graphics card can skip the model and use **shared results only**: the popup then looks up what others have already found and reads nothing itself.
 
-The form warning is separate and needs no model. It scores forms on the page for signs of phishing and shows a banner.
+The form warning is separate and needs no model. It scores forms on the page for signs of phishing and shows a banner. It also reads the page itself for signs that need no form at all: data sent somewhere it has no business going (a Telegram bot, a form-forwarding service), a site icon that belongs to a well-known brand the domain does not own, and a page that actively fights the browser's developer tools. A phishing kit with no `<form>` is still caught. The brand icon table (`packages/shared/src/favicon-hashes.json`) ships empty; `bun run favicons` fills it and needs the network.
 
 ## Run it
 
@@ -52,7 +52,7 @@ Then load the extension: open `chrome://extensions`, turn on developer mode, cho
 ## Test it
 
 ```bash
-bun test                      # unit tests (390 across 32 files)
+bun test                      # unit tests (424 across 34 files)
 bun run e2e                   # builds, then runs every browser check below
 ```
 

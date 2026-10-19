@@ -15,17 +15,25 @@ const DANGEROUS = `<!doctype html><html><body>
 describe('defuse', () => {
   const { html, report } = defuse(DANGEROUS, { host: 'login.example.top' });
 
-  test('removes scripts and inline handlers', () => {
-    expect(html).not.toContain('<script');
+  test('neutralises scripts instead of deleting them, and removes inline handlers', () => {
+    // The exfil endpoint and the devtools traps live in script text, and they
+    // are what the page-level rules read. Deleting the script would delete the
+    // evidence and score the detector down on every collected sample.
+    expect(html).toContain('type="text/plain"');
+    expect(html).toContain('data-ppg-defused="1"');
+    expect(html).toContain('collector.attacker-example.net/collect');
     expect(html).not.toContain('onsubmit');
-    expect(report.scriptsRemoved).toBe(1);
+    expect(report.scriptsDefused).toBe(1);
     expect(report.handlersRemoved).toBe(1);
   });
 
   test('cuts every remote reference so opening the file phones nobody', () => {
-    // The original host survives inside the sink path as a record of where the
-    // page used to post; what must not survive is anything that would resolve.
-    expect(html).not.toContain('//collector.attacker-example.net');
+    // A URL sitting in the text of a `text/plain` script is a string: no
+    // browser executes it and nothing fetches it. What must not survive is an
+    // *attribute* that resolves, which is what residualRisks checks.
+    expect(html).not.toContain('src="https://collector.attacker-example.net');
+    expect(html).not.toContain('href="https://collector.attacker-example.net');
+    expect(html).toContain('src="https://sink.invalid/collector.attacker-example.net/pixel.gif"');
     expect(report.externalRefsNeutralised).toBeGreaterThanOrEqual(2);
   });
 
@@ -74,7 +82,7 @@ describe('defuse', () => {
 describe('residualRisks', () => {
   test('names what is still live', () => {
     expect(residualRisks(DANGEROUS)).toEqual([
-      'contains a <script> element',
+      'contains a <script> element that would still run',
       'contains an inline event handler',
       'a form still posts to a resolvable remote origin',
       'loads a resolvable remote resource',

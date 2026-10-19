@@ -146,6 +146,12 @@
       </div>
       <div class="how">
         <Switch checked={prefs.paused} label="Pause warnings" description="No banners on any site until you turn this off." onchange={(paused) => persist({ paused })} />
+        <Switch
+          checked={prefs.faviconCheck}
+          label="Check site icons"
+          description="Compares a site's icon with well-known brands to catch impersonation. It fetches the icon once from the site you are already on, and only on a page that already looks suspicious. The result is kept for a month."
+          onchange={(faviconCheck) => persist({ faviconCheck })}
+        />
         <div>
           <h3>Sites where warnings stay quiet</h3>
           {#if prefs.allowlist.length === 0}

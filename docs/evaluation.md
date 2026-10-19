@@ -72,14 +72,26 @@ A false alarm means a public page treated as personal, so its result is not shar
 | The same policy from the public cache | about 0.6 s | same |
 | Time per sentence | about 0.1 s (0.8B), about 0.45 s (4B), on an RTX 5060 Ti | spike findings |
 | A real long terms page (357 sentences) | about 40 s (0.8B) | `eval/` repro against github.com |
-| Content script size | 29 KB on every page, budget 60 KB | `bun run e2e:banner` |
+| Content script size | about 33 KB on every page, budget 60 KB | `bun run e2e:banner` |
 | Setup wizard downloads and loads each model in a real browser | passes for both tiers | `bun run e2e:setup [--model accurate]` |
 
 On real pages there are no labels, so these runs show that the pipeline works and what gets flagged, not how often it is right. As an illustration, the same GitHub terms page gave 23 flagged sentences from the 0.8B and 28 from the 4B, from 357.
 
 ## Form warning
 
-The form warning is rules only (`packages/shared/src/rules.ts`). Its fixtures (`eval/fixtures`, listed in `eval/labels.csv`) are **all synthetic**: written by this project while looking at the rules. On them the rules judge every page correctly (4 of 4 phishing pages flagged as danger, 9 legitimate ones not), and `bun run eval:rules` prints that this does not measure real phishing detection. A hand-written banking login (card PIN, security question) is a known gap: the rules do not yet treat those as sensitive.
+The form warning is rules only (`packages/shared/src/rules.ts` for forms and page-level signals). Its fixtures (`eval/fixtures`, listed in `eval/labels.csv`) are **all synthetic**: written by this project while looking at the rules. On the 14 of them (6 phishing, 8 legitimate) the rules judge every page correctly: all 6 phishing pages reach danger, and no legitimate page does (one, a bank's form that collects name, date of birth and address together, reaches caution). `bun run eval:rules` prints that this does not measure real phishing detection.
+
+Adding the page-level rules did not change the score of any of the original fixtures. That was checked deliberately, because a first version counted a form's destination twice (once as a form that posts elsewhere, once as a page that contacts another host) and pushed every phishing fixture from 80 to 100; a test now locks it. Two legitimate fixtures exist only to show that the new rules do not bite ordinary pages: a normal checkout that collects a card and loads Stripe, a tag manager, analytics and error reporting (25 points, safe), and a photographer's site that blocks right-click, which image sites commonly do (5 points, safe; blocking right-click alone is not treated as hostile).
+
+Which rule is measured where:
+
+| Rule | Measured by |
+|---|---|
+| bot token, exfiltration destination, developer-tools blocking, right-click blocking, hot-linked icon | `bun run eval:rules` (pure DOM) |
+| sensitive fields on a page that contacts unrelated hosts | the static half (addresses written into scripts) in `eval:rules`; real requests only in a browser |
+| icon matches a brand the domain does not own | **not measured yet.** The arithmetic is unit-tested on synthetic images, but the brand table ships empty until `bun run favicons` is run with network access, so the full chain has never run |
+
+A hand-written banking login (card PIN, security question) is a known gap: the rules do not yet treat those as sensitive.
 
 ## What these numbers do not show
 

@@ -11,6 +11,7 @@
     "build": "bun run --filter '@ppg/extension' build",
     "server": "bun run --filter '@ppg/server' dev",
     "auth": "bun run scripts/auth.ts",
+    "favicons": "bun run scripts/gen-favicon-hashes.ts",
     "eval:rules": "bun run eval/run-rules-eval.ts",
     "fixtures": "bun run eval/serve-fixtures.ts",
     "fixtures:check": "bun run eval/sanitize-fixture.ts --check eval/fixtures/phishing/*.html eval/fixtures/legit/*.html",
