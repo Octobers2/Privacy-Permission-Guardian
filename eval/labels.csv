@@ -9,3 +9,6 @@ phishing/dhl-tracking.click.html,https://dhl-tracking.click/redelivery,phishing,
 phishing/login.microsoft-verify.sbs.html,http://login.microsoft-verify.sbs/signin,phishing,Credentials over plain http with no <form> element at all,synthetic
 sites/www.datahungry.example/index.html,https://www.datahungry.example/,legit,Policy-summary fixture: a homepage whose footer links to a deliberately greedy privacy policy,synthetic
 sites/spa-policy.example/index.html,https://spa-policy.example/,legit,Client-rendered policy: the text only exists after the page's own script runs,synthetic
+sites/www.pomme.example/index.html,https://www.pomme.example/,legit,Manual-test site: device maker with a one-sided Terms of Service; /checkout asks for card and national ID,synthetic
+sites/www.gogol.example/index.html,https://www.gogol.example/,legit,Manual-test site: search and cloud account with unfair terms; a decoy "traffic conditions" footer link; /verify asks for ID and SSN,synthetic
+sites/www.northvale-bank.example/index.html,https://www.northvale-bank.example/,legit,Manual-test site: online bank with one-sided terms; /login asks for a card PIN and /open-account for SSN and CVV,synthetic

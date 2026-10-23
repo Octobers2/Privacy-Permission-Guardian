@@ -15,8 +15,8 @@ import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadFixtures, type Fixture } from './fixtures.ts';
 
-const HTTPS_PORT = 8443;
-const HTTP_PORT = 8080;
+const HTTPS_PORT = Number(process.env.FIXTURES_HTTPS_PORT ?? 8443);
+const HTTP_PORT = Number(process.env.FIXTURES_HTTP_PORT ?? 8080);
 const CERT_DIR = resolve(import.meta.dir, '.cert');
 
 /**

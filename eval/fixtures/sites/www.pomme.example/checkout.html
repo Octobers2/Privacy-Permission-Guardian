@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Checkout - Pomme</title>
+<style>*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;color:#1d1d1f;background:#fbfbfd}
+.top{display:flex;justify-content:space-between;align-items:center;padding:14px 28px;background:rgba(255,255,255,.85);border-bottom:1px solid #e5e5ea}
+.brand{font-weight:600;font-size:20px;color:#1d1d1f;text-decoration:none;letter-spacing:.02em}.top nav a{margin-left:20px;color:#515154;text-decoration:none;font-size:14px}
+main{max-width:760px;margin:0 auto;padding:56px 24px}.hero{text-align:center}.hero h1{font-size:40px;line-height:1.1;font-weight:600;margin:0 0 16px}.hero p{color:#515154;font-size:19px;line-height:1.5}
+.cta{display:inline-block;background:#0071e3;color:#fff;border-radius:980px;padding:10px 22px;text-decoration:none;margin:6px}.cta.alt{background:transparent;color:#0071e3;border:1px solid #0071e3}
+.card{background:#fff;border-radius:18px;padding:32px;box-shadow:0 2px 12px rgba(0,0,0,.08)}.card h1{margin-top:0}
+label{display:block;margin:14px 0;font-size:14px;color:#515154}input{display:block;width:100%;margin-top:6px;padding:12px;border:1px solid #d2d2d7;border-radius:10px;font-size:16px}
+small,.fine{color:#86868b;font-size:12px}button{background:#0071e3;color:#fff;border:0;border-radius:10px;padding:12px 24px;font-size:16px;cursor:pointer}
+.doc{line-height:1.6;font-size:15px}.doc h2{margin-top:28px;font-size:18px}footer{border-top:1px solid #e5e5ea;background:#f5f5f7;padding:20px 28px;font-size:12px;color:#6e6e73}footer a{color:#424245;margin-right:16px}</style></head>
+<body>
+<header class="top"><a class="brand" href="/">Pomme</a><nav><a href="/signin">Sign in</a> <a href="/checkout">Checkout</a></nav></header>
+<main>
+<section class="card">
+  <h1>Checkout</h1>
+  <p>Pay for your Slate. We keep your card on file to make the next purchase faster.</p>
+  <form action="#" method="post" onsubmit="return false">
+    <label>Full name
+      <input name="full_name" type="text" autocomplete="name">
+    </label>
+    <label>Delivery address
+      <input name="address" type="text" autocomplete="street-address">
+    </label>
+    <label>Date of birth
+      <input name="dob" type="date" autocomplete="bday">
+      <small>Required to confirm you are old enough to enter a contract.</small>
+    </label>
+    <label>Card number
+      <input name="cc-number" type="text" autocomplete="cc-number" placeholder="1234 5678 9012 3456">
+    </label>
+    <label>Expiry
+      <input name="cc-exp" type="text" autocomplete="cc-exp" placeholder="MM / YY">
+    </label>
+    <label>Security code (CVV)
+      <input name="cvv" type="text" autocomplete="cc-csc">
+    </label>
+    <label>National ID number
+      <input name="national_id" type="text">
+      <small>Needed for orders over 1,000 credits.</small>
+    </label>
+    <button type="submit">Place order</button>
+  </form>
+  <p class="fine">By placing an order you agree to the <a href="/terms">Terms of Service</a>.</p>
+</section>
+</main>
+<footer>
+  <nav aria-label="Footer">
+    <a href="/terms">Terms of Service</a>
+    <a href="/privacy">Privacy Policy</a>
+    <a href="/support">Support</a>
+    <a href="/cookies">Cookie Settings</a>
+  </nav>
+  <p>Fictional test site for the Privacy &amp; Permission Guardian fixtures. Pomme is not a real company.</p>
+</footer>
+</body>
+</html>

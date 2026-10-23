@@ -66,3 +66,17 @@ bun run eval/sanitize-fixture.ts --check eval/fixtures/phishing/*.html
 A homepage that links to a privacy policy cannot be tested with a single file.
 Those live under `sites/<hostname>/`, where the request path picks the file
 (`/` serves `index.html`). See `sites/www.datahungry.example/`.
+
+### Manual-test sites: unfair terms and sensitive forms
+
+Three invented companies, written to read like the large sites people actually use, for trying the extension by hand
+(`bun run fixtures`, then open the hostnames in Chromium with the printed flags). They use no real brand names, logos or
+layouts, and their forms post nowhere. **They are test fixtures only; do not host them anywhere public.**
+
+| Host | Style | Pages | What to expect |
+|---|---|---|---|
+| `www.pomme.example` | device maker | `/`, `/terms`, `/privacy`, `/signin`, `/checkout`, `/support`, `/cookies` | Terms flag arbitration, unilateral change, termination, content removal, liability, jurisdiction and choice of law. `/checkout` asks for card, CVV and national ID: the form warning reaches danger. |
+| `www.gogol.example` | search and cloud account | `/`, `/terms`, `/privacy`, `/signup`, `/verify`, `/traffic`, `/help`, `/about` | Same clause families in a different voice. The footer has a decoy link, "Maps traffic conditions", which the policy finder must not pick over "Terms of Service". `/verify` asks for ID, SSN and a card number: the form warning reaches caution. |
+| `www.northvale-bank.example` | online bank | `/`, `/terms`, `/privacy`, `/login`, `/open-account`, `/security`, `/fees` | Footer link is titled "Online Banking Terms and Conditions". `/login` asks for a card PIN and mother's maiden name; `/open-account` for SSN and CVV (danger). The `/login` form is a known gap: the rules do not yet treat a card PIN or a security question as sensitive, so it currently scores safe. |
+
+Only the homepages are listed in `labels.csv` (as `legit`, so the end-to-end run checks that they do not reach "danger").
