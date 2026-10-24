@@ -1,14 +1,23 @@
 """Load Qwen3.5 backbone (+ optional Kev LoRA) and score passages by the logits of the 9 letter tokens."""
-import glob, torch
+import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from prompt import LETTERS, letter_prompt, pii_prompt
 
 BASE = "Qwen/Qwen3.5-4B-Base"
-KEV = glob.glob("/ironwolf/ppg-cache/hf/hub/models--jaredpalmer--kev-4b/snapshots/*")[0]
+_KEV_DEFAULT = object()          # "use Kev's adapter"; resolved (and downloaded if needed) only when a model is built
+
+def __getattr__(name):           # letter.KEV, looked up lazily so importing this module never needs the adapter
+    if name == "KEV":
+        from paths import kev_adapter
+        return kev_adapter()
+    raise AttributeError(name)
 
 class LetterModel(torch.nn.Module):
-    def __init__(self, adapter: str | None = KEV, trainable=False, base: str = BASE, lora_r: int | None = None):
+    def __init__(self, adapter: str | None = _KEV_DEFAULT, trainable=False, base: str = BASE, lora_r: int | None = None):
         super().__init__()
+        if adapter is _KEV_DEFAULT:
+            from paths import kev_adapter
+            adapter = kev_adapter()
         self.tok = AutoTokenizer.from_pretrained(base)
         lm = AutoModelForCausalLM.from_pretrained(base, dtype=torch.bfloat16, device_map={"": 0})
         self.backbone = lm.model

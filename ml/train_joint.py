@@ -41,7 +41,8 @@ assert bool(a.adapter) != bool(a.lora_r), "give exactly one of --adapter (contin
 assert bool(a.unlabeled) == bool(a.teacher), "--unlabeled and --teacher go together"
 random.seed(a.seed); np.random.seed(a.seed); torch.manual_seed(a.seed)
 H = pathlib.Path(__file__).parent
-OUT = pathlib.Path(os.environ.get("PPG_RUNS", "/ironwolf/ppg-cache/runs")) / a.name; OUT.mkdir(parents=True, exist_ok=True)
+from paths import RUNS
+OUT = RUNS / a.name; OUT.mkdir(parents=True, exist_ok=True)
 (OUT / "args.json").write_text(json.dumps(vars(a), indent=1))
 load = lambda n: [json.loads(l) for l in (H / "data" / f"{n}.jsonl").open()]
 other = NAMES.index("other")

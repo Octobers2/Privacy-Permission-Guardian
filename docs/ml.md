@@ -77,7 +77,7 @@ uv pip install --python ml/vendor/kev/.venv/bin/python -r ml/env/kev.txt \
 uv run ml/prepare.py                 # ToS splits
 uv run ml/pii/make_data.py           # personal-data splits
 
-# 3. train, evaluate, calibrate (the cache paths inside the scripts point at /ironwolf/ppg-cache; change them to suit)
+# 3. train, evaluate, calibrate (run outputs go under PPG_CACHE: see ml/paths.py)
 export HF_HOME=/path/to/hf-cache
 cd ml
 vendor/kev/.venv/bin/python train.py --name run1
@@ -100,40 +100,56 @@ Four changes, all optional and backward compatible: a bundle without the new fie
 
 **Cost of v2.** The prompt is about 3× as many tokens (mean 285 against 93 per test sentence, Qwen tokenizer), so training is about 3× slower and the browser's per-sentence time goes up. Measure the 357-sentence GitHub terms page (about 40 s on the 0.8B with v1) before shipping a v2 bundle. `eval_letter.py --no-context` and the `tos_val_macro_f1_no_context` value `train_joint.py` prints each epoch show what the context alone adds.
 
-### Runbook
+### Running it on your own Windows PC (one command)
+
+Tested settings fit a 16 GB card (RTX 5060 Ti / 5070 Ti). From the repository root in PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File ml\windows\setup.ps1     # once: makes ml\.venv with PyTorch for CUDA 12.8 and checks the GPU
+ml\.venv\Scripts\python.exe ml\run_plan.py                         # steps 1, 5+6 and 4, in order
+```
+
+`run_plan.py` can be stopped (Ctrl+C, a reboot) and started again: finished steps are skipped. `--only 1` runs just step 1;
+`--extra "--max_steps 20"` makes a quick smoke test of the whole chain. It chooses the teacher and the 0.8B's prompt by
+**validation** score, logs every step to `ml/logs/`, and writes `ml/reports/plan_summary.md` with the paired comparisons.
+Big files go to `%USERPROFILE%\ppg-cache` (set `PPG_CACHE` to put them elsewhere; see `ml/paths.py`), models to the
+Hugging Face cache. Expect roughly 25 GB of disk. The new 4B runs are scored unquantised, the shipped `run4bmt` after
+4-bit packing; packing cost nothing before (0.793 -> 0.811), but pack and re-score the winner before shipping it.
+
+### Runbook (the same steps by hand)
 
 Every comparison below is against the same test set with `compare.py` (paired bootstrap), not by eyeballing two numbers.
 
 ```bash
-cd ml; export HF_HOME=/path/to/hf-cache PY=vendor/kev/.venv/bin/python
+cd ml; export HF_HOME=/path/to/hf-cache PY=vendor/kev/.venv/bin/python RUNS=~/ppg-cache/runs MERGED=~/ppg-cache/merged   # see ml/paths.py
 uv run prepare.py && uv run pii/make_data.py            # re-run: the splits now carry "prev" (same rows as before)
 
 # 1. joint training, old prompt: does the 4B get back to ~0.81?
 $PY train_joint.py --name j4b-v1 --base Qwen/Qwen3.5-4B-Base --adapter kev --prompt letters-v1
-$PY eval_letter.py --adapter /ironwolf/ppg-cache/runs/j4b-v1/best --name j4b-v1
+$PY eval_letter.py --adapter $RUNS/j4b-v1/best --name j4b-v1
 python3 compare.py reports/run4bmt-rtn4-deq-letter.json reports/j4b-v1.json     # against the shipped 4B
-$PY pii/eval_pii.py --base Qwen/Qwen3.5-4B-Base --adapter /ironwolf/ppg-cache/runs/j4b-v1/best --name j4b-v1-pii
+$PY pii/eval_pii.py --base Qwen/Qwen3.5-4B-Base --adapter $RUNS/j4b-v1/best --name j4b-v1-pii
 
 # 5+6. the same with the v2 prompt (smaller --micro if memory runs out: prompts are 3x longer)
 $PY train_joint.py --name j4b-v2 --base Qwen/Qwen3.5-4B-Base --adapter kev --prompt letters-v2 --micro 4 --accum 4
-$PY eval_letter.py --adapter /ironwolf/ppg-cache/runs/j4b-v2/best --prompt letters-v2 --name j4b-v2
-$PY eval_letter.py --adapter /ironwolf/ppg-cache/runs/j4b-v2/best --prompt letters-v2 --no-context --name j4b-v2-noctx
+$PY eval_letter.py --adapter $RUNS/j4b-v2/best --prompt letters-v2 --name j4b-v2
+$PY eval_letter.py --adapter $RUNS/j4b-v2/best --prompt letters-v2 --no-context --name j4b-v2-noctx
 python3 compare.py reports/j4b-v1.json reports/j4b-v2.json
 
 # 4. unlabelled data, teacher logits, 0.8B student
 uv run unlabeled/fetch_pages.py && (cd .. && bun run eval/segment-unlabeled.ts) && python3 unlabeled/filter.py
-$PY merge.py /ironwolf/ppg-cache/runs/<best 4B>/best /ironwolf/ppg-cache/merged/teacher4b
-$PY distill_targets.py /ironwolf/ppg-cache/merged/teacher4b T4 --prompt <the teacher's prompt version>
+$PY merge.py $RUNS/<best 4B>/best $MERGED/teacher4b
+$PY distill_targets.py $MERGED/teacher4b T4 --prompt <the teacher's prompt version>
 $PY train_joint.py --name j08-kd --base Qwen/Qwen3.5-0.8B-Base --lora_r 64 --prompt <v1 or v2, whichever won> \
     --unlabeled unlabeled --teacher T4
-$PY eval_letter.py --adapter /ironwolf/ppg-cache/runs/j08-kd/best --base Qwen/Qwen3.5-0.8B-Base --prompt <same> --name j08-kd
+$PY eval_letter.py --adapter $RUNS/j08-kd/best --base Qwen/Qwen3.5-0.8B-Base --prompt <same> --name j08-kd
 python3 compare.py reports/stu08mt-rtn4-deq-letter.json reports/j08-kd.json    # against the shipped 0.8B
 
 # shipping: merge, pack and evaluate the packed weights as before, then
 python3 compress/write_meta.py <bundle> ... --tos-report reports/<packed run>.json [--with-threshold]
 ```
 
-`train_joint.py` writes to `$PPG_RUNS` (default `/ironwolf/ppg-cache/runs`). A teacher's logits are only valid for the exact `data/unlabeled.jsonl` they were computed on; re-run `distill_targets.py` after rebuilding it.
+`train_joint.py` writes to `$PPG_RUNS` (default `<PPG_CACHE>/runs`, see `ml/paths.py`). A teacher's logits are only valid for the exact `data/unlabeled.jsonl` they were computed on; re-run `distill_targets.py` after rebuilding it.
 
 ## Keeping Python and TypeScript in step
 

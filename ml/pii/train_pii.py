@@ -14,7 +14,8 @@ ap.add_argument("--epochs", type=int, default=2); ap.add_argument("--lr", type=f
 ap.add_argument("--micro", type=int, default=16); ap.add_argument("--accum", type=int, default=1)
 ap.add_argument("--replay", type=int, default=2500, help="ToS examples mixed in per epoch (all unfair ones first)"); ap.add_argument("--seed", type=int, default=0)
 a = ap.parse_args(); random.seed(a.seed); torch.manual_seed(a.seed)
-H = pathlib.Path(__file__).parents[1]; OUT = pathlib.Path("/ironwolf/ppg-cache/runs") / a.name; OUT.mkdir(parents=True, exist_ok=True)
+H = pathlib.Path(__file__).parents[1]; from paths import RUNS
+OUT = RUNS / a.name; OUT.mkdir(parents=True, exist_ok=True)
 load = lambda n: [json.loads(l) for l in (H / "data" / f"{n}.jsonl").open()]
 tos_tr, tos_va, pii_tr, pii_va = load("train"), load("val"), load("pii_train"), load("pii_val")
 other_id = NAMES.index("other")
