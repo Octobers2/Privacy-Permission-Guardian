@@ -61,7 +61,8 @@ export interface Job {
 
 export interface EngineLike {
   model: Pick<ModelEntry, 'id' | 'version' | 'tasks'>;
-  classify(passage: string): Promise<{ probs: number[]; category: string }>;
+  /** `previous`: the sentence before, as context for models that use it. `category` is the engine's flag decision. */
+  classify(passage: string, previous?: string | null): Promise<{ probs: number[]; category: string }>;
   askPersonal(url: string, text: string): Promise<{ personal: boolean; probability: number }>;
 }
 
@@ -135,12 +136,14 @@ export async function analyse(job: Job, deps: Deps): Promise<AnalysisState> {
     }
     const flagged: Passage[] = [];
     let lastEmit = 0;
+    let previous: string | null = null;
     for (const [i, sentence] of sentences.entries()) {
       if (!deps.isCurrent()) throw new Superseded();
-      const { probs } = await resilient(deps, held, (e) => e.classify(normalizeForModel(sentence)));
-      const best = probs.indexOf(Math.max(...probs));
-      if (best !== OTHER_INDEX) {
-        flagged.push({ index: i, text: sentence, category: TOS_CATEGORIES[best] as UnfairCategory, probs });
+      const normalized = normalizeForModel(sentence);
+      const { probs, category } = await resilient(deps, held, (e) => e.classify(normalized, previous));
+      previous = normalized;
+      if (category !== TOS_CATEGORIES[OTHER_INDEX]) {
+        flagged.push({ index: i, text: sentence, category: category as UnfairCategory, probs });
       }
       // Progress is throttled: the popup does not need 1,500 updates, and every one is a message.
       if (deps.now() - lastEmit > 300 || i === sentences.length - 1) {
@@ -171,7 +174,7 @@ export async function analyse(job: Job, deps: Deps): Promise<AnalysisState> {
     else if (!job.prefs.token) sharing = { status: 'not-signed-in' };
     else {
       working('sharing', sentences.length, sentences.length, flagged);
-      sharing = await share(server, job.prefs.token, { ...base, textHash }, deps.fetch);
+      sharing = await share(server, job.prefs.token, { ...base, textHash, promptVersion: engine.model.tasks.tos.promptVersion }, deps.fetch);
     }
 
     const result = await finish(job, deps, working, { ...base, sharing });
@@ -222,13 +225,13 @@ async function lookup(server: string, policyUrl: string, hash: string, fetchImpl
 async function share(
   server: string,
   token: string,
-  r: { policyUrl: string; domain: string; textHash: string; model: { id: string; version: string }; passageCount: number; flagged: Passage[] },
+  r: { policyUrl: string; domain: string; textHash: string; model: { id: string; version: string }; promptVersion: string; passageCount: number; flagged: Passage[] },
   fetchImpl: typeof fetch,
 ): Promise<Sharing> {
   // Passages that look like personal data never leave the device, even if the page as a whole was judged public.
   const safe = r.flagged.filter((p) => !passageHasPii(p.text)).slice(0, 500);
   const upload = ResultUploadSchema.safeParse({
-    url: r.policyUrl, domain: r.domain, textHash: r.textHash, model: r.model, promptVersion: 'letters-v1', passageCount: r.passageCount, passages: safe,
+    url: r.policyUrl, domain: r.domain, textHash: r.textHash, model: r.model, promptVersion: r.promptVersion, passageCount: r.passageCount, passages: safe,
   });
   if (!upload.success) return { status: 'failed', message: 'The result was not in a shareable form.' };
   try {

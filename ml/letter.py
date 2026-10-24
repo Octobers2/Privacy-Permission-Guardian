@@ -57,3 +57,13 @@ def score(model: LetterModel, texts, bs=16, builder=letter_prompt, n=9):
             lg = model.logits(ids, mask)
         for i, row in zip(idx, lg[:, :n].cpu()): out[i] = row
     return torch.stack(out)                                  # raw logits (n, 9)
+
+
+def tos_prompts(rows, version="letters-v1", context=True):
+    """ToS prompts for data rows ({"text", "prev"?}). context=False blanks the previous sentence (ablation)."""
+    from prompt import tos_prompt
+    return [tos_prompt(version, r["text"], r.get("prev") if context else None) for r in rows]
+
+def score_prompts(model, prompts, bs=16, n=9):
+    """Like score(), for prompts that are already built."""
+    return score(model, prompts, bs=bs, builder=lambda p: p, n=n)

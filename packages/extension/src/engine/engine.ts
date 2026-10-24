@@ -1,5 +1,5 @@
 /**
- * The on-device classifier: loads one model bundle with WebLLM and answers the two prompts (`letters-v1`, `pii-v1`).
+ * The on-device classifier: loads one model bundle with WebLLM and answers the two prompts (`letters-v1` or `letters-v2`, and `pii-v1`).
  *
  * The model is used as a classifier rather than a text generator: for each prompt we read the logits of the option
  * letters at the first answer position and turn them into probabilities. WebLLM's `top_logprobs` stops at 5 options and we
@@ -8,7 +8,7 @@
  * Imported by the setup page (first download, self-test) and the offscreen document (everyday use).
  */
 import * as webllm from '@mlc-ai/web-llm';
-import { letterPrompt, piiPrompt, probabilities, TOS_CATEGORIES, type ModelEntry } from '@ppg/shared';
+import { decideCategory, piiPrompt, probabilities, TOS_CATEGORIES, tosPrompt, type ModelEntry } from '@ppg/shared';
 import { waitForAdapter, type GpuLike } from './device.ts';
 
 /** Captures the logits of a fixed set of token ids at the step it is called for. */
@@ -105,10 +105,14 @@ export class PpgEngine {
     return logits.slice(0, n);
   }
 
-  /** Question 1: what kind of clause is this passage? */
-  async classify(passage: string): Promise<ClassifiedPassage> {
-    const probs = probabilities(await this.letters(letterPrompt(passage), TOS_CATEGORIES.length), this.model.tasks.tos.temperature);
-    return { probs, category: TOS_CATEGORIES[probs.indexOf(Math.max(...probs))]! };
+  /**
+   * Question 1: what kind of clause is this passage? `previous` is the sentence before it (same normalised form), used as
+   * context by `letters-v2` models and ignored by `letters-v1` ones.
+   */
+  async classify(passage: string, previous?: string | null): Promise<ClassifiedPassage> {
+    const { promptVersion, temperature, otherThreshold } = this.model.tasks.tos;
+    const probs = probabilities(await this.letters(tosPrompt(promptVersion, passage, previous), TOS_CATEGORIES.length), temperature);
+    return { probs, category: decideCategory(probs, otherThreshold) };
   }
 
   /** Question 2: does this page show the person's own private information? Needs a model that was trained for it. */

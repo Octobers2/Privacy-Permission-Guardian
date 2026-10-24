@@ -27,17 +27,30 @@ mteb["label_name"] = mteb.label.map(lambda i: labels["mteb"][str(i)])
 mteb_keys = set(mteb.text.map(norm))
 
 # LexGLUE (all three official splits are pooled, then re-split stratified)
-lex = pd.concat([load_dataset("coastalcph/lex_glue", "unfair_tos", split=s).to_pandas() for s in ("train", "validation", "test")])
+parts = [load_dataset("coastalcph/lex_glue", "unfair_tos", split=s).to_pandas() for s in ("train", "validation", "test")]
+# LexGLUE keeps each document's sentences in reading order, so the row before a sentence is its previous sentence
+# (context for the letters-v2 prompt). None at the start of each official split; the few document boundaries inside
+# a split are not marked, so the first sentence of a document occasionally gets the last one of the one before.
+for p in parts: p["prev"] = [None] + p.text.tolist()[:-1]
+lex = pd.concat(parts, ignore_index=True)
 freq = collections.Counter(l for ls in lex.labels for l in ls)   # rarest label wins for multi-label rows
 def pick(ls):
     return "other" if len(ls) == 0 else LEX[min(ls, key=lambda l: freq[l])]
 lex["label_name"] = lex.labels.map(pick)
 lex["key"] = lex.text.map(norm)
+
+# Every MTEB sentence is one of LexGLUE's, so test rows get their context from the same reading order.
+prev_of = {k: (p if isinstance(p, str) else None) for k, p in zip(lex.key[::-1], lex.prev[::-1])}                 # first occurrence wins
+mteb["prev"] = mteb.text.map(lambda t: prev_of.get(norm(t)))
+print(f"test sentences with a previous sentence: {mteb.prev.notna().sum()} / {len(mteb)}")
+# Training must never see a test sentence, not even as context.
+lex.loc[lex.prev.map(lambda t: isinstance(t, str) and norm(t) in mteb_keys), "prev"] = None
+lex["prev"] = lex.prev.fillna(""); mteb["prev"] = mteb.prev.fillna("")
 before = len(lex)
 lex = lex[~lex.key.isin(mteb_keys)].drop_duplicates("key")
 print(f"lexglue {before} -> {len(lex)} after removing MTEB overlap + dups")
 
 tr, va = train_test_split(lex, test_size=0.1, stratify=lex.label_name, random_state=0)
 for name, df in (("train", tr), ("val", va), ("test", mteb)):
-    df[["text", "label_name"]].to_json(OUT / f"{name}.jsonl", orient="records", lines=True)
+    df[["text", "label_name", "prev"]].to_json(OUT / f"{name}.jsonl", orient="records", lines=True)
     print(name, len(df), dict(df.label_name.value_counts()))
