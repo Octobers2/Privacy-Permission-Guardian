@@ -8,9 +8,9 @@ import type { AnalysisResult, Sharing } from './state.ts';
 const REQUEST_TIMEOUT_MS = 20_000;
 
 /** What would be sent, as the popup lists it on the card and as `shareResult` builds it: personal-looking sentences never go. */
-export function uploadBody(r: Pick<AnalysisResult, 'policyUrl' | 'domain' | 'textHash' | 'model' | 'passageCount' | 'flagged' | 'money'>) {
+export function uploadBody(r: Pick<AnalysisResult, 'policyUrl' | 'domain' | 'textHash' | 'model' | 'passageCount' | 'flagged' | 'money'> & { promptVersion?: string }) {
   return ResultUploadSchema.safeParse({
-    url: r.policyUrl, domain: r.domain, textHash: r.textHash, model: r.model, promptVersion: 'letters-v1', passageCount: r.passageCount,
+    url: r.policyUrl, domain: r.domain, textHash: r.textHash, model: r.model, promptVersion: r.promptVersion ?? 'letters-v1', passageCount: r.passageCount,
     passages: r.flagged.filter((p) => !passageHasPii(p.text)).slice(0, 500),
     money: (r.money ?? []).filter((m) => !passageHasPii(m.text)),
   });

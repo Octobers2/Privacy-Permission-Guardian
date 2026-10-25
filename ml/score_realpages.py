@@ -7,7 +7,7 @@ from prompt import NAMES
 rows = [json.loads(l) for l in open("data/realpages_sentences.jsonl")]
 res = {}
 for tier, T in (("stu08mt", json.load(open("reports/stu08mt-rtn4-deq-letter.json"))["temperature"]), ("run4bmt", json.load(open("reports/run4bmt-rtn4-deq-letter.json"))["temperature"])):
-    m = letter.LetterModel(None, base=f"/ironwolf/ppg-cache/merged/{tier}-rtn4-deq")
+    m = letter.LetterModel(None, base=str(__import__("paths").MERGED / f"{tier}-rtn4-deq"))
     res[tier] = softmax(letter.score(m, [r["normalized"] for r in rows]).numpy() / T)
     del m
     import torch; torch.cuda.empty_cache()

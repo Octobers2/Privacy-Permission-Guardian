@@ -2,3 +2,4 @@ vendor/
 data/
 .venv/
 __pycache__/
+logs/

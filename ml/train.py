@@ -17,7 +17,8 @@ ap.add_argument("--teacher", help="data/<name>.train.logits.npy: distill from th
 a = ap.parse_args()
 random.seed(a.seed); torch.manual_seed(a.seed)
 H = pathlib.Path(__file__).parent
-OUT = pathlib.Path("/ironwolf/ppg-cache/runs") / a.name; OUT.mkdir(parents=True, exist_ok=True)
+from paths import RUNS
+OUT = RUNS / a.name; OUT.mkdir(parents=True, exist_ok=True)
 load = lambda n: [json.loads(l) for l in (H / "data" / f"{n}.jsonl").open()]
 train, val = load("train"), load("val")
 ytr = np.array([NAMES.index(r["label_name"]) for r in train]); yv = np.array([NAMES.index(r["label_name"]) for r in val])

@@ -109,6 +109,39 @@ real = [r for r in real if len(r["text"]) > 2000]
 for r in real:
     for off in (0, len(r["text"]) // 2):
         rows["test"].append({"url": r["url"], "text": r["text"][off:off + 1200], "label": 0, "kind": "real_policy", "src": "real", "split": "test"})
+for k, v in rows.items(): rng.shuffle(v)
+
+# ---- v2 additions (2026-10-25). The first 4B trained on both questions missed the held-out `stealth_messages` test page
+# (a chat list with no name, email or number): no training page was a conversation, so "personal" had come to mean
+# "shows identifiers". These templates teach the concept with different wording and layout from that test template,
+# add look-alike PUBLIC conversations so the model does not call every chat personal, and hold one new personal and one
+# new public template out for VALIDATION, so train_joint.py's PII-recall floor can see this kind of miss at all.
+# Generated after everything above has been drawn, so the original pages, and the whole test split, are byte-identical
+# to before (test-informed design, so the test number on stealth_messages is no longer a clean held-out measure).
+def friend(p): return rng.choice([p.f.first_name(), fk["en_US"].first_name(), fk["zh_TW"].first_name() + fk["zh_TW"].last_name()])
+def when(): return rng.choice(["9:41 pm", "Yesterday", "Mon", "08:15", "2m", "Just now"])
+POS_V2 = {
+ "dm_thread": lambda p: (f"/messages/t/{rng.randrange(10**6, 10**7)}", (lambda a: f"{a} Active {rng.choice(['now', '5m ago'])} {a}: are we still on for {rng.choice(['Saturday', 'tonight', 'lunch'])}? You: yes, {rng.choice(['7pm', 'noon', 'after work'])} works. {a}: great, I'll book it. Seen {when()} Type a message…")(friend(p))),
+ "group_chat": lambda p: (f"/groups/{rng.randrange(1000, 9999)}", f"{rng.choice(['Family', 'Flatmates', 'Project team', 'Badminton'])} ({rng.randrange(3, 9)}) {friend(p)}: {rng.choice(['dinner on Sunday?', 'who has the keys?', 'slides are uploaded'])} {friend(p)}: {rng.choice(['I can do it', 'count me in', 'thanks!'])} You: {rng.choice(['see you there', 'on my way', 'will check tonight'])} {when()} Muted Media, links and docs Exit group"),
+}
+NEG_V2 = {
+ "public_comments": lambda p: (f"/news/2024/{rng.choice(['budget', 'transport', 'housing'])}-{rng.randrange(100, 999)}", f"{nav()} {p.f.sentence(10)} {p.f.paragraph(3)} Comments ({rng.randrange(5, 90)}) {friend(p)}: {rng.choice(['great article', 'I disagree with this', 'finally some good news'])} {when()} Reply {friend(p)}: {rng.choice(['agreed', 'source?', 'thanks for sharing'])} Reply Sign in to comment"),
+ "public_chat_demo": lambda p: ("/features/messaging", f"{nav()} Chat with your team in real time. Example: Alex: shipped the release! Sam: nice work. Messages sync across devices. Start free. {fill(2)}"),
+}
+VAL_ONLY_V2 = {   # held out for validation: the floor in train_joint.py now covers an unseen private page and an unseen public thread
+ "stealth_notifications": (1, lambda p: ("/notifications", f"Notifications {friend(p)} liked your photo. {friend(p)} commented: '{rng.choice(['congrats!', 'so cute', 'where is this?'])}' Your package is out for delivery. Reminder: {rng.choice(['dentist', 'rent due', 'team call'])} {rng.choice(['tomorrow', 'today'])} {rng.randrange(1, 12)}pm. You have {rng.randrange(1, 6)} friend requests.")),
+ "forum_public": (0, lambda p: (f"/t/{rng.choice(['wifi-keeps-dropping', 'best-budget-laptop', 'sourdough-help'])}/{rng.randrange(1000, 99999)}", (lambda h: f"Community forum {rng.choice(['Networking', 'Hardware', 'Cooking'])} asked by {h} {rng.randrange(2, 30)} replies {friend(p)}: {rng.choice(['try updating the driver', 'check the warranty first', 'feed the starter twice a day'])} {h}: that worked, thanks! Log in to reply")(p.handle))),
+}
+extra = {"train": [], "val": []}
+for table, label in ((POS_V2, 1), (NEG_V2, 0)):
+    for name, fn in table.items():
+        extra["train"] += [make(label, name, fn, "train") for _ in range(330)]
+        extra["val"] += [make(label, name, fn, "val") for _ in range(50)]
+for name, (label, fn) in VAL_ONLY_V2.items():
+    extra["val"] += [make(label, name, fn, "val") for _ in range(60)]
+for k, v in extra.items():
+    rows[k] += v; rng.shuffle(rows[k])
+
 for k, v in rows.items():
-    rng.shuffle(v); (OUT / f"pii_{k}.jsonl").write_text("\n".join(json.dumps(x, ensure_ascii=False) for x in v))
+    (OUT / f"pii_{k}.jsonl").write_text("\n".join(json.dumps(x, ensure_ascii=False) for x in v))
     print(k, len(v), "pos", sum(x["label"] for x in v))

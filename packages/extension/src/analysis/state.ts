@@ -36,6 +36,8 @@ export interface AnalysisResult {
   domain: string;
   textHash: string;
   model: { id: string; version: string };
+  /** The classifier prompt the model answered (`tasks.tos.promptVersion`), sent with a shared result. Absent on results saved before it existed. */
+  promptVersion?: string;
   analyzedAt: string;
   /** Where the findings came from: this computer, or the shared public cache. */
   source: 'this-device' | 'community';

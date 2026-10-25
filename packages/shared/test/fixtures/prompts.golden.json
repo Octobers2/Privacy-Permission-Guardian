@@ -1,6 +1,44 @@
 {
  "letters": "letters-v1",
+ "letters_v2": "letters-v2",
  "pii": "pii-v1",
+ "tos_v2": [
+  {
+   "passage": "you can control most communications from the services . ",
+   "previous": null,
+   "prompt": "Classify this terms-of-service passage. The previous sentence is only context: classify the passage.\nA) limitation of liability: The provider excludes or limits its liability for damages, losses or failures.\nB) contract by using: The user is bound by the terms merely by using, accessing or continuing to use the service.\nC) unilateral change: The provider may change the terms or the service at any time at its own discretion.\nD) arbitration: Disputes must be settled by arbitration instead of in court, including class-action waivers.\nE) content removal: The provider may remove or modify user content at its discretion.\nF) choice of law: The clause states which country's or state's law governs the terms.\nG) other: None of the above: an ordinary clause that is not one of these unfair-clause types.\nH) unilateral termination: The provider may suspend or terminate the user's account or access at its discretion.\nI) jurisdiction: The clause names the court or place where disputes must be litigated.\n\nPrevious sentence: (none)\nPassage: you can control most communications from the services .\nAnswer:"
+  },
+  {
+   "passage": "  We may terminate your account at any time.\n\n",
+   "previous": "",
+   "prompt": "Classify this terms-of-service passage. The previous sentence is only context: classify the passage.\nA) limitation of liability: The provider excludes or limits its liability for damages, losses or failures.\nB) contract by using: The user is bound by the terms merely by using, accessing or continuing to use the service.\nC) unilateral change: The provider may change the terms or the service at any time at its own discretion.\nD) arbitration: Disputes must be settled by arbitration instead of in court, including class-action waivers.\nE) content removal: The provider may remove or modify user content at its discretion.\nF) choice of law: The clause states which country's or state's law governs the terms.\nG) other: None of the above: an ordinary clause that is not one of these unfair-clause types.\nH) unilateral termination: The provider may suspend or terminate the user's account or access at its discretion.\nI) jurisdiction: The clause names the court or place where disputes must be litigated.\n\nPrevious sentence: (none)\nPassage: We may terminate your account at any time.\nAnswer:"
+  },
+  {
+   "passage": "subject to your compliance with these terms , uber grants you a limited license ( i ) access ( ii ) use .",
+   "previous": "   \n\t ",
+   "prompt": "Classify this terms-of-service passage. The previous sentence is only context: classify the passage.\nA) limitation of liability: The provider excludes or limits its liability for damages, losses or failures.\nB) contract by using: The user is bound by the terms merely by using, accessing or continuing to use the service.\nC) unilateral change: The provider may change the terms or the service at any time at its own discretion.\nD) arbitration: Disputes must be settled by arbitration instead of in court, including class-action waivers.\nE) content removal: The provider may remove or modify user content at its discretion.\nF) choice of law: The clause states which country's or state's law governs the terms.\nG) other: None of the above: an ordinary clause that is not one of these unfair-clause types.\nH) unilateral termination: The provider may suspend or terminate the user's account or access at its discretion.\nI) jurisdiction: The clause names the court or place where disputes must be litigated.\n\nPrevious sentence: (none)\nPassage: subject to your compliance with these terms , uber grants you a limited license ( i ) access ( ii ) use .\nAnswer:"
+  },
+  {
+   "passage": "Any dispute shall be resolved by arbitration — not in court. 请用中文。😀",
+   "previous": "we may update these terms . \n",
+   "prompt": "Classify this terms-of-service passage. The previous sentence is only context: classify the passage.\nA) limitation of liability: The provider excludes or limits its liability for damages, losses or failures.\nB) contract by using: The user is bound by the terms merely by using, accessing or continuing to use the service.\nC) unilateral change: The provider may change the terms or the service at any time at its own discretion.\nD) arbitration: Disputes must be settled by arbitration instead of in court, including class-action waivers.\nE) content removal: The provider may remove or modify user content at its discretion.\nF) choice of law: The clause states which country's or state's law governs the terms.\nG) other: None of the above: an ordinary clause that is not one of these unfair-clause types.\nH) unilateral termination: The provider may suspend or terminate the user's account or access at its discretion.\nI) jurisdiction: The clause names the court or place where disputes must be litigated.\n\nPrevious sentence: we may update these terms .\nPassage: Any dispute shall be resolved by arbitration — not in court. 请用中文。😀\nAnswer:"
+  },
+  {
+   "passage": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "previous": "Prior   sentence\twith　odd whitespace.",
+   "prompt": "Classify this terms-of-service passage. The previous sentence is only context: classify the passage.\nA) limitation of liability: The provider excludes or limits its liability for damages, losses or failures.\nB) contract by using: The user is bound by the terms merely by using, accessing or continuing to use the service.\nC) unilateral change: The provider may change the terms or the service at any time at its own discretion.\nD) arbitration: Disputes must be settled by arbitration instead of in court, including class-action waivers.\nE) content removal: The provider may remove or modify user content at its discretion.\nF) choice of law: The clause states which country's or state's law governs the terms.\nG) other: None of the above: an ordinary clause that is not one of these unfair-clause types.\nH) unilateral termination: The provider may suspend or terminate the user's account or access at its discretion.\nI) jurisdiction: The clause names the court or place where disputes must be litigated.\n\nPrevious sentence: Prior sentence with odd whitespace.\nPassage: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nAnswer:"
+  },
+  {
+   "passage": "  We may terminate your account at any time.\n\n",
+   "previous": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz😀😀",
+   "prompt": "Classify this terms-of-service passage. The previous sentence is only context: classify the passage.\nA) limitation of liability: The provider excludes or limits its liability for damages, losses or failures.\nB) contract by using: The user is bound by the terms merely by using, accessing or continuing to use the service.\nC) unilateral change: The provider may change the terms or the service at any time at its own discretion.\nD) arbitration: Disputes must be settled by arbitration instead of in court, including class-action waivers.\nE) content removal: The provider may remove or modify user content at its discretion.\nF) choice of law: The clause states which country's or state's law governs the terms.\nG) other: None of the above: an ordinary clause that is not one of these unfair-clause types.\nH) unilateral termination: The provider may suspend or terminate the user's account or access at its discretion.\nI) jurisdiction: The clause names the court or place where disputes must be litigated.\n\nPrevious sentence: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz😀\nPassage: We may terminate your account at any time.\nAnswer:"
+  },
+  {
+   "passage": "Any dispute shall be resolved by arbitration — not in court. 请用中文。😀",
+   "previous": "q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q ",
+   "prompt": "Classify this terms-of-service passage. The previous sentence is only context: classify the passage.\nA) limitation of liability: The provider excludes or limits its liability for damages, losses or failures.\nB) contract by using: The user is bound by the terms merely by using, accessing or continuing to use the service.\nC) unilateral change: The provider may change the terms or the service at any time at its own discretion.\nD) arbitration: Disputes must be settled by arbitration instead of in court, including class-action waivers.\nE) content removal: The provider may remove or modify user content at its discretion.\nF) choice of law: The clause states which country's or state's law governs the terms.\nG) other: None of the above: an ordinary clause that is not one of these unfair-clause types.\nH) unilateral termination: The provider may suspend or terminate the user's account or access at its discretion.\nI) jurisdiction: The clause names the court or place where disputes must be litigated.\n\nPrevious sentence: q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q q \nPassage: Any dispute shall be resolved by arbitration — not in court. 请用中文。😀\nAnswer:"
+  }
+ ],
  "tos": [
   {
    "passage": "you can control most communications from the services . ",
@@ -73,6 +111,2408 @@
    "url": "https://example.com/a%zzb%E4%B8%AD",
    "text": "malformed escape next to a valid one",
    "prompt": "Decide whether this web page shows private information about the person using it (their account, orders, messages, health, finances, contact or ID details) or is a public page.\nA) personal\nB) public\n\nPage address: example.com/a%zzb中\nPage text: malformed escape next to a valid one\nAnswer:"
+  }
+ ],
+ "decisions": [
+  {
+   "probs": [
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111
+   ],
+   "threshold": null,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.15320555537260305,
+    0.00030841865966167953,
+    0.1931500659533745,
+    0.15320555537260305,
+    0.20598828654190976,
+    0.20860850223745903,
+    0.007018631825799183,
+    0.10640654620939351,
+    0.09077002860088346
+   ],
+   "threshold": null,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.0945546291418569,
+    0.10371185282144638,
+    0.043527874132644216,
+    0.014645171644798317,
+    0.0020033515355526604,
+    0.24383452915923592,
+    0.4080984775341484,
+    0.032064248181590156,
+    0.057559865848727014
+   ],
+   "threshold": null,
+   "category": "other"
+  },
+  {
+   "probs": [
+    0.0327156192271949,
+    0.10065281564355526,
+    0.005065239492583145,
+    0.054870228257322344,
+    0.02448108179352709,
+    0.2593185868352187,
+    0.11926887680322834,
+    0.15368679954881406,
+    0.249940752398556
+   ],
+   "threshold": null,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.08687425522950194,
+    0.03284651688505457,
+    0.020089763883995627,
+    0.07005842025875854,
+    0.001543426506683328,
+    0.25076471899639574,
+    2.5270065966115878e-05,
+    0.5352118277270903,
+    0.0025858004465538565
+   ],
+   "threshold": null,
+   "category": "unilateral_termination"
+  },
+  {
+   "probs": [
+    0.314542796917865,
+    0.04588049007830791,
+    0.18462983688511758,
+    0.014104444393819516,
+    0.03903822977477735,
+    0.0003268188981180007,
+    0.14822491677093846,
+    0.22964406134839602,
+    0.023608404932660164
+   ],
+   "threshold": null,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.3233570200484688,
+    0.006365274974835558,
+    0.14808353578718933,
+    0.001473642522258712,
+    0.033574100294250446,
+    0.09179239713822125,
+    0.007901804240508792,
+    0.0960618684551484,
+    0.29139035653911877
+   ],
+   "threshold": null,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.09460347431467421,
+    0.3683616377208482,
+    0.05064549550895649,
+    0.0005684400005889371,
+    0.05288070595415265,
+    3.0369793965362745e-05,
+    0.0018948489692515056,
+    0.022983717207082324,
+    0.4080313105304803
+   ],
+   "threshold": null,
+   "category": "jurisdiction"
+  },
+  {
+   "probs": [
+    0.019746355077208545,
+    0.032546985358244636,
+    0.009916596531973314,
+    0.2023915651009406,
+    0.20071241138472456,
+    0.06760964756401645,
+    0.2876727867077083,
+    0.17668648688113683,
+    0.0027171653940468157
+   ],
+   "threshold": null,
+   "category": "other"
+  },
+  {
+   "probs": [
+    0.2594052062675464,
+    0.06664587845691462,
+    0.13621868131671433,
+    0.016052358158982056,
+    0.1169553091192434,
+    1.7495211180397067e-05,
+    0.04353012628947734,
+    0.2156886360434055,
+    0.1454863091365359
+   ],
+   "threshold": null,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.0363116491204343,
+    0.00456259243519294,
+    0.0005746353016434213,
+    0.0011189855011230292,
+    0.20476413285501857,
+    0.27351210380542884,
+    0.27980910065834924,
+    0.0007860875576296784,
+    0.19856071276518006
+   ],
+   "threshold": null,
+   "category": "other"
+  },
+  {
+   "probs": [
+    0.14161549476281418,
+    0.1666242555336903,
+    0.0716646017877117,
+    0.002393167996519776,
+    0.010823194390245082,
+    0.06648626219104642,
+    0.009311525922526015,
+    0.25664400311994195,
+    0.2744374942955045
+   ],
+   "threshold": null,
+   "category": "jurisdiction"
+  },
+  {
+   "probs": [
+    0.12738790915790157,
+    0.0011542061838396148,
+    0.039496271683797914,
+    0.06386927135368266,
+    0.16048380393777398,
+    0.2476816966311552,
+    0.24441450351890565,
+    0.03556365254414336,
+    0.07994868498880008
+   ],
+   "threshold": null,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.0640490908286904,
+    0.0017711883582231364,
+    0.09433041134249229,
+    0.10736927778068131,
+    0.405331225844658,
+    0.023280366508760295,
+    0.17454555894201018,
+    0.12139543909611922,
+    0.00792744129836518
+   ],
+   "threshold": null,
+   "category": "content_removal"
+  },
+  {
+   "probs": [
+    0.048957156787055416,
+    0.0724663696537607,
+    0.05738675491637678,
+    0.004811062410481268,
+    0.1700919590458115,
+    0.5310157127447601,
+    0.0005169680394424438,
+    0.105406007831096,
+    0.009348008571215718
+   ],
+   "threshold": null,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.16172638793994965,
+    0.07934051891669176,
+    0.1426936396435063,
+    0.008081702945081997,
+    0.072000465401747,
+    0.3752406217352962,
+    0.12479352966277726,
+    0.006843598593911848,
+    0.029279535161038005
+   ],
+   "threshold": null,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.006340625919511809,
+    0.20634502881766048,
+    0.011756437590430761,
+    3.505111509348144e-05,
+    0.14607813387526383,
+    0.014424478172439432,
+    0.036914903875743366,
+    0.4928132949350646,
+    0.08529204569879223
+   ],
+   "threshold": null,
+   "category": "unilateral_termination"
+  },
+  {
+   "probs": [
+    0.007462018866807666,
+    0.24517420214843888,
+    0.046742635136972646,
+    0.41300516889248184,
+    0.0021129337126668487,
+    0.08180169444506814,
+    0.02160011939729579,
+    0.17935671335278178,
+    0.002744514047486553
+   ],
+   "threshold": null,
+   "category": "arbitration"
+  },
+  {
+   "probs": [
+    0.04421327049700762,
+    0.0002695117007865134,
+    0.2008699197614059,
+    0.025012422803335682,
+    0.17065099104568687,
+    0.18364187623445213,
+    0.08971638723217293,
+    0.16952332191975972,
+    0.11610229880539256
+   ],
+   "threshold": null,
+   "category": "unilateral_change"
+  },
+  {
+   "probs": [
+    0.047102145542361744,
+    0.010615486250471328,
+    0.002333015513854687,
+    0.027083619780458215,
+    0.28170354727796876,
+    0.09189625000545727,
+    0.15952839362039758,
+    0.08759420359825774,
+    0.2921433384107726
+   ],
+   "threshold": null,
+   "category": "jurisdiction"
+  },
+  {
+   "probs": [
+    0.3931556860879698,
+    0.03194201531317522,
+    0.01290361099365551,
+    0.007275656283646835,
+    0.0725990311126293,
+    0.18950127902240693,
+    0.10423760994936872,
+    0.09971643083336029,
+    0.08866868040378735
+   ],
+   "threshold": null,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.06876964426406224,
+    0.020879684462387624,
+    0.1419218446452447,
+    0.009702323739245709,
+    0.12781154699622246,
+    0.29254056008558205,
+    0.006189608043047486,
+    0.29764716561484994,
+    0.03453762214935789
+   ],
+   "threshold": null,
+   "category": "unilateral_termination"
+  },
+  {
+   "probs": [
+    0.0885946622992957,
+    0.39631826254195,
+    0.0006401435959347659,
+    0.11937873501435381,
+    0.10563234470136115,
+    0.003802977349733971,
+    0.27397110214898696,
+    0.0015511721875956265,
+    0.010110600160787856
+   ],
+   "threshold": null,
+   "category": "contract_by_using"
+  },
+  {
+   "probs": [
+    0.30586982703269133,
+    0.060532521402728946,
+    0.02929740506474576,
+    0.12989291148863827,
+    0.04817273070000436,
+    0.195889949862181,
+    0.057223473626884576,
+    0.13804987615563774,
+    0.03507130466648818
+   ],
+   "threshold": null,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.027153912666496777,
+    0.010115615420671648,
+    0.3586618908404461,
+    0.08038751974622262,
+    0.09840456854967068,
+    0.2165307633987276,
+    0.018333380116799882,
+    0.032074099194633034,
+    0.1583382500663317
+   ],
+   "threshold": null,
+   "category": "unilateral_change"
+  },
+  {
+   "probs": [
+    0.33730972283203403,
+    0.014123756902046106,
+    0.1415999570629132,
+    7.928607431254112e-05,
+    0.31913647381001325,
+    0.044140898656315763,
+    0.0986217321657437,
+    0.02830070379899188,
+    0.016687468697629618
+   ],
+   "threshold": null,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.20920240207877497,
+    0.025207144421849192,
+    0.09226910011019257,
+    0.005489813580081927,
+    0.16537296824677344,
+    0.4295258644267983,
+    0.0417347645949667,
+    0.013513241283215776,
+    0.017684701257346988
+   ],
+   "threshold": null,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.029860272563779162,
+    0.13398415616913856,
+    0.6703021067260581,
+    0.009149484287431214,
+    0.002381842745166837,
+    0.011196728606947462,
+    0.00020840318867165408,
+    0.09128083731714011,
+    0.05163616839566708
+   ],
+   "threshold": null,
+   "category": "unilateral_change"
+  },
+  {
+   "probs": [
+    0.029255105901996335,
+    0.06410182311432244,
+    0.1442178592301726,
+    0.17701004116139904,
+    0.12797416931439892,
+    0.33044923489487354,
+    0.006279719159734399,
+    0.038439921305634485,
+    0.08227212591746814
+   ],
+   "threshold": null,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.08950388518921033,
+    0.09968995807127581,
+    0.04261375602743106,
+    0.2656962804537357,
+    0.20067333677286434,
+    0.1498034643428486,
+    0.014161077778638606,
+    0.060641812604640105,
+    0.07721642875935564
+   ],
+   "threshold": null,
+   "category": "arbitration"
+  },
+  {
+   "probs": [
+    0.04805203803314957,
+    0.0179842786870895,
+    0.24045619631128912,
+    0.16444430724589926,
+    0.009064544038399819,
+    0.042655607516353215,
+    0.24347531338920364,
+    0.011520699340580764,
+    0.2223470154380351
+   ],
+   "threshold": null,
+   "category": "other"
+  },
+  {
+   "probs": [
+    0.2186614548698343,
+    0.018100624478643596,
+    0.060192870061632486,
+    0.11141685011155526,
+    0.010390941568714873,
+    0.041986121120802786,
+    0.06604555059361354,
+    0.008874601317825307,
+    0.4643309858773778
+   ],
+   "threshold": null,
+   "category": "jurisdiction"
+  },
+  {
+   "probs": [
+    0.00011793105814809386,
+    0.21478232660808383,
+    0.006819677261187672,
+    0.1792320032517342,
+    0.07934495705350125,
+    0.2358269981286292,
+    0.2815945852471201,
+    0.0012467384823503778,
+    0.0010347829092451758
+   ],
+   "threshold": null,
+   "category": "other"
+  },
+  {
+   "probs": [
+    0.01247357782692669,
+    0.23048660127093365,
+    0.015522376466387804,
+    0.05824449066823683,
+    0.0019665210557373116,
+    0.3330271633179895,
+    0.013095638467155293,
+    0.31584683970859423,
+    0.019336791218038614
+   ],
+   "threshold": null,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.1285782996792413,
+    0.12464436072818648,
+    0.0001433959705180989,
+    0.1076763558608497,
+    0.026807490745915256,
+    0.027028853243627214,
+    0.2508973107976293,
+    0.1476807915954286,
+    0.18654314137860398
+   ],
+   "threshold": null,
+   "category": "other"
+  },
+  {
+   "probs": [
+    0.12737770304948276,
+    0.517618060560397,
+    0.0031039710153846576,
+    0.08287590589750209,
+    0.030750359515825228,
+    0.1574524108626098,
+    0.003656045272439496,
+    0.03234504614246468,
+    0.04482049768389427
+   ],
+   "threshold": null,
+   "category": "contract_by_using"
+  },
+  {
+   "probs": [
+    0.04422153409786508,
+    0.023891912036478623,
+    0.02341667020023186,
+    0.11365376103323688,
+    0.0441592516097674,
+    0.005409644069209941,
+    0.7341305073135185,
+    0.0020762888878415675,
+    0.009040430751850202
+   ],
+   "threshold": null,
+   "category": "other"
+  },
+  {
+   "probs": [
+    0.09013145841346651,
+    0.13366697008745418,
+    0.0799101917224164,
+    0.011976797727464336,
+    0.1330204642578097,
+    0.0027028563893148312,
+    0.22460858674334366,
+    0.11177343689870618,
+    0.2122092377600242
+   ],
+   "threshold": null,
+   "category": "other"
+  },
+  {
+   "probs": [
+    0.02879847756511664,
+    0.2729304496892393,
+    0.49937585987317,
+    0.03184943526017923,
+    0.00014687739028855864,
+    0.019311367092808295,
+    0.00010540112953556016,
+    0.042626957738103786,
+    0.10485517426155848
+   ],
+   "threshold": null,
+   "category": "unilateral_change"
+  },
+  {
+   "probs": [
+    0.061842920917156076,
+    0.04452054107905111,
+    0.0034866851181035424,
+    0.30701045686841766,
+    0.022325416648104043,
+    0.09631958220208368,
+    0.018788262294612057,
+    0.37375406349229756,
+    0.07195207138017433
+   ],
+   "threshold": null,
+   "category": "unilateral_termination"
+  },
+  {
+   "probs": [
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111
+   ],
+   "threshold": 0.5,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.15320555537260305,
+    0.00030841865966167953,
+    0.1931500659533745,
+    0.15320555537260305,
+    0.20598828654190976,
+    0.20860850223745903,
+    0.007018631825799183,
+    0.10640654620939351,
+    0.09077002860088346
+   ],
+   "threshold": 0.5,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.0945546291418569,
+    0.10371185282144638,
+    0.043527874132644216,
+    0.014645171644798317,
+    0.0020033515355526604,
+    0.24383452915923592,
+    0.4080984775341484,
+    0.032064248181590156,
+    0.057559865848727014
+   ],
+   "threshold": 0.5,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.0327156192271949,
+    0.10065281564355526,
+    0.005065239492583145,
+    0.054870228257322344,
+    0.02448108179352709,
+    0.2593185868352187,
+    0.11926887680322834,
+    0.15368679954881406,
+    0.249940752398556
+   ],
+   "threshold": 0.5,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.08687425522950194,
+    0.03284651688505457,
+    0.020089763883995627,
+    0.07005842025875854,
+    0.001543426506683328,
+    0.25076471899639574,
+    2.5270065966115878e-05,
+    0.5352118277270903,
+    0.0025858004465538565
+   ],
+   "threshold": 0.5,
+   "category": "unilateral_termination"
+  },
+  {
+   "probs": [
+    0.314542796917865,
+    0.04588049007830791,
+    0.18462983688511758,
+    0.014104444393819516,
+    0.03903822977477735,
+    0.0003268188981180007,
+    0.14822491677093846,
+    0.22964406134839602,
+    0.023608404932660164
+   ],
+   "threshold": 0.5,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.3233570200484688,
+    0.006365274974835558,
+    0.14808353578718933,
+    0.001473642522258712,
+    0.033574100294250446,
+    0.09179239713822125,
+    0.007901804240508792,
+    0.0960618684551484,
+    0.29139035653911877
+   ],
+   "threshold": 0.5,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.09460347431467421,
+    0.3683616377208482,
+    0.05064549550895649,
+    0.0005684400005889371,
+    0.05288070595415265,
+    3.0369793965362745e-05,
+    0.0018948489692515056,
+    0.022983717207082324,
+    0.4080313105304803
+   ],
+   "threshold": 0.5,
+   "category": "jurisdiction"
+  },
+  {
+   "probs": [
+    0.019746355077208545,
+    0.032546985358244636,
+    0.009916596531973314,
+    0.2023915651009406,
+    0.20071241138472456,
+    0.06760964756401645,
+    0.2876727867077083,
+    0.17668648688113683,
+    0.0027171653940468157
+   ],
+   "threshold": 0.5,
+   "category": "arbitration"
+  },
+  {
+   "probs": [
+    0.2594052062675464,
+    0.06664587845691462,
+    0.13621868131671433,
+    0.016052358158982056,
+    0.1169553091192434,
+    1.7495211180397067e-05,
+    0.04353012628947734,
+    0.2156886360434055,
+    0.1454863091365359
+   ],
+   "threshold": 0.5,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.0363116491204343,
+    0.00456259243519294,
+    0.0005746353016434213,
+    0.0011189855011230292,
+    0.20476413285501857,
+    0.27351210380542884,
+    0.27980910065834924,
+    0.0007860875576296784,
+    0.19856071276518006
+   ],
+   "threshold": 0.5,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.14161549476281418,
+    0.1666242555336903,
+    0.0716646017877117,
+    0.002393167996519776,
+    0.010823194390245082,
+    0.06648626219104642,
+    0.009311525922526015,
+    0.25664400311994195,
+    0.2744374942955045
+   ],
+   "threshold": 0.5,
+   "category": "jurisdiction"
+  },
+  {
+   "probs": [
+    0.12738790915790157,
+    0.0011542061838396148,
+    0.039496271683797914,
+    0.06386927135368266,
+    0.16048380393777398,
+    0.2476816966311552,
+    0.24441450351890565,
+    0.03556365254414336,
+    0.07994868498880008
+   ],
+   "threshold": 0.5,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.0640490908286904,
+    0.0017711883582231364,
+    0.09433041134249229,
+    0.10736927778068131,
+    0.405331225844658,
+    0.023280366508760295,
+    0.17454555894201018,
+    0.12139543909611922,
+    0.00792744129836518
+   ],
+   "threshold": 0.5,
+   "category": "content_removal"
+  },
+  {
+   "probs": [
+    0.048957156787055416,
+    0.0724663696537607,
+    0.05738675491637678,
+    0.004811062410481268,
+    0.1700919590458115,
+    0.5310157127447601,
+    0.0005169680394424438,
+    0.105406007831096,
+    0.009348008571215718
+   ],
+   "threshold": 0.5,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.16172638793994965,
+    0.07934051891669176,
+    0.1426936396435063,
+    0.008081702945081997,
+    0.072000465401747,
+    0.3752406217352962,
+    0.12479352966277726,
+    0.006843598593911848,
+    0.029279535161038005
+   ],
+   "threshold": 0.5,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.006340625919511809,
+    0.20634502881766048,
+    0.011756437590430761,
+    3.505111509348144e-05,
+    0.14607813387526383,
+    0.014424478172439432,
+    0.036914903875743366,
+    0.4928132949350646,
+    0.08529204569879223
+   ],
+   "threshold": 0.5,
+   "category": "unilateral_termination"
+  },
+  {
+   "probs": [
+    0.007462018866807666,
+    0.24517420214843888,
+    0.046742635136972646,
+    0.41300516889248184,
+    0.0021129337126668487,
+    0.08180169444506814,
+    0.02160011939729579,
+    0.17935671335278178,
+    0.002744514047486553
+   ],
+   "threshold": 0.5,
+   "category": "arbitration"
+  },
+  {
+   "probs": [
+    0.04421327049700762,
+    0.0002695117007865134,
+    0.2008699197614059,
+    0.025012422803335682,
+    0.17065099104568687,
+    0.18364187623445213,
+    0.08971638723217293,
+    0.16952332191975972,
+    0.11610229880539256
+   ],
+   "threshold": 0.5,
+   "category": "unilateral_change"
+  },
+  {
+   "probs": [
+    0.047102145542361744,
+    0.010615486250471328,
+    0.002333015513854687,
+    0.027083619780458215,
+    0.28170354727796876,
+    0.09189625000545727,
+    0.15952839362039758,
+    0.08759420359825774,
+    0.2921433384107726
+   ],
+   "threshold": 0.5,
+   "category": "jurisdiction"
+  },
+  {
+   "probs": [
+    0.3931556860879698,
+    0.03194201531317522,
+    0.01290361099365551,
+    0.007275656283646835,
+    0.0725990311126293,
+    0.18950127902240693,
+    0.10423760994936872,
+    0.09971643083336029,
+    0.08866868040378735
+   ],
+   "threshold": 0.5,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.06876964426406224,
+    0.020879684462387624,
+    0.1419218446452447,
+    0.009702323739245709,
+    0.12781154699622246,
+    0.29254056008558205,
+    0.006189608043047486,
+    0.29764716561484994,
+    0.03453762214935789
+   ],
+   "threshold": 0.5,
+   "category": "unilateral_termination"
+  },
+  {
+   "probs": [
+    0.0885946622992957,
+    0.39631826254195,
+    0.0006401435959347659,
+    0.11937873501435381,
+    0.10563234470136115,
+    0.003802977349733971,
+    0.27397110214898696,
+    0.0015511721875956265,
+    0.010110600160787856
+   ],
+   "threshold": 0.5,
+   "category": "contract_by_using"
+  },
+  {
+   "probs": [
+    0.30586982703269133,
+    0.060532521402728946,
+    0.02929740506474576,
+    0.12989291148863827,
+    0.04817273070000436,
+    0.195889949862181,
+    0.057223473626884576,
+    0.13804987615563774,
+    0.03507130466648818
+   ],
+   "threshold": 0.5,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.027153912666496777,
+    0.010115615420671648,
+    0.3586618908404461,
+    0.08038751974622262,
+    0.09840456854967068,
+    0.2165307633987276,
+    0.018333380116799882,
+    0.032074099194633034,
+    0.1583382500663317
+   ],
+   "threshold": 0.5,
+   "category": "unilateral_change"
+  },
+  {
+   "probs": [
+    0.33730972283203403,
+    0.014123756902046106,
+    0.1415999570629132,
+    7.928607431254112e-05,
+    0.31913647381001325,
+    0.044140898656315763,
+    0.0986217321657437,
+    0.02830070379899188,
+    0.016687468697629618
+   ],
+   "threshold": 0.5,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.20920240207877497,
+    0.025207144421849192,
+    0.09226910011019257,
+    0.005489813580081927,
+    0.16537296824677344,
+    0.4295258644267983,
+    0.0417347645949667,
+    0.013513241283215776,
+    0.017684701257346988
+   ],
+   "threshold": 0.5,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.029860272563779162,
+    0.13398415616913856,
+    0.6703021067260581,
+    0.009149484287431214,
+    0.002381842745166837,
+    0.011196728606947462,
+    0.00020840318867165408,
+    0.09128083731714011,
+    0.05163616839566708
+   ],
+   "threshold": 0.5,
+   "category": "unilateral_change"
+  },
+  {
+   "probs": [
+    0.029255105901996335,
+    0.06410182311432244,
+    0.1442178592301726,
+    0.17701004116139904,
+    0.12797416931439892,
+    0.33044923489487354,
+    0.006279719159734399,
+    0.038439921305634485,
+    0.08227212591746814
+   ],
+   "threshold": 0.5,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.08950388518921033,
+    0.09968995807127581,
+    0.04261375602743106,
+    0.2656962804537357,
+    0.20067333677286434,
+    0.1498034643428486,
+    0.014161077778638606,
+    0.060641812604640105,
+    0.07721642875935564
+   ],
+   "threshold": 0.5,
+   "category": "arbitration"
+  },
+  {
+   "probs": [
+    0.04805203803314957,
+    0.0179842786870895,
+    0.24045619631128912,
+    0.16444430724589926,
+    0.009064544038399819,
+    0.042655607516353215,
+    0.24347531338920364,
+    0.011520699340580764,
+    0.2223470154380351
+   ],
+   "threshold": 0.5,
+   "category": "unilateral_change"
+  },
+  {
+   "probs": [
+    0.2186614548698343,
+    0.018100624478643596,
+    0.060192870061632486,
+    0.11141685011155526,
+    0.010390941568714873,
+    0.041986121120802786,
+    0.06604555059361354,
+    0.008874601317825307,
+    0.4643309858773778
+   ],
+   "threshold": 0.5,
+   "category": "jurisdiction"
+  },
+  {
+   "probs": [
+    0.00011793105814809386,
+    0.21478232660808383,
+    0.006819677261187672,
+    0.1792320032517342,
+    0.07934495705350125,
+    0.2358269981286292,
+    0.2815945852471201,
+    0.0012467384823503778,
+    0.0010347829092451758
+   ],
+   "threshold": 0.5,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.01247357782692669,
+    0.23048660127093365,
+    0.015522376466387804,
+    0.05824449066823683,
+    0.0019665210557373116,
+    0.3330271633179895,
+    0.013095638467155293,
+    0.31584683970859423,
+    0.019336791218038614
+   ],
+   "threshold": 0.5,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.1285782996792413,
+    0.12464436072818648,
+    0.0001433959705180989,
+    0.1076763558608497,
+    0.026807490745915256,
+    0.027028853243627214,
+    0.2508973107976293,
+    0.1476807915954286,
+    0.18654314137860398
+   ],
+   "threshold": 0.5,
+   "category": "jurisdiction"
+  },
+  {
+   "probs": [
+    0.12737770304948276,
+    0.517618060560397,
+    0.0031039710153846576,
+    0.08287590589750209,
+    0.030750359515825228,
+    0.1574524108626098,
+    0.003656045272439496,
+    0.03234504614246468,
+    0.04482049768389427
+   ],
+   "threshold": 0.5,
+   "category": "contract_by_using"
+  },
+  {
+   "probs": [
+    0.04422153409786508,
+    0.023891912036478623,
+    0.02341667020023186,
+    0.11365376103323688,
+    0.0441592516097674,
+    0.005409644069209941,
+    0.7341305073135185,
+    0.0020762888878415675,
+    0.009040430751850202
+   ],
+   "threshold": 0.5,
+   "category": "other"
+  },
+  {
+   "probs": [
+    0.09013145841346651,
+    0.13366697008745418,
+    0.0799101917224164,
+    0.011976797727464336,
+    0.1330204642578097,
+    0.0027028563893148312,
+    0.22460858674334366,
+    0.11177343689870618,
+    0.2122092377600242
+   ],
+   "threshold": 0.5,
+   "category": "jurisdiction"
+  },
+  {
+   "probs": [
+    0.02879847756511664,
+    0.2729304496892393,
+    0.49937585987317,
+    0.03184943526017923,
+    0.00014687739028855864,
+    0.019311367092808295,
+    0.00010540112953556016,
+    0.042626957738103786,
+    0.10485517426155848
+   ],
+   "threshold": 0.5,
+   "category": "unilateral_change"
+  },
+  {
+   "probs": [
+    0.061842920917156076,
+    0.04452054107905111,
+    0.0034866851181035424,
+    0.30701045686841766,
+    0.022325416648104043,
+    0.09631958220208368,
+    0.018788262294612057,
+    0.37375406349229756,
+    0.07195207138017433
+   ],
+   "threshold": 0.5,
+   "category": "unilateral_termination"
+  },
+  {
+   "probs": [
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111
+   ],
+   "threshold": 0.8,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.15320555537260305,
+    0.00030841865966167953,
+    0.1931500659533745,
+    0.15320555537260305,
+    0.20598828654190976,
+    0.20860850223745903,
+    0.007018631825799183,
+    0.10640654620939351,
+    0.09077002860088346
+   ],
+   "threshold": 0.8,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.0945546291418569,
+    0.10371185282144638,
+    0.043527874132644216,
+    0.014645171644798317,
+    0.0020033515355526604,
+    0.24383452915923592,
+    0.4080984775341484,
+    0.032064248181590156,
+    0.057559865848727014
+   ],
+   "threshold": 0.8,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.0327156192271949,
+    0.10065281564355526,
+    0.005065239492583145,
+    0.054870228257322344,
+    0.02448108179352709,
+    0.2593185868352187,
+    0.11926887680322834,
+    0.15368679954881406,
+    0.249940752398556
+   ],
+   "threshold": 0.8,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.08687425522950194,
+    0.03284651688505457,
+    0.020089763883995627,
+    0.07005842025875854,
+    0.001543426506683328,
+    0.25076471899639574,
+    2.5270065966115878e-05,
+    0.5352118277270903,
+    0.0025858004465538565
+   ],
+   "threshold": 0.8,
+   "category": "unilateral_termination"
+  },
+  {
+   "probs": [
+    0.314542796917865,
+    0.04588049007830791,
+    0.18462983688511758,
+    0.014104444393819516,
+    0.03903822977477735,
+    0.0003268188981180007,
+    0.14822491677093846,
+    0.22964406134839602,
+    0.023608404932660164
+   ],
+   "threshold": 0.8,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.3233570200484688,
+    0.006365274974835558,
+    0.14808353578718933,
+    0.001473642522258712,
+    0.033574100294250446,
+    0.09179239713822125,
+    0.007901804240508792,
+    0.0960618684551484,
+    0.29139035653911877
+   ],
+   "threshold": 0.8,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.09460347431467421,
+    0.3683616377208482,
+    0.05064549550895649,
+    0.0005684400005889371,
+    0.05288070595415265,
+    3.0369793965362745e-05,
+    0.0018948489692515056,
+    0.022983717207082324,
+    0.4080313105304803
+   ],
+   "threshold": 0.8,
+   "category": "jurisdiction"
+  },
+  {
+   "probs": [
+    0.019746355077208545,
+    0.032546985358244636,
+    0.009916596531973314,
+    0.2023915651009406,
+    0.20071241138472456,
+    0.06760964756401645,
+    0.2876727867077083,
+    0.17668648688113683,
+    0.0027171653940468157
+   ],
+   "threshold": 0.8,
+   "category": "arbitration"
+  },
+  {
+   "probs": [
+    0.2594052062675464,
+    0.06664587845691462,
+    0.13621868131671433,
+    0.016052358158982056,
+    0.1169553091192434,
+    1.7495211180397067e-05,
+    0.04353012628947734,
+    0.2156886360434055,
+    0.1454863091365359
+   ],
+   "threshold": 0.8,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.0363116491204343,
+    0.00456259243519294,
+    0.0005746353016434213,
+    0.0011189855011230292,
+    0.20476413285501857,
+    0.27351210380542884,
+    0.27980910065834924,
+    0.0007860875576296784,
+    0.19856071276518006
+   ],
+   "threshold": 0.8,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.14161549476281418,
+    0.1666242555336903,
+    0.0716646017877117,
+    0.002393167996519776,
+    0.010823194390245082,
+    0.06648626219104642,
+    0.009311525922526015,
+    0.25664400311994195,
+    0.2744374942955045
+   ],
+   "threshold": 0.8,
+   "category": "jurisdiction"
+  },
+  {
+   "probs": [
+    0.12738790915790157,
+    0.0011542061838396148,
+    0.039496271683797914,
+    0.06386927135368266,
+    0.16048380393777398,
+    0.2476816966311552,
+    0.24441450351890565,
+    0.03556365254414336,
+    0.07994868498880008
+   ],
+   "threshold": 0.8,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.0640490908286904,
+    0.0017711883582231364,
+    0.09433041134249229,
+    0.10736927778068131,
+    0.405331225844658,
+    0.023280366508760295,
+    0.17454555894201018,
+    0.12139543909611922,
+    0.00792744129836518
+   ],
+   "threshold": 0.8,
+   "category": "content_removal"
+  },
+  {
+   "probs": [
+    0.048957156787055416,
+    0.0724663696537607,
+    0.05738675491637678,
+    0.004811062410481268,
+    0.1700919590458115,
+    0.5310157127447601,
+    0.0005169680394424438,
+    0.105406007831096,
+    0.009348008571215718
+   ],
+   "threshold": 0.8,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.16172638793994965,
+    0.07934051891669176,
+    0.1426936396435063,
+    0.008081702945081997,
+    0.072000465401747,
+    0.3752406217352962,
+    0.12479352966277726,
+    0.006843598593911848,
+    0.029279535161038005
+   ],
+   "threshold": 0.8,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.006340625919511809,
+    0.20634502881766048,
+    0.011756437590430761,
+    3.505111509348144e-05,
+    0.14607813387526383,
+    0.014424478172439432,
+    0.036914903875743366,
+    0.4928132949350646,
+    0.08529204569879223
+   ],
+   "threshold": 0.8,
+   "category": "unilateral_termination"
+  },
+  {
+   "probs": [
+    0.007462018866807666,
+    0.24517420214843888,
+    0.046742635136972646,
+    0.41300516889248184,
+    0.0021129337126668487,
+    0.08180169444506814,
+    0.02160011939729579,
+    0.17935671335278178,
+    0.002744514047486553
+   ],
+   "threshold": 0.8,
+   "category": "arbitration"
+  },
+  {
+   "probs": [
+    0.04421327049700762,
+    0.0002695117007865134,
+    0.2008699197614059,
+    0.025012422803335682,
+    0.17065099104568687,
+    0.18364187623445213,
+    0.08971638723217293,
+    0.16952332191975972,
+    0.11610229880539256
+   ],
+   "threshold": 0.8,
+   "category": "unilateral_change"
+  },
+  {
+   "probs": [
+    0.047102145542361744,
+    0.010615486250471328,
+    0.002333015513854687,
+    0.027083619780458215,
+    0.28170354727796876,
+    0.09189625000545727,
+    0.15952839362039758,
+    0.08759420359825774,
+    0.2921433384107726
+   ],
+   "threshold": 0.8,
+   "category": "jurisdiction"
+  },
+  {
+   "probs": [
+    0.3931556860879698,
+    0.03194201531317522,
+    0.01290361099365551,
+    0.007275656283646835,
+    0.0725990311126293,
+    0.18950127902240693,
+    0.10423760994936872,
+    0.09971643083336029,
+    0.08866868040378735
+   ],
+   "threshold": 0.8,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.06876964426406224,
+    0.020879684462387624,
+    0.1419218446452447,
+    0.009702323739245709,
+    0.12781154699622246,
+    0.29254056008558205,
+    0.006189608043047486,
+    0.29764716561484994,
+    0.03453762214935789
+   ],
+   "threshold": 0.8,
+   "category": "unilateral_termination"
+  },
+  {
+   "probs": [
+    0.0885946622992957,
+    0.39631826254195,
+    0.0006401435959347659,
+    0.11937873501435381,
+    0.10563234470136115,
+    0.003802977349733971,
+    0.27397110214898696,
+    0.0015511721875956265,
+    0.010110600160787856
+   ],
+   "threshold": 0.8,
+   "category": "contract_by_using"
+  },
+  {
+   "probs": [
+    0.30586982703269133,
+    0.060532521402728946,
+    0.02929740506474576,
+    0.12989291148863827,
+    0.04817273070000436,
+    0.195889949862181,
+    0.057223473626884576,
+    0.13804987615563774,
+    0.03507130466648818
+   ],
+   "threshold": 0.8,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.027153912666496777,
+    0.010115615420671648,
+    0.3586618908404461,
+    0.08038751974622262,
+    0.09840456854967068,
+    0.2165307633987276,
+    0.018333380116799882,
+    0.032074099194633034,
+    0.1583382500663317
+   ],
+   "threshold": 0.8,
+   "category": "unilateral_change"
+  },
+  {
+   "probs": [
+    0.33730972283203403,
+    0.014123756902046106,
+    0.1415999570629132,
+    7.928607431254112e-05,
+    0.31913647381001325,
+    0.044140898656315763,
+    0.0986217321657437,
+    0.02830070379899188,
+    0.016687468697629618
+   ],
+   "threshold": 0.8,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.20920240207877497,
+    0.025207144421849192,
+    0.09226910011019257,
+    0.005489813580081927,
+    0.16537296824677344,
+    0.4295258644267983,
+    0.0417347645949667,
+    0.013513241283215776,
+    0.017684701257346988
+   ],
+   "threshold": 0.8,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.029860272563779162,
+    0.13398415616913856,
+    0.6703021067260581,
+    0.009149484287431214,
+    0.002381842745166837,
+    0.011196728606947462,
+    0.00020840318867165408,
+    0.09128083731714011,
+    0.05163616839566708
+   ],
+   "threshold": 0.8,
+   "category": "unilateral_change"
+  },
+  {
+   "probs": [
+    0.029255105901996335,
+    0.06410182311432244,
+    0.1442178592301726,
+    0.17701004116139904,
+    0.12797416931439892,
+    0.33044923489487354,
+    0.006279719159734399,
+    0.038439921305634485,
+    0.08227212591746814
+   ],
+   "threshold": 0.8,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.08950388518921033,
+    0.09968995807127581,
+    0.04261375602743106,
+    0.2656962804537357,
+    0.20067333677286434,
+    0.1498034643428486,
+    0.014161077778638606,
+    0.060641812604640105,
+    0.07721642875935564
+   ],
+   "threshold": 0.8,
+   "category": "arbitration"
+  },
+  {
+   "probs": [
+    0.04805203803314957,
+    0.0179842786870895,
+    0.24045619631128912,
+    0.16444430724589926,
+    0.009064544038399819,
+    0.042655607516353215,
+    0.24347531338920364,
+    0.011520699340580764,
+    0.2223470154380351
+   ],
+   "threshold": 0.8,
+   "category": "unilateral_change"
+  },
+  {
+   "probs": [
+    0.2186614548698343,
+    0.018100624478643596,
+    0.060192870061632486,
+    0.11141685011155526,
+    0.010390941568714873,
+    0.041986121120802786,
+    0.06604555059361354,
+    0.008874601317825307,
+    0.4643309858773778
+   ],
+   "threshold": 0.8,
+   "category": "jurisdiction"
+  },
+  {
+   "probs": [
+    0.00011793105814809386,
+    0.21478232660808383,
+    0.006819677261187672,
+    0.1792320032517342,
+    0.07934495705350125,
+    0.2358269981286292,
+    0.2815945852471201,
+    0.0012467384823503778,
+    0.0010347829092451758
+   ],
+   "threshold": 0.8,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.01247357782692669,
+    0.23048660127093365,
+    0.015522376466387804,
+    0.05824449066823683,
+    0.0019665210557373116,
+    0.3330271633179895,
+    0.013095638467155293,
+    0.31584683970859423,
+    0.019336791218038614
+   ],
+   "threshold": 0.8,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.1285782996792413,
+    0.12464436072818648,
+    0.0001433959705180989,
+    0.1076763558608497,
+    0.026807490745915256,
+    0.027028853243627214,
+    0.2508973107976293,
+    0.1476807915954286,
+    0.18654314137860398
+   ],
+   "threshold": 0.8,
+   "category": "jurisdiction"
+  },
+  {
+   "probs": [
+    0.12737770304948276,
+    0.517618060560397,
+    0.0031039710153846576,
+    0.08287590589750209,
+    0.030750359515825228,
+    0.1574524108626098,
+    0.003656045272439496,
+    0.03234504614246468,
+    0.04482049768389427
+   ],
+   "threshold": 0.8,
+   "category": "contract_by_using"
+  },
+  {
+   "probs": [
+    0.04422153409786508,
+    0.023891912036478623,
+    0.02341667020023186,
+    0.11365376103323688,
+    0.0441592516097674,
+    0.005409644069209941,
+    0.7341305073135185,
+    0.0020762888878415675,
+    0.009040430751850202
+   ],
+   "threshold": 0.8,
+   "category": "arbitration"
+  },
+  {
+   "probs": [
+    0.09013145841346651,
+    0.13366697008745418,
+    0.0799101917224164,
+    0.011976797727464336,
+    0.1330204642578097,
+    0.0027028563893148312,
+    0.22460858674334366,
+    0.11177343689870618,
+    0.2122092377600242
+   ],
+   "threshold": 0.8,
+   "category": "jurisdiction"
+  },
+  {
+   "probs": [
+    0.02879847756511664,
+    0.2729304496892393,
+    0.49937585987317,
+    0.03184943526017923,
+    0.00014687739028855864,
+    0.019311367092808295,
+    0.00010540112953556016,
+    0.042626957738103786,
+    0.10485517426155848
+   ],
+   "threshold": 0.8,
+   "category": "unilateral_change"
+  },
+  {
+   "probs": [
+    0.061842920917156076,
+    0.04452054107905111,
+    0.0034866851181035424,
+    0.30701045686841766,
+    0.022325416648104043,
+    0.09631958220208368,
+    0.018788262294612057,
+    0.37375406349229756,
+    0.07195207138017433
+   ],
+   "threshold": 0.8,
+   "category": "unilateral_termination"
+  },
+  {
+   "probs": [
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111,
+    0.1111111111111111
+   ],
+   "threshold": 0.95,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.15320555537260305,
+    0.00030841865966167953,
+    0.1931500659533745,
+    0.15320555537260305,
+    0.20598828654190976,
+    0.20860850223745903,
+    0.007018631825799183,
+    0.10640654620939351,
+    0.09077002860088346
+   ],
+   "threshold": 0.95,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.0945546291418569,
+    0.10371185282144638,
+    0.043527874132644216,
+    0.014645171644798317,
+    0.0020033515355526604,
+    0.24383452915923592,
+    0.4080984775341484,
+    0.032064248181590156,
+    0.057559865848727014
+   ],
+   "threshold": 0.95,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.0327156192271949,
+    0.10065281564355526,
+    0.005065239492583145,
+    0.054870228257322344,
+    0.02448108179352709,
+    0.2593185868352187,
+    0.11926887680322834,
+    0.15368679954881406,
+    0.249940752398556
+   ],
+   "threshold": 0.95,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.08687425522950194,
+    0.03284651688505457,
+    0.020089763883995627,
+    0.07005842025875854,
+    0.001543426506683328,
+    0.25076471899639574,
+    2.5270065966115878e-05,
+    0.5352118277270903,
+    0.0025858004465538565
+   ],
+   "threshold": 0.95,
+   "category": "unilateral_termination"
+  },
+  {
+   "probs": [
+    0.314542796917865,
+    0.04588049007830791,
+    0.18462983688511758,
+    0.014104444393819516,
+    0.03903822977477735,
+    0.0003268188981180007,
+    0.14822491677093846,
+    0.22964406134839602,
+    0.023608404932660164
+   ],
+   "threshold": 0.95,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.3233570200484688,
+    0.006365274974835558,
+    0.14808353578718933,
+    0.001473642522258712,
+    0.033574100294250446,
+    0.09179239713822125,
+    0.007901804240508792,
+    0.0960618684551484,
+    0.29139035653911877
+   ],
+   "threshold": 0.95,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.09460347431467421,
+    0.3683616377208482,
+    0.05064549550895649,
+    0.0005684400005889371,
+    0.05288070595415265,
+    3.0369793965362745e-05,
+    0.0018948489692515056,
+    0.022983717207082324,
+    0.4080313105304803
+   ],
+   "threshold": 0.95,
+   "category": "jurisdiction"
+  },
+  {
+   "probs": [
+    0.019746355077208545,
+    0.032546985358244636,
+    0.009916596531973314,
+    0.2023915651009406,
+    0.20071241138472456,
+    0.06760964756401645,
+    0.2876727867077083,
+    0.17668648688113683,
+    0.0027171653940468157
+   ],
+   "threshold": 0.95,
+   "category": "arbitration"
+  },
+  {
+   "probs": [
+    0.2594052062675464,
+    0.06664587845691462,
+    0.13621868131671433,
+    0.016052358158982056,
+    0.1169553091192434,
+    1.7495211180397067e-05,
+    0.04353012628947734,
+    0.2156886360434055,
+    0.1454863091365359
+   ],
+   "threshold": 0.95,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.0363116491204343,
+    0.00456259243519294,
+    0.0005746353016434213,
+    0.0011189855011230292,
+    0.20476413285501857,
+    0.27351210380542884,
+    0.27980910065834924,
+    0.0007860875576296784,
+    0.19856071276518006
+   ],
+   "threshold": 0.95,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.14161549476281418,
+    0.1666242555336903,
+    0.0716646017877117,
+    0.002393167996519776,
+    0.010823194390245082,
+    0.06648626219104642,
+    0.009311525922526015,
+    0.25664400311994195,
+    0.2744374942955045
+   ],
+   "threshold": 0.95,
+   "category": "jurisdiction"
+  },
+  {
+   "probs": [
+    0.12738790915790157,
+    0.0011542061838396148,
+    0.039496271683797914,
+    0.06386927135368266,
+    0.16048380393777398,
+    0.2476816966311552,
+    0.24441450351890565,
+    0.03556365254414336,
+    0.07994868498880008
+   ],
+   "threshold": 0.95,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.0640490908286904,
+    0.0017711883582231364,
+    0.09433041134249229,
+    0.10736927778068131,
+    0.405331225844658,
+    0.023280366508760295,
+    0.17454555894201018,
+    0.12139543909611922,
+    0.00792744129836518
+   ],
+   "threshold": 0.95,
+   "category": "content_removal"
+  },
+  {
+   "probs": [
+    0.048957156787055416,
+    0.0724663696537607,
+    0.05738675491637678,
+    0.004811062410481268,
+    0.1700919590458115,
+    0.5310157127447601,
+    0.0005169680394424438,
+    0.105406007831096,
+    0.009348008571215718
+   ],
+   "threshold": 0.95,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.16172638793994965,
+    0.07934051891669176,
+    0.1426936396435063,
+    0.008081702945081997,
+    0.072000465401747,
+    0.3752406217352962,
+    0.12479352966277726,
+    0.006843598593911848,
+    0.029279535161038005
+   ],
+   "threshold": 0.95,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.006340625919511809,
+    0.20634502881766048,
+    0.011756437590430761,
+    3.505111509348144e-05,
+    0.14607813387526383,
+    0.014424478172439432,
+    0.036914903875743366,
+    0.4928132949350646,
+    0.08529204569879223
+   ],
+   "threshold": 0.95,
+   "category": "unilateral_termination"
+  },
+  {
+   "probs": [
+    0.007462018866807666,
+    0.24517420214843888,
+    0.046742635136972646,
+    0.41300516889248184,
+    0.0021129337126668487,
+    0.08180169444506814,
+    0.02160011939729579,
+    0.17935671335278178,
+    0.002744514047486553
+   ],
+   "threshold": 0.95,
+   "category": "arbitration"
+  },
+  {
+   "probs": [
+    0.04421327049700762,
+    0.0002695117007865134,
+    0.2008699197614059,
+    0.025012422803335682,
+    0.17065099104568687,
+    0.18364187623445213,
+    0.08971638723217293,
+    0.16952332191975972,
+    0.11610229880539256
+   ],
+   "threshold": 0.95,
+   "category": "unilateral_change"
+  },
+  {
+   "probs": [
+    0.047102145542361744,
+    0.010615486250471328,
+    0.002333015513854687,
+    0.027083619780458215,
+    0.28170354727796876,
+    0.09189625000545727,
+    0.15952839362039758,
+    0.08759420359825774,
+    0.2921433384107726
+   ],
+   "threshold": 0.95,
+   "category": "jurisdiction"
+  },
+  {
+   "probs": [
+    0.3931556860879698,
+    0.03194201531317522,
+    0.01290361099365551,
+    0.007275656283646835,
+    0.0725990311126293,
+    0.18950127902240693,
+    0.10423760994936872,
+    0.09971643083336029,
+    0.08866868040378735
+   ],
+   "threshold": 0.95,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.06876964426406224,
+    0.020879684462387624,
+    0.1419218446452447,
+    0.009702323739245709,
+    0.12781154699622246,
+    0.29254056008558205,
+    0.006189608043047486,
+    0.29764716561484994,
+    0.03453762214935789
+   ],
+   "threshold": 0.95,
+   "category": "unilateral_termination"
+  },
+  {
+   "probs": [
+    0.0885946622992957,
+    0.39631826254195,
+    0.0006401435959347659,
+    0.11937873501435381,
+    0.10563234470136115,
+    0.003802977349733971,
+    0.27397110214898696,
+    0.0015511721875956265,
+    0.010110600160787856
+   ],
+   "threshold": 0.95,
+   "category": "contract_by_using"
+  },
+  {
+   "probs": [
+    0.30586982703269133,
+    0.060532521402728946,
+    0.02929740506474576,
+    0.12989291148863827,
+    0.04817273070000436,
+    0.195889949862181,
+    0.057223473626884576,
+    0.13804987615563774,
+    0.03507130466648818
+   ],
+   "threshold": 0.95,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.027153912666496777,
+    0.010115615420671648,
+    0.3586618908404461,
+    0.08038751974622262,
+    0.09840456854967068,
+    0.2165307633987276,
+    0.018333380116799882,
+    0.032074099194633034,
+    0.1583382500663317
+   ],
+   "threshold": 0.95,
+   "category": "unilateral_change"
+  },
+  {
+   "probs": [
+    0.33730972283203403,
+    0.014123756902046106,
+    0.1415999570629132,
+    7.928607431254112e-05,
+    0.31913647381001325,
+    0.044140898656315763,
+    0.0986217321657437,
+    0.02830070379899188,
+    0.016687468697629618
+   ],
+   "threshold": 0.95,
+   "category": "limitation_of_liability"
+  },
+  {
+   "probs": [
+    0.20920240207877497,
+    0.025207144421849192,
+    0.09226910011019257,
+    0.005489813580081927,
+    0.16537296824677344,
+    0.4295258644267983,
+    0.0417347645949667,
+    0.013513241283215776,
+    0.017684701257346988
+   ],
+   "threshold": 0.95,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.029860272563779162,
+    0.13398415616913856,
+    0.6703021067260581,
+    0.009149484287431214,
+    0.002381842745166837,
+    0.011196728606947462,
+    0.00020840318867165408,
+    0.09128083731714011,
+    0.05163616839566708
+   ],
+   "threshold": 0.95,
+   "category": "unilateral_change"
+  },
+  {
+   "probs": [
+    0.029255105901996335,
+    0.06410182311432244,
+    0.1442178592301726,
+    0.17701004116139904,
+    0.12797416931439892,
+    0.33044923489487354,
+    0.006279719159734399,
+    0.038439921305634485,
+    0.08227212591746814
+   ],
+   "threshold": 0.95,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.08950388518921033,
+    0.09968995807127581,
+    0.04261375602743106,
+    0.2656962804537357,
+    0.20067333677286434,
+    0.1498034643428486,
+    0.014161077778638606,
+    0.060641812604640105,
+    0.07721642875935564
+   ],
+   "threshold": 0.95,
+   "category": "arbitration"
+  },
+  {
+   "probs": [
+    0.04805203803314957,
+    0.0179842786870895,
+    0.24045619631128912,
+    0.16444430724589926,
+    0.009064544038399819,
+    0.042655607516353215,
+    0.24347531338920364,
+    0.011520699340580764,
+    0.2223470154380351
+   ],
+   "threshold": 0.95,
+   "category": "unilateral_change"
+  },
+  {
+   "probs": [
+    0.2186614548698343,
+    0.018100624478643596,
+    0.060192870061632486,
+    0.11141685011155526,
+    0.010390941568714873,
+    0.041986121120802786,
+    0.06604555059361354,
+    0.008874601317825307,
+    0.4643309858773778
+   ],
+   "threshold": 0.95,
+   "category": "jurisdiction"
+  },
+  {
+   "probs": [
+    0.00011793105814809386,
+    0.21478232660808383,
+    0.006819677261187672,
+    0.1792320032517342,
+    0.07934495705350125,
+    0.2358269981286292,
+    0.2815945852471201,
+    0.0012467384823503778,
+    0.0010347829092451758
+   ],
+   "threshold": 0.95,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.01247357782692669,
+    0.23048660127093365,
+    0.015522376466387804,
+    0.05824449066823683,
+    0.0019665210557373116,
+    0.3330271633179895,
+    0.013095638467155293,
+    0.31584683970859423,
+    0.019336791218038614
+   ],
+   "threshold": 0.95,
+   "category": "choice_of_law"
+  },
+  {
+   "probs": [
+    0.1285782996792413,
+    0.12464436072818648,
+    0.0001433959705180989,
+    0.1076763558608497,
+    0.026807490745915256,
+    0.027028853243627214,
+    0.2508973107976293,
+    0.1476807915954286,
+    0.18654314137860398
+   ],
+   "threshold": 0.95,
+   "category": "jurisdiction"
+  },
+  {
+   "probs": [
+    0.12737770304948276,
+    0.517618060560397,
+    0.0031039710153846576,
+    0.08287590589750209,
+    0.030750359515825228,
+    0.1574524108626098,
+    0.003656045272439496,
+    0.03234504614246468,
+    0.04482049768389427
+   ],
+   "threshold": 0.95,
+   "category": "contract_by_using"
+  },
+  {
+   "probs": [
+    0.04422153409786508,
+    0.023891912036478623,
+    0.02341667020023186,
+    0.11365376103323688,
+    0.0441592516097674,
+    0.005409644069209941,
+    0.7341305073135185,
+    0.0020762888878415675,
+    0.009040430751850202
+   ],
+   "threshold": 0.95,
+   "category": "arbitration"
+  },
+  {
+   "probs": [
+    0.09013145841346651,
+    0.13366697008745418,
+    0.0799101917224164,
+    0.011976797727464336,
+    0.1330204642578097,
+    0.0027028563893148312,
+    0.22460858674334366,
+    0.11177343689870618,
+    0.2122092377600242
+   ],
+   "threshold": 0.95,
+   "category": "jurisdiction"
+  },
+  {
+   "probs": [
+    0.02879847756511664,
+    0.2729304496892393,
+    0.49937585987317,
+    0.03184943526017923,
+    0.00014687739028855864,
+    0.019311367092808295,
+    0.00010540112953556016,
+    0.042626957738103786,
+    0.10485517426155848
+   ],
+   "threshold": 0.95,
+   "category": "unilateral_change"
+  },
+  {
+   "probs": [
+    0.061842920917156076,
+    0.04452054107905111,
+    0.0034866851181035424,
+    0.30701045686841766,
+    0.022325416648104043,
+    0.09631958220208368,
+    0.018788262294612057,
+    0.37375406349229756,
+    0.07195207138017433
+   ],
+   "threshold": 0.95,
+   "category": "unilateral_termination"
   }
  ]
 }

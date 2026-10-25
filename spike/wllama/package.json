@@ -1,0 +1,2 @@
+{ "name": "spike-wllama", "private": true, "type": "module",
+  "dependencies": { "@wllama/wllama": "3.8.1", "playwright-core": "^1.50.0" } }

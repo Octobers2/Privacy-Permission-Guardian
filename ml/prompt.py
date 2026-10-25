@@ -28,6 +28,26 @@ def letter_prompt(passage: str) -> str:
     return f"Classify this terms-of-service passage.\n{opts}\n\nPassage: {passage.strip()}\nAnswer:"
 
 
+# ---- letters-v2: each option carries its definition, and the sentence before the passage is shown as context ----
+# Same answer letters and class order as v1, so the code that reads the logits is unchanged. With no previous sentence
+# the context line reads "(none)"; training drops the context at random so the model also works without it.
+LETTERS_V2 = "letters-v2"
+PREV_MAX_CHARS = 400
+NO_PREVIOUS = "(none)"
+
+def letter_prompt_v2(passage: str, previous: str | None = None) -> str:
+    opts = "\n".join(f"{L}) {n.replace('_', ' ')}: {DEFINITIONS[n]}" for L, n in zip(LETTERS, NAMES))
+    prev = " ".join((previous or "").split())[:PREV_MAX_CHARS] or NO_PREVIOUS
+    return ("Classify this terms-of-service passage. The previous sentence is only context: classify the passage.\n"
+            f"{opts}\n\nPrevious sentence: {prev}\nPassage: {passage.strip()}\nAnswer:")
+
+def tos_prompt(version: str, passage: str, previous: str | None = None) -> str:
+    """The ToS prompt of either version (v1 ignores `previous`)."""
+    if version == PROMPT_VERSION: return letter_prompt(passage)
+    if version == LETTERS_V2: return letter_prompt_v2(passage, previous)
+    raise ValueError(f"unknown prompt version {version!r}")
+
+
 # ---- PII question: does this page show private information about the person using it? (2 options: A personal, B public) ----
 PII_PROMPT_VERSION = "pii-v1"
 

@@ -66,7 +66,8 @@ export interface Job {
 
 export interface EngineLike {
   model: Pick<ModelEntry, 'id' | 'version' | 'tasks'>;
-  classify(passage: string): Promise<{ probs: number[]; category: string }>;
+  /** `previous`: the sentence before, as context for models that use it. `category` is the engine's flag decision. */
+  classify(passage: string, previous?: string | null): Promise<{ probs: number[]; category: string }>;
   askPersonal(url: string, text: string): Promise<{ personal: boolean; probability: number }>;
 }
 
@@ -127,7 +128,7 @@ export async function analyse(job: Job, deps: Deps): Promise<AnalysisState> {
       const similar = flagged.length ? await similarForResult(server, cached.id, deps.fetch) : null;
       const result = await finish(job, deps, working, {
         policyUrl: job.policyUrl, domain, textHash, model: cached.model, analyzedAt: cached.createdAt, source: 'community',
-        passageCount: cached.passageCount, flagged, money: cached.money, truncated: job.truncated, sharing: { status: 'already-public' }, personal,
+        passageCount: cached.passageCount, flagged, money: cached.money, promptVersion: cached.promptVersion, truncated: job.truncated, sharing: { status: 'already-public' }, personal,
         ...(similar ? { similar } : {}),
       });
       return { status: 'ready', domain, result };
@@ -142,12 +143,14 @@ export async function analyse(job: Job, deps: Deps): Promise<AnalysisState> {
     }
     const flagged: Passage[] = [];
     let lastEmit = 0;
+    let previous: string | null = null;
     for (const [i, sentence] of sentences.entries()) {
       if (!deps.isCurrent()) throw new Superseded();
-      const { probs } = await resilient(deps, held, (e) => e.classify(normalizeForModel(sentence)));
-      const best = probs.indexOf(Math.max(...probs));
-      if (best !== OTHER_INDEX) {
-        flagged.push({ index: i, text: sentence, category: TOS_CATEGORIES[best] as UnfairCategory, probs });
+      const normalized = normalizeForModel(sentence);
+      const { probs, category } = await resilient(deps, held, (e) => e.classify(normalized, previous));
+      previous = normalized;
+      if (category !== TOS_CATEGORIES[OTHER_INDEX]) {
+        flagged.push({ index: i, text: sentence, category: category as UnfairCategory, probs });
       }
       // Progress is throttled: the popup does not need 1,500 updates, and every one is a message.
       if (deps.now() - lastEmit > 300 || i === sentences.length - 1) {
@@ -170,6 +173,8 @@ export async function analyse(job: Job, deps: Deps): Promise<AnalysisState> {
     const model = { id: held.engine.model.id, version: held.engine.model.version };
     const base = {
       policyUrl: job.policyUrl, domain, textHash, model, analyzedAt: new Date(deps.now()).toISOString(), source: 'this-device' as const,
+      // the prompt this model was trained to answer: the upload says which one produced it (share.ts)
+      promptVersion: engine.model.tasks.tos.promptVersion,
       passageCount: sentences.length, flagged, money, truncated: job.truncated || sentences.length >= MAX_SENTENCES,
       personal: personalReasons ? { reasons: personalReasons } : null,
     };

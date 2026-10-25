@@ -1,14 +1,23 @@
 """Load Qwen3.5 backbone (+ optional Kev LoRA) and score passages by the logits of the 9 letter tokens."""
-import glob, torch
+import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from prompt import LETTERS, letter_prompt, pii_prompt
 
 BASE = "Qwen/Qwen3.5-4B-Base"
-KEV = glob.glob("/ironwolf/ppg-cache/hf/hub/models--jaredpalmer--kev-4b/snapshots/*")[0]
+_KEV_DEFAULT = object()          # "use Kev's adapter"; resolved (and downloaded if needed) only when a model is built
+
+def __getattr__(name):           # letter.KEV, looked up lazily so importing this module never needs the adapter
+    if name == "KEV":
+        from paths import kev_adapter
+        return kev_adapter()
+    raise AttributeError(name)
 
 class LetterModel(torch.nn.Module):
-    def __init__(self, adapter: str | None = KEV, trainable=False, base: str = BASE, lora_r: int | None = None):
+    def __init__(self, adapter: str | None = _KEV_DEFAULT, trainable=False, base: str = BASE, lora_r: int | None = None):
         super().__init__()
+        if adapter is _KEV_DEFAULT:
+            from paths import kev_adapter
+            adapter = kev_adapter()
         self.tok = AutoTokenizer.from_pretrained(base)
         lm = AutoModelForCausalLM.from_pretrained(base, dtype=torch.bfloat16, device_map={"": 0})
         self.backbone = lm.model
@@ -29,13 +38,13 @@ class LetterModel(torch.nn.Module):
                 if "lora_" in n: p.requires_grad_(True)
 
     def encode(self, texts, max_len=1024, builder=letter_prompt):
-        enc = self.tok([builder(t) for t in texts], return_tensors="pt", padding=True, truncation=False)
-        # right-pad, truncate from the passage side only if absurdly long (prompt tail "Answer:" must survive)
-        ids, mask = enc["input_ids"], enc["attention_mask"]
-        if ids.shape[1] > max_len:
-            keep = torch.cat([ids[:, : max_len - 4], ids[:, -4:]], 1) if (mask.sum(1) == ids.shape[1]).all() else None
-            if keep is None: raise ValueError("overlong prompt in mixed batch; sort/limit lengths")
-            ids, mask = keep, torch.ones_like(keep)
+        """Right-padded token ids and mask. A prompt longer than max_len tokens (a run-on sentence from a real page) is cut
+        in the passage, keeping its first max_len-4 tokens and its last 4 (the "\\nAnswer:" tail must survive), row by row,
+        so one long prompt never stops a batch. Prompts within max_len are unchanged."""
+        rows = [r if len(r) <= max_len else r[: max_len - 4] + r[-4:] for r in self.tok([builder(t) for t in texts], truncation=False)["input_ids"]]
+        width = max(len(r) for r in rows); pad = self.tok.pad_token_id if self.tok.pad_token_id is not None else self.tok.eos_token_id
+        ids = torch.tensor([r + [pad] * (width - len(r)) for r in rows])
+        mask = torch.tensor([[1] * len(r) + [0] * (width - len(r)) for r in rows])
         return ids, mask
 
     def logits(self, ids, mask):
@@ -57,3 +66,13 @@ def score(model: LetterModel, texts, bs=16, builder=letter_prompt, n=9):
             lg = model.logits(ids, mask)
         for i, row in zip(idx, lg[:, :n].cpu()): out[i] = row
     return torch.stack(out)                                  # raw logits (n, 9)
+
+
+def tos_prompts(rows, version="letters-v1", context=True):
+    """ToS prompts for data rows ({"text", "prev"?}). context=False blanks the previous sentence (ablation)."""
+    from prompt import tos_prompt
+    return [tos_prompt(version, r["text"], r.get("prev") if context else None) for r in rows]
+
+def score_prompts(model, prompts, bs=16, n=9):
+    """Like score(), for prompts that are already built."""
+    return score(model, prompts, bs=bs, builder=lambda p: p, n=n)

@@ -10,3 +10,11 @@ def fit_temperature(logits, y):
 
 def apply_other_bias(logits, other_id, b):
     z = logits.copy(); z[:, other_id] += b; return z
+
+def decide(probs, other_id, threshold=None):
+    """Predicted class per row. No threshold: argmax. With one: 'other' when P(other) >= threshold, otherwise the most
+    likely of the unfair classes. Mirrors decideCategory() in packages/shared/src/classifier-prompt.ts."""
+    probs = np.asarray(probs)
+    if threshold is None: return probs.argmax(1)
+    unfair = probs.copy(); unfair[:, other_id] = -np.inf
+    return np.where(probs[:, other_id] >= threshold, other_id, unfair.argmax(1))
