@@ -112,8 +112,19 @@ def evaluate():
         ev.update(pii_val_precision=float(tp / max(tp + fp, 1)), pii_val_recall=float(tp / max(tp + fn, 1)), pii_val_fp=int(fp), pii_val_fn=int(fn))
     return ev
 
-step, t0, hist, best = 0, time.time(), [], None
-for ep in range(a.epochs):
+step, t0, hist, best, start_ep = 0, time.time(), [], None, 0
+STATE = OUT / "resume.pt"
+if STATE.exists():
+    # carry on after the last finished epoch: its LoRA weights, optimiser, schedule and random state
+    from peft import set_peft_model_state_dict
+    from safetensors.torch import load_file
+    st = torch.load(STATE, weights_only=False)
+    set_peft_model_state_dict(m.backbone, load_file(str(OUT / f"ep{st['epoch']}" / "adapter_model.safetensors"), device="cpu"))
+    opt.load_state_dict(st["opt"]); sched.load_state_dict(st["sched"])
+    random.setstate(st["py_rng"]); np.random.set_state(st["np_rng"]); torch.set_rng_state(st["torch_rng"])
+    step, hist, best, start_ep = st["step"], st["hist"], st["best"], st["epoch"]
+    print(f"resuming after epoch {start_ep} (step {step}/{total})", flush=True)
+for ep in range(start_ep, a.epochs):
     items = epoch_items(); m.train()
     for s in range(0, len(items), a.micro * a.accum):
         chunk = items[s : s + a.micro * a.accum]; tot = 0.0
@@ -128,6 +139,9 @@ for ep in range(a.epochs):
     ok = not pii_va or ev["pii_val_recall"] >= a.pii_min_recall
     if ok and (best is None or ev["tos_val_macro_f1"] > best["tos_val_macro_f1"]):
         best = ev; m.backbone.save_pretrained(OUT / "best"); (OUT / "best.json").write_text(json.dumps(ev))
+    torch.save(dict(epoch=ep + 1, step=step, hist=hist, best=best, opt=opt.state_dict(), sched=sched.state_dict(),
+                    py_rng=random.getstate(), np_rng=np.random.get_state(), torch_rng=torch.get_rng_state()), STATE)
     if a.max_steps and step >= a.max_steps: print("max_steps reached"); break
-(OUT / "history.json").write_text(json.dumps(hist, indent=1))
+(OUT / "history.json").write_text(json.dumps(hist, indent=1))       # written last: run_plan.py treats it as "run finished"
+STATE.unlink(missing_ok=True)
 print("done; best:", json.dumps(best) if best else f"no epoch reached PII val recall {a.pii_min_recall}; pick from ep*/ by hand")

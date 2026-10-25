@@ -38,13 +38,13 @@ class LetterModel(torch.nn.Module):
                 if "lora_" in n: p.requires_grad_(True)
 
     def encode(self, texts, max_len=1024, builder=letter_prompt):
-        enc = self.tok([builder(t) for t in texts], return_tensors="pt", padding=True, truncation=False)
-        # right-pad, truncate from the passage side only if absurdly long (prompt tail "Answer:" must survive)
-        ids, mask = enc["input_ids"], enc["attention_mask"]
-        if ids.shape[1] > max_len:
-            keep = torch.cat([ids[:, : max_len - 4], ids[:, -4:]], 1) if (mask.sum(1) == ids.shape[1]).all() else None
-            if keep is None: raise ValueError("overlong prompt in mixed batch; sort/limit lengths")
-            ids, mask = keep, torch.ones_like(keep)
+        """Right-padded token ids and mask. A prompt longer than max_len tokens (a run-on sentence from a real page) is cut
+        in the passage, keeping its first max_len-4 tokens and its last 4 (the "\\nAnswer:" tail must survive), row by row,
+        so one long prompt never stops a batch. Prompts within max_len are unchanged."""
+        rows = [r if len(r) <= max_len else r[: max_len - 4] + r[-4:] for r in self.tok([builder(t) for t in texts], truncation=False)["input_ids"]]
+        width = max(len(r) for r in rows); pad = self.tok.pad_token_id if self.tok.pad_token_id is not None else self.tok.eos_token_id
+        ids = torch.tensor([r + [pad] * (width - len(r)) for r in rows])
+        mask = torch.tensor([[1] * len(r) + [0] * (width - len(r)) for r in rows])
         return ids, mask
 
     def logits(self, ids, mask):

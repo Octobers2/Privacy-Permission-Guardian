@@ -1,5 +1,6 @@
 """Runs the whole accuracy plan (docs/ml.md, "Accuracy work") on one GPU, in order, and can be stopped and restarted:
-a finished step (its report or checkpoint exists) is skipped next time.
+a finished step (its report or checkpoint exists) is skipped next time, and an unfinished training run carries on after
+its last finished epoch (train_joint.py saves its state at the end of each epoch).
 
   1    j4b-v1   4B, both questions trained together, old prompt         -> compared with the shipped 4B
   5+6  j4b-v2   4B, both together, prompt with definitions + context    -> compared with j4b-v1
@@ -54,7 +55,7 @@ def compare(tag, a_rep, b_rep):
     print(out.stdout); notes.append(f"**{tag}** ({a_rep} → {b_rep})\n```\n{out.stdout.strip()}\n```")
 
 def train(name, *args):
-    if done(RUNS / name / "best.json"): print(f"--- {name}: already trained, skipping"); return
+    if done(RUNS / name / "history.json"): print(f"--- {name}: already trained, skipping"); return   # best.json appears after epoch 1
     run(f"train-{name}", [PY, "train_joint.py", "--name", name, *args, *a.extra.split()])
 def evaluate(name, base, prompt, *extra, report=None):
     report = report or name
