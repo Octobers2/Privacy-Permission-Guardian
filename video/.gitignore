@@ -1,0 +1,6 @@
+voices/
+audio/
+footage/
+out/
+tts/.venv/
+timeline.json

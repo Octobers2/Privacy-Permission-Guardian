@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>s04 Real sites and why not a chatbot</title><link rel="stylesheet" href="lib.css"></head>
+<body><div class="stage"></div>
+<script src="../footage/marks.js"></script><script src="lib.js"></script>
+<script>
+scene((C, D, E) => {
+  const S = '.stage';
+  sweep(0, 'up', '#e1251b', 240);
+  add(S, '<div class="block red"></div>', { left: '0px', top: '0px', width: '40px', height: '1080px' });
+
+  // ---- 0: a real terms page, read live; the stopwatch shows real time while the footage runs faster
+  const clip = 'real-github';
+  const readFrom = M(clip, 'read-clicked'), readTo = M(clip, 'ready');
+  const p0 = panel(0, C(1) - 100);
+  const pop = popupFrame(p0, { left: 1160, top: 40, height: 1000 });
+  const start = C(0) - 40, end = F(C, 0, 0.95);
+  const seg = segment(pop.screen, clip, readFrom - 1.0, readTo + 2, start, end, { maxSpeed: 8 });
+  say(p0, 'A REAL TERMS PAGE.<br>READ ON THIS LAPTOP.', C(0), end, { style: 'band', left: 80, top: 230, width: 880, size: 76, tag: 'LIVE' });
+  const watch = add(p0, '<div class="abs black red" style="font-size:210px;padding:10px 34px;line-height:1">0.0 s</div>', { left: '80px', top: '560px' });
+  snap(watch, C(0) + 500, 'left', 240);
+  onSeek((t) => {
+    const clipTime = (readFrom - 1.0) + Math.max(0, t - start) / 1000 * seg.speed;
+    watch.textContent = Math.min(Math.max(0, clipTime - readFrom), readTo - readFrom).toFixed(1) + ' s';
+  });
+  snap(add(p0, `<div class="abs small">358 sentences · stopwatch: real time · video sped up ×${seg.speed.toFixed(1).replace('.0', '')}</div>`, { left: '80px', top: '840px' }), C(0) + 800, 'up', 200, 50);
+
+  // ---- 1: ours against a chatbot
+  const p1 = panel(C(1) - 100, null);
+  p1.style.background = '#111';
+  sweep(C(1) - 100, 'right', '#fff', 240);
+  say(p1, 'PASTE IT INTO A CHATBOT?', C(1), F(C, 1, 0.5), { style: 'type', left: 80, top: 60, width: 1760, size: 92 });
+  const left = browser(p1, { left: 80, top: 260, width: 880, address: 'Gemini · recorded by the team', aspect: 16 / 9 });
+  const right = popupFrame(p1, { left: 1300, top: 200, height: 820 });
+  snap(left.frame, C(1) + 250, 'left', 260, 60);
+  snap(right.frame, C(1) + 400, 'right', 260, 60);
+  footage(left.screen, '../footage/gemini.mp4', { at: C(1) + 250, from: 0 });
+  segment(right.screen, 'popup-read', 'ready', 'in-short', C(1) + 400, D, { maxSpeed: 1 });
+  snap(add(p1, '<div class="abs black red" style="font-size:44px;padding:8px 16px">SENT TO A SERVER</div>', { left: '80px', top: '800px' }), F(C, 1, 0.3), 'left', 220, 80);
+  snap(add(p1, '<div class="abs black" style="font-size:34px;line-height:1.05;padding:10px 14px;color:#111;background:#fff">STAYS IN<br>YOUR BROWSER</div>', { left: '940px', top: '620px' }), F(C, 1, 0.6), 'right', 220, 80);
+  snap(add(p1, '<div class="abs cap-s" style="width:860px">The answer depends on how you ask.</div>', { left: '80px', top: '890px' }), F(C, 1, 0.45), 'up', 200, 60);
+});
+</script></body></html>

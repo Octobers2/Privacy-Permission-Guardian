@@ -1,0 +1,52 @@
+/*
+ * The video's visual system, taken from the team's poster: matte black, white and one red. No gradients, no soft shadows, no
+ * rounded corners beyond a circle. Hard rectangles on a grid; heavy grotesque type; things snap, they do not fade.
+ */
+@font-face { font-family: 'Archivo Black'; src: url('../assets/fonts/archivo-black-latin-400-normal.woff2') format('woff2'); font-weight: 400; }
+@font-face { font-family: 'Archivo'; src: url('../assets/fonts/archivo-latin-400-normal.woff2') format('woff2'); font-weight: 400; }
+@font-face { font-family: 'Archivo'; src: url('../assets/fonts/archivo-latin-700-normal.woff2') format('woff2'); font-weight: 700; }
+@font-face { font-family: 'Archivo'; src: url('../assets/fonts/archivo-latin-900-normal.woff2') format('woff2'); font-weight: 900; }
+
+:root { --ink: #111111; --paper: #ffffff; --red: #e1251b; --u: 60px; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--ink); color: var(--paper); font-family: 'Archivo', 'Helvetica Neue', Arial, sans-serif; }
+.stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: var(--ink); }
+.paper { background: var(--paper); color: var(--ink); }
+.red { background: var(--red); color: var(--paper); }
+.abs { position: absolute; }
+
+/* type */
+.black { font-family: 'Archivo Black', 'Archivo', Impact, sans-serif; font-weight: 400; text-transform: uppercase; letter-spacing: -0.01em; line-height: 0.88; }
+.huge { font-size: 300px; }
+.big { font-size: 190px; }
+.mid { font-size: 110px; }
+.cap { font-size: 64px; font-weight: 900; line-height: 1.02; letter-spacing: -0.015em; }
+.cap-s { font-size: 40px; font-weight: 700; line-height: 1.15; }
+.small { font-size: 28px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.on-red { color: var(--paper); }
+.txt-red { color: var(--red); }
+
+/* shapes */
+.block { position: absolute; }
+.line { position: absolute; background: currentColor; }
+.circle { position: absolute; border-radius: 50%; }
+
+/* the grid, for alignment while building (add ?grid=1) */
+.gridlines { position: absolute; inset: 0; pointer-events: none; z-index: 99;
+  background-image: linear-gradient(to right, rgba(225,37,27,.35) 1px, transparent 1px), linear-gradient(to bottom, rgba(225,37,27,.35) 1px, transparent 1px);
+  background-size: 120px 120px; }
+
+/* a flat browser frame around real footage: white border, black bar with three squares */
+.frame { position: absolute; background: var(--paper); padding: 0 8px 8px; }
+.frame .bar { height: 44px; background: var(--ink); margin: 0 -8px 8px; display: flex; align-items: center; gap: 10px; padding: 0 16px; }
+.frame .bar i { width: 14px; height: 14px; background: var(--paper); display: block; }
+.frame .bar i:first-child { background: var(--red); }
+.frame .bar span { margin-left: 16px; color: var(--paper); font: 700 20px 'Archivo', sans-serif; letter-spacing: 0.02em; opacity: 0.9; }
+.frame .screen { position: relative; overflow: hidden; background: #fff; }
+.frame .screen video, .frame .screen img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top left; display: block; }
+
+/* shown instead of footage that has not been captured yet */
+.slate { position: absolute; inset: 0; display: grid; place-items: center; background: var(--ink); color: var(--paper); font: 700 26px 'Archivo', sans-serif; text-align: center; padding: 30px; }
+
+/* a visible pointer for screen recordings that were made without one */
+.cursor { position: absolute; width: 38px; height: 38px; z-index: 50; }

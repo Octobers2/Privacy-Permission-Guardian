@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>s03 Reading the terms</title><link rel="stylesheet" href="lib.css"></head>
+<body><div class="stage"></div>
+<script src="../footage/marks.js"></script><script src="lib.js"></script>
+<script>
+scene((C, D, E) => {
+  const S = '.stage';
+  sweep(0, 'down', '#e1251b', 260);
+  add(S, '<div class="block red"></div>', { left: '0px', top: '0px', width: '40px', height: '1080px' });
+
+  // ---- 0: setup, with the promise outlined
+  const b1 = browser(S, { left: 600, top: 130, width: 1240, address: 'Setup · Privacy & Permission Guardian' });
+  between(b1.frame, C(0) - 40, C(1) - 100);
+  snap(b1.frame, C(0) - 40, 'right', 260, 40);
+  segment(b1.screen, 'setup', 0.3, M('setup', 'download-done'), C(0) - 40, C(1) - 100, { maxSpeed: 2.2 });
+  const hi = add(b1.screen, '<div class="abs"></div>', { left: '36%', top: '40.5%', width: '52%', height: '11.5%', border: '6px solid #e1251b' });
+  between(hi, C(0) + 700, C(1) - 300);
+  snap(hi, C(0) + 700, 'pop', 200);
+  say(S, 'AN OFFLINE<br>MODEL.<br>IN YOUR<br>BROWSER.', C(0), C(1) - 100, { style: 'band', left: 80, top: 380, width: 440, size: 64, tag: 'SETUP' });
+
+  // ---- 1: a site, which stays on the left while the popup works on the right
+  const b2 = browser(S, { left: 80, top: 130, width: 960, address: 'www.pomme-demo.com · a fictional site' });
+  between(b2.frame, C(1) - 40, C(7) - 100);
+  snap(b2.frame, C(1) - 40, 'up', 260, 60);
+  segment(b2.screen, 'pomme', 0.3, 'terms-link', C(1) - 40, C(7) - 100, { maxSpeed: 1 });
+  say(S, 'OPEN A SITE. PRESS THE BUTTON.', C(1), C(2), { style: 'stamp', left: 80, top: 830, width: 960, size: 62, tag: 'POMME (FICTIONAL)' });
+
+  // ---- 2-6: the popup
+  const pop = popupFrame(S, { left: 1160, top: 40, height: 1000 });
+  between(pop.frame, C(2) - 40, C(7) - 100);
+  snap(pop.frame, C(2) - 40, 'right', 260, 50);
+  const parts = [
+    [2, 'idle', 'ready', 'EVERY TICK<br>IS ONE SENTENCE.', 'words'],
+    [3, 'ready', 'money-filtered', 'FIVE FAMILIES.', 'slide'],
+    [4, 'in-short', 'quotes', 'IN SHORT, WITH THE EXACT SENTENCE.', 'type'],
+    [5, 'quotes', 'similar-button', 'ARBITRATION. NO NOTICE. FEES.', 'band'],
+    [6, 'similar-button', M('popup-read', 'similar-open') + 2.5, 'SEEN ON OTHER SITES.', 'words'],
+  ];
+  parts.forEach(([i, from, to, text, style]) => {
+    const start = C(i) - 40, end = i === 6 ? C(7) - 100 : C(i + 1) - 40;
+    const { speed } = segment(pop.screen, 'popup-read', from, to, start, end, { maxSpeed: 3 });
+    if (i !== 2) say(S, text, C(i), i === 6 ? C(7) - 100 : C(i + 1), { style, left: 80, top: 830, width: 960, size: 62 });
+    else say(S, text, C(i), C(i + 1), { style: 'words', left: 80, top: 830, width: 960, size: 62 });
+    if (speed > 1.25) {
+      const sp = panel(start, end);
+      snap(add(sp, `<div class="abs small red" style="padding:6px 12px">SPED UP ×${speed.toFixed(1).replace('.0', '')}</div>`, { left: '80px', top: '1010px' }), start + 200, 'left', 160, 60);
+    }
+  });
+  callout(pop.screen, [3, 12, 94, 8], 'ONE TICK = ONE SENTENCE', F(C, 2, 0.5), C(3) - 100, { tab: 'bottom' });
+  callout(pop.screen, [3, 31, 94, 15], 'FIVE FAMILIES', C(3) + 200, C(3) + 3200, { tab: 'bottom' });
+  callout(pop.screen, [3, 49, 94, 30], 'IN SHORT', C(4) + 300, F(C, 4, 0.7), { tab: 'top' });
+  const money = panel(C(3) + 2600, C(4) - 100);
+  snap(add(money, '<div class="abs small red" style="padding:8px 14px">MONEY: FIXED PATTERNS, NOT THE MODEL</div>', { left: '560px', top: '1000px' }), C(3) + 2600, 'left', 200, 60);
+
+  // ---- 7: how good it is, and what it is not
+  const p7 = panel(C(7) - 100, null);
+  p7.style.background = '#111';
+  sweep(C(7) - 100, 'left', '#e1251b', 240);
+  const big = add(p7, '<div class="abs black" style="font-size:300px;line-height:.85">0</div>', { left: '120px', top: '120px' });
+  snap(big, C(7) + 300, 'left', 240);
+  count(C(7) + 400, 1100, 0, 2048, (v) => (big.textContent = v.toLocaleString('en-US')));
+  snap(add(p7, '<div class="abs cap">clauses it never saw while learning.</div>', { left: '120px', top: '430px', width: '1200px' }), C(7) + 900, 'right', 240, 80);
+  const f1 = add(p7, '<div class="abs black txt-red" style="font-size:240px;line-height:.85">0.00</div>', { left: '120px', top: '600px' });
+  snap(f1, F(C, 7, 0.35), 'left', 240);
+  count(F(C, 7, 0.35) + 100, 900, 0, 77, (v) => (f1.textContent = '0.' + String(v).padStart(2, '0')));
+  snap(add(p7, '<div class="abs cap-s" style="width:900px">macro-F1 on that test (the 4B model: 0.76).<br>Eight kinds of clause, equally weighted.</div>', { left: '820px', top: '650px' }), F(C, 7, 0.4), 'right', 240, 80);
+  const nog = add(p7, '<div class="block red"></div>', { left: '120px', top: '900px', width: '1680px', height: '110px' });
+  wipe(nog, F(C, 7, 0.62), 'left', 280);
+  say(p7, 'A CLEAN RESULT IS NEVER A GUARANTEE.', F(C, 7, 0.62) + 200, null, { style: 'stamp', left: 150, top: 925, width: 1620, size: 70 });
+});
+</script></body></html>

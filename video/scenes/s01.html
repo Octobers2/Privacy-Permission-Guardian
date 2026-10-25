@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>s01 Title</title><link rel="stylesheet" href="lib.css"></head>
+<body><div class="stage"></div>
+<script src="lib.js"></script>
+<script>
+scene((C, D) => {
+  const S = '.stage';
+  // a white column on the left third, a red block that locks behind the last word
+  const white = add(S, '<div class="block paper"></div>', { left: '0px', top: '0px', width: '120px', height: '1080px' });
+  snap(white, 0, 'down', 300);
+
+  const words = [['PRIVACY', 0], ['&', 1], ['PERMISSION', 2], ['GUARDIAN', 3]];
+  const rows = [150, 340, 480, 690];
+  const sizes = [190, 190, 190, 250];
+  const dirs = ['left', 'right', 'left', 'up'];
+  const red = add(S, '<div class="block red"></div>', { left: '240px', top: '690px', width: '1560px', height: '250px' });
+  wipe(red, 1700, 'left', 360);
+  words.forEach(([w], i) => {
+    const node = add(S, `<div class="abs black">${w}</div>`, { left: '260px', top: rows[i] + 'px', fontSize: sizes[i] + 'px', color: i === 3 ? '#fff' : (i === 1 ? '#e1251b' : '#fff'), zIndex: 2 });
+    snap(node, 500 + i * 380, dirs[i], 260, 160);
+  });
+
+  const line = add(S, '<div class="abs cap-s">A browser extension that reads the fine print, so you do not have to.</div>', { left: '260px', top: '985px', width: '1400px' });
+  wipe(line, C(1) - 400, 'left', 500);
+
+  // the document strip drawn as ticks, top right: a few tall red ones among short white ones
+  const strip = add(S, '<div class="abs"></div>', { left: '1200px', top: '120px', width: '600px', height: '300px' });
+  const flagged = new Set([4, 9, 13, 21, 26, 31]);
+  const ticks = [];
+  for (let i = 0; i < 36; i++) {
+    const tick = add(strip, '<div class="block"></div>', { left: i * 16.6 + 'px', bottom: '0', width: '8px', height: (flagged.has(i) ? 300 : 80) + 'px', background: flagged.has(i) ? '#e1251b' : '#fff', transformOrigin: 'bottom' });
+    snap(tick, 1900 + i * 45, 'down', 220, 110);
+    ticks.push(tick);
+  }
+  // the model reading: a head passes over the strip again and again, and every flagged clause jumps as it is reached
+  const head = add(strip, '<div class="block paper"></div>', { left: '0px', top: '-30px', width: '6px', height: '340px' });
+  const T0 = 4200, PERIOD = 3200;
+  onSeek((t) => {
+    const x = t < T0 ? -20 : (((t - T0) % PERIOD) / PERIOD) * 600;
+    head.style.left = x + 'px';
+    head.style.visibility = t < T0 ? 'hidden' : 'visible';
+    ticks.forEach((tick, i) => { const d = Math.abs(i * 16.6 - x); if (flagged.has(i) && t >= T0) tick.style.transform = d < 40 ? 'scaleY(1.12)' : 'none'; });
+  });
+});
+</script></body></html>

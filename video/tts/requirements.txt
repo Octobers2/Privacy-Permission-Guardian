@@ -1,0 +1,11 @@
+# Voice cloning for the narration: Chatterbox (MIT), run locally on the GPU. No audio leaves this computer.
+#
+#   uv venv video/tts/.venv --python 3.11
+#   uv pip install --python video/tts/.venv/bin/python --override video/tts/overrides.txt \
+#       --index-strategy unsafe-best-match --index-url https://download.pytorch.org/whl/cu128 \
+#       --extra-index-url https://pypi.org/simple -r video/tts/requirements.txt
+#
+# chatterbox-tts pins torch 2.6, which has no kernels for Blackwell GPUs (RTX 50 series); overrides.txt lifts the pin.
+chatterbox-tts
+torch
+torchaudio

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>s06 The loop</title><link rel="stylesheet" href="lib.css"></head>
+<body><div class="stage"></div>
+<script src="../footage/marks.js"></script><script src="lib.js"></script>
+<script>
+scene((C, D, E) => {
+  const S = '.stage';
+  sweep(0, 'right', '#e1251b', 240);
+  add(S, '<div class="block red"></div>', { left: '0px', top: '0px', width: '40px', height: '1080px' });
+
+  // ---- the loop as five blocks and arrows, built as the voice goes: read -> ask -> check -> database -> lookup -> back to read
+  const diagram = panel(0, null);
+  const ask = F(C, 0, 0.55);
+  const nodes = [
+    { text: 'READ<br>ON YOUR<br>COMPUTER', x: 80, y: 90, at: C(0) },
+    { text: 'CHECK FOR<br>PERSONAL<br>DATA', x: 80, y: 420, at: C(2) },
+    { text: 'SHARE THIS<br>RESULT?', x: 80, y: 750, at: ask, red: true },
+    { text: 'PUBLIC<br>DATABASE<br>30 DAYS', x: 420, y: 750, at: F(C, 3, 0.1) },
+    { text: 'LOOK UP<br>EVEN WITH<br>NO GPU', x: 420, y: 420, at: F(C, 3, 0.55) },
+  ];
+  nodes.forEach((n, i) => {
+    const box = add(diagram, `<div class="abs black ${n.red ? 'red' : 'paper'}" style="font-size:32px;line-height:1.02;display:grid;place-items:center;text-align:center;width:300px;height:230px;color:${n.red ? '#fff' : '#111'}">${n.text}</div>`, { left: n.x + 'px', top: n.y + 'px' });
+    snap(box, n.at, ['up', 'left', 'down', 'right', 'pop'][i], 240, 80);
+  });
+  const bar = (x, y, w, h, at, from) => { const a = add(diagram, '<div class="block" style="background:#e1251b"></div>', { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' }); wipe(a, at, from, 240); };
+  bar(220, 320, 20, 100, C(2) + 500, 'up');       // (read -> check: shown as the check is explained)
+  bar(220, 650, 20, 100, C(2) + 900, 'down');
+  bar(380, 850, 40, 20, F(C, 3, 0.1) + 200, 'left');
+  bar(560, 650, 20, 100, F(C, 3, 0.55) + 200, 'down');
+  bar(560, 200, 20, 220, C(4), 'down');
+  bar(380, 190, 200, 20, C(4) + 300, 'right');
+  snap(add(diagram, '<div class="abs small">THE NEXT VISITOR</div>', { left: '420px', top: '40px' }), C(4) + 300, 'left', 200, 60);
+  snap(add(diagram, '<div class="abs black txt-red" style="font-size:110px;line-height:1">0.6 s</div>', { left: '420px', top: '72px' }), C(4) + 500, 'pop', 240);
+
+  // a packet that travels the loop once the blocks are drawn: read -> check -> ask -> database -> lookup -> read
+  const path = [[230, 205], [230, 535], [230, 865], [570, 865], [570, 535], [570, 205], [230, 205]];
+  const packet = add(S, '<div class="block" style="background:#e1251b;width:30px;height:30px;border:4px solid #fff"></div>', { left: '0px', top: '0px', zIndex: 20 });
+  const lens = path.slice(1).map((p, i) => Math.hypot(p[0] - path[i][0], p[1] - path[i][1]));
+  const total = lens.reduce((a, b) => a + b, 0), LOOP = 5200, START = F(C, 3, 0.7);
+  onSeek((t) => {
+    packet.style.visibility = t < START ? 'hidden' : 'visible';
+    let d = (((t - START) % LOOP) / LOOP) * total, i = 0;
+    while (i < lens.length - 1 && d > lens[i]) { d -= lens[i]; i++; }
+    const a = path[i], b = path[i + 1], f = d / lens[i];
+    packet.style.left = a[0] + (b[0] - a[0]) * f - 15 + 'px';
+    packet.style.top = a[1] + (b[1] - a[1]) * f - 15 + 'px';
+  });
+
+  // ---- 0-2: the share question, held on while it is explained
+  const pop = popupFrame(S, { left: 880, top: 40, height: 900 });
+  between(pop.frame, ask, F(C, 3, 0.05));
+  snap(pop.frame, ask, 'right', 260, 50);
+  const hold = M('popup-share', 'offer') + 3.0;
+  const a0 = ask, a1 = a0 + Math.round((hold - M('popup-share', 'top')) * 1000);
+  footage(pop.screen, '../footage/popup-share.mp4', { at: a0, from: M('popup-share', 'top'), speed: 1, until: a1 });
+  footage(pop.screen, '../footage/popup-share.mp4', { at: a1, from: hold, speed: 0, until: C(2) - 100 });
+  footage(pop.screen, '../footage/popup-share.mp4', { at: C(2) - 100, from: hold, speed: 1, until: F(C, 3, 0.05) });
+  const hi = add(pop.screen, '<div class="abs"></div>', { left: '3%', top: '18.5%', width: '94%', height: '60%', border: '6px solid #e1251b' });
+  between(hi, C(1) + 400, C(2) - 150);
+  snap(hi, C(1) + 400, 'pop', 200);
+  say(S, 'SCANNING ≠ SHARING', C(1), C(2), { style: 'stamp', left: 880, top: 965, width: 1000, size: 54, color: '#e1251b' });
+
+  // ---- 3-4: public, on the query site, with the no-GPU mode named where it is said
+  const site = browser(S, { left: 820, top: 150, width: 1040, address: 'ppg server · /site/pomme-demo.com' });
+  between(site.frame, F(C, 3, 0.05), D);
+  snap(site.frame, F(C, 3, 0.05), 'right', 260, 40);
+  segment(site.screen, 'site-pomme', 'site', 'money', F(C, 3, 0.05), D, { maxSpeed: 1.2 });
+  const gpu = panel(F(C, 3, 0.55), C(4) - 100);
+  snap(add(gpu, '<div class="abs black red" style="font-size:44px;padding:10px 18px;line-height:1.05">SHARED RESULTS ONLY:<br>NOTHING READ HERE.<br>ONLY THE SITE’S NAME SENT.</div>', { left: '820px', top: '905px' }), F(C, 3, 0.55), 'left', 240, 80);
+});
+</script></body></html>

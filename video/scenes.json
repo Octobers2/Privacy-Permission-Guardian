@@ -1,0 +1,7 @@
+{
+  "leadMs": 600,
+  "lineGapMs": 380,
+  "tailMs": 1000,
+  "wordsPerSecond": 2.7,
+  "minSeconds": {}
+}

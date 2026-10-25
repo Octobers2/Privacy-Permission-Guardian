@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>s07 What comes next</title><link rel="stylesheet" href="lib.css"></head>
+<body><div class="stage"></div>
+<script src="lib.js"></script>
+<script>
+scene((C, D, E) => {
+  const S = '.stage';
+  const p0 = panel(0, C(1) - 100);
+  snap(add(p0, '<div class="abs black big">NEXT</div>', { left: '120px', top: '100px' }), C(0), 'left', 240);
+  const phone = add(p0, '<div class="abs" style="border:12px solid #fff"></div>', { left: '1280px', top: '120px', width: '260px', height: '520px' });
+  const browserBox = add(p0, '<div class="abs" style="border:12px solid #fff"></div>', { left: '780px', top: '200px', width: '440px', height: '340px' });
+  snap(browserBox, C(0) + 300, 'down', 240, 80);
+  snap(phone, C(0) + 600, 'down', 240, 80);
+  add(phone, '<div class="abs" style="left:100px;bottom:20px;width:40px;height:10px;background:#fff"></div>');
+  snap(add(p0, '<div class="abs black mid txt-red">MOBILE</div>', { left: '780px', top: '600px' }), C(0) + 900, 'up', 220, 60);
+  for (let i = 0; i < 7; i++) snap(add(p0, '<div class="abs paper"></div>', { left: 120 + (i % 2) * 24 + 'px', top: 900 - i * 62 + 'px', width: '300px', height: '50px' }), C(0) + 1200 + i * 150, 'left', 200, 80);
+  snap(add(p0, '<div class="abs black mid" style="font-size:84px">LONGER TERMS</div>', { left: '500px', top: '700px' }), C(0) + 1800, 'right', 240, 80);
+
+  // the end card
+  const p1 = panel(C(1) - 100, null);
+  const bg = add(p1, '<div class="block" style="background:#111"></div>', { left: '0px', top: '0px', width: '1920px', height: '1080px' });
+  wipe(bg, C(1) - 100, 'left', 260);
+  wipe(add(p1, '<div class="block red"></div>', { left: '120px', top: '560px', width: '1000px', height: '170px' }), C(1) + 300, 'left', 300);
+  snap(add(p1, '<div class="abs black big">PRIVACY &amp;</div>', { left: '120px', top: '110px' }), C(1), 'left', 240);
+  snap(add(p1, '<div class="abs black big">PERMISSION</div>', { left: '120px', top: '300px' }), C(1) + 150, 'right', 240);
+  snap(add(p1, '<div class="abs black" style="color:#fff;font-size:150px">GUARDIAN</div>', { left: '140px', top: '575px' }), C(1) + 450, 'up', 240, 80);
+  snap(add(p1, '<div class="abs cap">Read less. Know more.</div>', { left: '120px', top: '830px' }), C(1) + 900, 'left', 240, 80);
+  snap(add(p1, '<div class="abs small">github.com/Octobers2/Privacy-Permission-Guardian</div>', { left: '120px', top: '960px' }), C(1) + 1300, 'left', 200, 60);
+});
+</script></body></html>
