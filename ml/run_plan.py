@@ -11,7 +11,7 @@ on test (-0.007, CI -0.037..+0.023) and its prompt is ~3x longer, so the extensi
 only scored and compared, never used to choose anything. Everything prints to the screen and to ml/logs/<step>.log. At the end: ml/reports/plan_summary.md.
 
 run (Windows):  ml\\.venv\\Scripts\\python.exe ml\\run_plan.py            (Linux: ml/.venv/bin/python ml/run_plan.py)
-options:        --only 1,4   --skip-fetch (reuse data/unlabeled_pages.jsonl)   --dry (print the commands only)"""
+options:        --only 1,4      (--only 4bfix: the 4B retrained on PII data v2)   --skip-fetch (reuse data/unlabeled_pages.jsonl)   --dry (print the commands only)"""
 import argparse, json, os, pathlib, shutil, subprocess, sys, time
 
 ML = pathlib.Path(__file__).resolve().parent; ROOT = ML.parent
@@ -75,13 +75,33 @@ def eval_pii(name, base):
 # 0. data (the splits must carry "prev"; old ones from before letters-v2 do not)
 if not done(DATA / "train.jsonl") or '"prev"' not in (DATA / "train.jsonl").open(encoding="utf-8").readline():
     run("data-tos", [PY, "prepare.py"])
-if not done(DATA / "pii_train.jsonl"): run("data-pii", [PY, "pii/make_data.py"])
+# PII pages v2 add chat/notification pages (see pii/make_data.py); the test split is byte-identical to v1's
+if not done(DATA / "pii_train.jsonl") or '"dm_thread"' not in (DATA / "pii_train.jsonl").read_text(encoding="utf-8"):
+    run("data-pii", [PY, "pii/make_data.py"])
 
 # 1. both questions in one stage, old prompt
 if "1" in only:
     train("j4b-v1", "--base", a.base4b, "--adapter", "kev", "--prompt", "letters-v1")
     evaluate("j4b-v1", a.base4b, "letters-v1"); eval_pii("j4b-v1", a.base4b)
     compare("Step 1: joint training vs the shipped 4B", "run4bmt-rtn4-deq-letter", "j4b-v1")
+
+# 4b. the 4B again on PII data v2: j4b-v1 missed the chat-list test page (stealth_messages 5%). Same recipe as step 1.
+if "4bfix" in only:
+    train("j4b-v1b", "--base", a.base4b, "--adapter", "kev", "--prompt", "letters-v1")
+    evaluate("j4b-v1b", a.base4b, "letters-v1"); eval_pii("j4b-v1b", a.base4b)
+    compare("Step 4b: 4B with PII data v2 vs the first joint 4B", "j4b-v1", "j4b-v1b")
+    compare("Step 4b: 4B with PII data v2 vs the shipped 4B", "run4bmt-rtn4-deq-letter", "j4b-v1b")
+    if not a.dry:
+        kinds = {}
+        for rep in ("run4bmt-rtn4-deq-pii", "j4b-v1-pii", "j4b-v1b-pii"):
+            f = REP / f"{rep}.json"
+            if f.exists(): kinds[rep] = json.loads(f.read_text())["test"]
+        lines = ["| page type | " + " | ".join(kinds) + " |", "|---|" + "---|" * len(kinds)]
+        for k in sorted(next(iter(kinds.values()))["by_kind"]):
+            lines.append(f"| {k} | " + " | ".join(f"{t['by_kind'].get(k, float('nan'))*100:.0f}%" for t in kinds.values()) + " |")
+        lines.append("| recall / false alarms | " + " | ".join(f"{t['recall']:.3f} / {t['fp']}" for t in kinds.values()) + " |")
+        table = "\n".join(lines); print("\nPII test, share judged personal (P: should be 100%, N: 0%)\n" + table)
+        notes.append("**Step 4b PII by page type** (P rows should be 100%, N rows 0%)\n\n" + table)
 
 # 4. distillation into the 0.8B
 if "4" in only:
@@ -103,8 +123,8 @@ if "4" in only:
     compare("Step 4: distilled 0.8B vs the shipped 0.8B", "stu08mt-rtn4-deq-letter", "j08-kd")
 
 if not a.dry:
-    rows = [summary_line(r) for r in ("run4bmt-rtn4-deq-letter", "j4b-v1", "stu08mt-rtn4-deq-letter", "j08-kd") if (REP / f"{r}.json").exists()]
-    vals = {n: round(val_f1(n), 3) for n in ("j4b-v1", "j08-kd") if val_f1(n) >= 0}
+    rows = [summary_line(r) for r in ("run4bmt-rtn4-deq-letter", "j4b-v1", "j4b-v1b", "stu08mt-rtn4-deq-letter", "j08-kd") if (REP / f"{r}.json").exists()]
+    vals = {n: round(val_f1(n), 3) for n in ("j4b-v1", "j4b-v1b", "j08-kd") if val_f1(n) >= 0}
     (REP / "plan_summary.md").write_text("# Accuracy plan results\n\nTest macro-F1 (argmax, 95% CI) and flag-or-not F1. Shipped models: run4bmt (4B), stu08mt (0.8B).\n\n"
         "| report | macro-F1 | unfair F1 |\n|---|---|---|\n" + "\n".join(rows) + f"\n\nValidation macro-F1: {vals}\n\n" + "\n\n".join(notes) + "\n", encoding="utf-8")
     print(f"\nAll done. Summary: {REP / 'plan_summary.md'}")
