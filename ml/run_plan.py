@@ -25,6 +25,13 @@ a = ap.parse_args(); only = set(a.only.split(","))
 PY = sys.executable
 ENV = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}     # Windows defaults to the local code page otherwise
 LOGS = ML / "logs"; LOGS.mkdir(exist_ok=True)
+if os.name == "nt" and not a.dry:
+    # Keep Windows from going to sleep while this runs (the screen may still turn off). Applies only to this process,
+    # so normal sleep comes back by itself when the plan ends, fails or the window is closed.
+    import ctypes
+    ES_CONTINUOUS, ES_SYSTEM_REQUIRED = 0x80000000, 0x00000001
+    if ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED):
+        print("Sleep is held off while training runs (the screen may still switch off; that is fine).", flush=True)
 REP = ML / "reports"; DATA = ML / "data"
 
 def run(step, cmd, cwd=ML):
