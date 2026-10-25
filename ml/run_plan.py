@@ -2,27 +2,24 @@
 a finished step (its report or checkpoint exists) is skipped next time, and an unfinished training run carries on after
 its last finished epoch (train_joint.py saves its state at the end of each epoch).
 
-  1    j4b-v1   4B, both questions trained together, old prompt         -> compared with the shipped 4B
-  5+6  j4b-v2   4B, both together, prompt with definitions + context    -> compared with j4b-v1
-  4    j08-kd   0.8B, both together, plus distillation from the better 4B on unlabelled real terms pages
+  1    j4b-v1   4B, both questions trained together                     -> compared with the shipped 4B
+  4    j08-kd   0.8B, both together, plus distillation from j4b-v1 on unlabelled real terms pages
                                                                          -> compared with the shipped 0.8B
 
-Winners are picked by VALIDATION macro-F1 (each run's best.json), never by the test set; the test set is only scored
-and compared. Everything prints to the screen and to ml/logs/<step>.log. At the end: ml/reports/plan_summary.md.
+Step 5+6 (the letters-v2 prompt: definitions + previous sentence) was tried and dropped: on the 4B it gained nothing
+on test (-0.007, CI -0.037..+0.023) and its prompt is ~3x longer, so the extension would be ~3x slower. The test set is
+only scored and compared, never used to choose anything. Everything prints to the screen and to ml/logs/<step>.log. At the end: ml/reports/plan_summary.md.
 
 run (Windows):  ml\\.venv\\Scripts\\python.exe ml\\run_plan.py            (Linux: ml/.venv/bin/python ml/run_plan.py)
-options:        --only 1,56,4   --skip-fetch (reuse data/unlabeled_pages.jsonl)   --dry (print the commands only)"""
+options:        --only 1,4   --skip-fetch (reuse data/unlabeled_pages.jsonl)   --dry (print the commands only)"""
 import argparse, json, os, pathlib, shutil, subprocess, sys, time
 
 ML = pathlib.Path(__file__).resolve().parent; ROOT = ML.parent
 sys.path.insert(0, str(ML))
 from paths import RUNS, MERGED
 
-ap = argparse.ArgumentParser(); ap.add_argument("--only", default="1,56,4"); ap.add_argument("--skip-fetch", action="store_true")
+ap = argparse.ArgumentParser(); ap.add_argument("--only", default="1,4"); ap.add_argument("--skip-fetch", action="store_true")
 ap.add_argument("--dry", action="store_true"); ap.add_argument("--base4b", default="Qwen/Qwen3.5-4B-Base"); ap.add_argument("--base08", default="Qwen/Qwen3.5-0.8B-Base")
-ap.add_argument("--student-prompt", default="letters-v1", choices=["letters-v1", "letters-v2", "teacher"],
-                help="prompt for the 0.8B in step 4. Default v1: on the 4B, v2 gained nothing on test (-0.007, CI -0.037..+0.023) and its\n"
-                     "prompt is ~3x longer, so it would make the extension ~3x slower. 'teacher' = same as the teacher")
 ap.add_argument("--extra", default="", help="extra arguments for every train_joint.py call, e.g. \"--max_steps 20\" for a smoke test")
 a = ap.parse_args(); only = set(a.only.split(","))
 PY = sys.executable
@@ -79,21 +76,11 @@ if "1" in only:
     evaluate("j4b-v1", a.base4b, "letters-v1"); eval_pii("j4b-v1", a.base4b)
     compare("Step 1: joint training vs the shipped 4B", "run4bmt-rtn4-deq-letter", "j4b-v1")
 
-# 5+6. definitions + previous sentence (prompts are ~3x longer, hence the smaller micro-batch)
-if "56" in only:
-    train("j4b-v2", "--base", a.base4b, "--adapter", "kev", "--prompt", "letters-v2", "--micro", "4", "--accum", "4")
-    evaluate("j4b-v2", a.base4b, "letters-v2"); evaluate("j4b-v2", a.base4b, "letters-v2", "--no-context", report="j4b-v2-noctx")
-    eval_pii("j4b-v2", a.base4b)
-    compare("Step 5+6: v2 prompt vs v1 prompt (both joint)", "j4b-v1", "j4b-v2")
-    compare("Step 5+6: what the previous sentence adds", "j4b-v2-noctx", "j4b-v2")
-
 # 4. distillation into the 0.8B
 if "4" in only:
-    # the teacher and the student's prompt: whichever 4B run has the better VALIDATION macro-F1
-    cands = [(val_f1(n), n, p) for n, p in (("j4b-v1", "letters-v1"), ("j4b-v2", "letters-v2")) if val_f1(n) >= 0]
-    if not cands and not a.dry: sys.exit("step 4 needs a trained 4B (step 1 or 5+6) as the teacher")
-    _, teacher, tprompt = max(cands) if cands else (0, "j4b-v1", "letters-v1")
-    print(f"\n--- teacher: {teacher} ({tprompt}), chosen by validation macro-F1 {dict((n, round(f, 3)) for f, n, _ in cands)}")
+    teacher, prompt = "j4b-v1", "letters-v1"
+    if not done(RUNS / teacher / "history.json") and not a.dry: sys.exit("step 4 needs step 1's 4B (j4b-v1) as the teacher: run step 1 first")
+    print(f"\n--- teacher: {teacher}")
     if not a.skip_fetch and not done(DATA / "unlabeled_pages.jsonl"): run("unl-fetch", [PY, "unlabeled/fetch_pages.py"])
     if not done(DATA / "unlabeled.jsonl"):
         bun = shutil.which("bun")
@@ -103,16 +90,14 @@ if "4" in only:
     merged = MERGED / f"{teacher}-teacher"
     if not done(merged / "config.json"): run("merge-teacher", [PY, "merge.py", RUNS / teacher / "best", merged, a.base4b])
     tname = f"T-{teacher}"
-    if not done(DATA / f"{tname}.unlabeled.logits.npy"): run("distill-targets", [PY, "distill_targets.py", merged, tname, "--prompt", tprompt])
-    sprompt = tprompt if a.student_prompt == "teacher" else a.student_prompt   # the teacher's logits work with any student prompt
-    print(f"--- student prompt: {sprompt}")
-    train("j08-kd", "--base", a.base08, "--lora_r", "64", "--prompt", sprompt, "--unlabeled", "unlabeled", "--teacher", tname)
-    evaluate("j08-kd", a.base08, sprompt); eval_pii("j08-kd", a.base08)
+    if not done(DATA / f"{tname}.unlabeled.logits.npy"): run("distill-targets", [PY, "distill_targets.py", merged, tname, "--prompt", prompt])
+    train("j08-kd", "--base", a.base08, "--lora_r", "64", "--prompt", prompt, "--unlabeled", "unlabeled", "--teacher", tname)
+    evaluate("j08-kd", a.base08, prompt); eval_pii("j08-kd", a.base08)
     compare("Step 4: distilled 0.8B vs the shipped 0.8B", "stu08mt-rtn4-deq-letter", "j08-kd")
 
 if not a.dry:
-    rows = [summary_line(r) for r in ("run4bmt-rtn4-deq-letter", "j4b-v1", "j4b-v2", "j4b-v2-noctx", "stu08mt-rtn4-deq-letter", "j08-kd") if (REP / f"{r}.json").exists()]
-    vals = {n: round(val_f1(n), 3) for n in ("j4b-v1", "j4b-v2", "j08-kd") if val_f1(n) >= 0}
+    rows = [summary_line(r) for r in ("run4bmt-rtn4-deq-letter", "j4b-v1", "stu08mt-rtn4-deq-letter", "j08-kd") if (REP / f"{r}.json").exists()]
+    vals = {n: round(val_f1(n), 3) for n in ("j4b-v1", "j08-kd") if val_f1(n) >= 0}
     (REP / "plan_summary.md").write_text("# Accuracy plan results\n\nTest macro-F1 (argmax, 95% CI) and flag-or-not F1. Shipped models: run4bmt (4B), stu08mt (0.8B).\n\n"
-        "| report | macro-F1 | unfair F1 |\n|---|---|---|\n" + "\n".join(rows) + f"\n\nValidation macro-F1 (used for every choice): {vals}\n\n" + "\n\n".join(notes) + "\n", encoding="utf-8")
+        "| report | macro-F1 | unfair F1 |\n|---|---|---|\n" + "\n".join(rows) + f"\n\nValidation macro-F1: {vals}\n\n" + "\n\n".join(notes) + "\n", encoding="utf-8")
     print(f"\nAll done. Summary: {REP / 'plan_summary.md'}")
