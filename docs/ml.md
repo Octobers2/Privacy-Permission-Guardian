@@ -102,7 +102,7 @@ Four changes, all optional and backward compatible: a bundle without the new fie
 
 ### Running it on your own Windows PC (one command)
 
-Tested settings fit a 16 GB card (RTX 5060 Ti / 5070 Ti). From the repository root in PowerShell:
+Tested settings fit a 16 GB card (RTX 5060 Ti / 5070 Ti). Easiest: download `ml/windows/start-training.bat` and double-click it; it fetches this branch into `%USERPROFILE%\ppg-train`, installs what is missing (Python environment, Bun) and runs everything below. By hand, from the repository root in PowerShell:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File ml\windows\setup.ps1     # once: makes ml\.venv with PyTorch for CUDA 12.8 and checks the GPU
