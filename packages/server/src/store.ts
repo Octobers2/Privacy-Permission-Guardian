@@ -12,8 +12,17 @@ import { Database } from 'bun:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import {
+  REPORT_TTL_MS,
   RESULT_TTL_MS,
+  type MissingTermsView,
+  jaccard,
+  MAX_SIMILAR_EXAMPLES,
+  significantWords,
+  SIMILAR_THRESHOLD,
+  type SimilarItem,
+  type UnfairCategory,
   UNFAIR_CATEGORIES,
+  type MoneyClause,
   type Passage,
   type RankingRow,
   type ResultSummaryView,
@@ -86,6 +95,25 @@ export class ResultStore {
         probs_json TEXT NOT NULL,
         PRIMARY KEY (result_id, idx)
       );
+      CREATE VIRTUAL TABLE IF NOT EXISTS passages_fts USING fts5(text, result_id UNINDEXED, category UNINDEXED, tokenize = 'porter unicode61');
+      CREATE TABLE IF NOT EXISTS money_clauses (
+        id        INTEGER PRIMARY KEY AUTOINCREMENT,
+        result_id INTEGER NOT NULL REFERENCES results (id) ON DELETE CASCADE,
+        idx       INTEGER NOT NULL,
+        kind      TEXT NOT NULL,
+        text      TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS money_result ON money_clauses (result_id, idx);
+      CREATE TABLE IF NOT EXISTS missing_terms (
+        domain     TEXT PRIMARY KEY,
+        url        TEXT NOT NULL,
+        tried_json TEXT NOT NULL,
+        reports    INTEGER NOT NULL,
+        first_at   INTEGER NOT NULL,
+        last_at    INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS missing_expiry ON missing_terms (expires_at);
       CREATE TABLE IF NOT EXISTS summaries (
         key        TEXT PRIMARY KEY,
         body_json  TEXT NOT NULL,
@@ -117,19 +145,27 @@ export class ResultStore {
           JSON.stringify(categories),
         )!;
       const insertPassage = this.db.prepare('INSERT INTO passages (result_id, idx, text, category, probs_json) VALUES (?, ?, ?, ?, ?)');
-      for (const p of upload.passages) insertPassage.run(id, p.index, p.text, p.category, JSON.stringify(p.probs));
+      const insertFts = this.db.prepare('INSERT INTO passages_fts (text, result_id, category) VALUES (?, ?, ?)');
+      for (const p of upload.passages) {
+        insertPassage.run(id, p.index, p.text, p.category, JSON.stringify(p.probs));
+        insertFts.run(p.text, id, p.category);
+      }
+      const insertMoney = this.db.prepare('INSERT INTO money_clauses (result_id, idx, kind, text) VALUES (?, ?, ?, ?)');
+      for (const m of upload.money) insertMoney.run(id, m.index, m.kind, m.text);
       return { id, createdAt, expiresAt };
     })();
   }
 
   /** Removes everything past its expiry. Reads already ignore it; this just reclaims the space. */
-  purge(): { results: number; summaries: number } {
+  purge(): { results: number; summaries: number; reports: number } {
     const now = this.now();
     // Counted explicitly: the driver's change counter also includes the passages removed by ON DELETE CASCADE.
     return this.db.transaction(() => {
       const n = (table: string) => this.db.query<{ n: number }, [number]>(`SELECT COUNT(*) AS n FROM ${table} WHERE expires_at <= ?`).get(now)!.n;
-      const counts = { results: n('results'), summaries: n('summaries') };
+      const counts = { results: n('results'), summaries: n('summaries'), reports: n('missing_terms') };
+      this.db.run('DELETE FROM missing_terms WHERE expires_at <= ?', [now]);
       this.db.run('DELETE FROM results WHERE expires_at <= ?', [now]);
+      this.db.run('DELETE FROM passages_fts WHERE CAST(result_id AS INTEGER) NOT IN (SELECT id FROM results)');
       this.db.run('DELETE FROM summaries WHERE expires_at <= ?', [now]);
       return counts;
     })();
@@ -172,7 +208,7 @@ export class ResultStore {
     const rows = this.db
       .query<ResultRow, Record<string, string | number>>(`SELECT * FROM results WHERE id IN (${CURRENT_IDS}) ORDER BY created_at DESC, id DESC LIMIT :limit`)
       .all({ ':now': this.now(), ':limit': limit });
-    return rows.map((r) => this.view(r, true, false)).map(({ passages: _p, ...rest }) => rest as ResultSummaryView);
+    return rows.map((r) => this.view(r, true, false)).map(({ passages: _p, money: _m, ...rest }) => rest as ResultSummaryView);
   }
 
   /** Domains ranked by how many potentially unfair clauses their current policies contain. */
@@ -196,6 +232,89 @@ export class ResultStore {
       domains: one<number>('SELECT COUNT(DISTINCT domain) AS n FROM results WHERE expires_at > ?'),
       summaries: one<number>('SELECT COUNT(*) AS n FROM summaries WHERE expires_at > ?'),
     };
+  }
+
+  // ------------------------------------------------------- similar cases
+
+  /**
+   * Current stored clauses of the same type on *other* sites that share most of their words with `text`, grouped by site.
+   * Full-text search finds the candidates (ranked by BM25); the Jaccard score on the words decides which count as similar.
+   */
+  similar(text: string, category: UnfairCategory, excludeDomain: string): Omit<SimilarItem, 'index'> | null {
+    const words = significantWords(text);
+    if (words.length < 3) return null;
+    // The longest words first: they are the rarer ones, so they pick out the candidates; a dozen is plenty.
+    const query = [...words].sort((a, b) => b.length - a.length).slice(0, 12).map((w) => `"${w}"`).join(' OR ');
+    const rows = this.db
+      .query<{ text: string; domain: string; url: string }, Record<string, string | number>>(
+        `SELECT f.text AS text, r.domain AS domain, r.url AS url
+         FROM passages_fts f JOIN results r ON r.id = CAST(f.result_id AS INTEGER)
+         WHERE passages_fts MATCH :query AND f.category = :category AND r.domain != :domain AND r.id IN (${CURRENT_IDS})
+         ORDER BY bm25(passages_fts) LIMIT 80`,
+      )
+      .all({ ':query': query, ':category': category, ':domain': excludeDomain.toLowerCase(), ':now': this.now() });
+    const perSite = new Map<string, { domain: string; url: string; text: string; score: number }>();
+    for (const row of rows) {
+      const score = jaccard(words, significantWords(row.text));
+      if (score < SIMILAR_THRESHOLD) continue;
+      const best = perSite.get(row.domain);
+      if (!best || score > best.score) perSite.set(row.domain, { ...row, score });
+    }
+    if (perSite.size === 0) return null;
+    const examples = [...perSite.values()].sort((a, b) => b.score - a.score).slice(0, MAX_SIMILAR_EXAMPLES).map(({ domain, url, text }) => ({ domain, url, text }));
+    return { sites: perSite.size, examples };
+  }
+
+  /** `similar` for each flagged clause of a stored result. */
+  similarToResult(id: number): SimilarItem[] | null {
+    const result = this.get(id);
+    return result ? this.similarToPassages(result.passages, result.domain) : null;
+  }
+
+  similarToPassages(passages: { index: number; category: UnfairCategory; text: string }[], excludeDomain: string): SimilarItem[] {
+    return passages.flatMap((p) => {
+      const found = this.similar(p.text, p.category, excludeDomain);
+      return found ? [{ index: p.index, ...found }] : [];
+    });
+  }
+
+  // ------------------------------------------------------- missing terms
+
+  /** Counts one more report that `domain` has no terms. One row per site: the count goes up, the clock restarts. */
+  reportMissing(domain: string, url: string, tried: string[]): MissingTermsView {
+    const now = this.now();
+    const key = domain.toLowerCase();
+    this.db.transaction(() => {
+      const live = this.db
+        .query<{ reports: number; first_at: number }, [string, number]>('SELECT reports, first_at FROM missing_terms WHERE domain = ? AND expires_at > ?')
+        .get(key, now);
+      this.db.run('INSERT OR REPLACE INTO missing_terms (domain, url, tried_json, reports, first_at, last_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)', [
+        key, url, JSON.stringify(tried), (live?.reports ?? 0) + 1, live?.first_at ?? now, now, now + REPORT_TTL_MS,
+      ]);
+    })();
+    return this.missing(key)!;
+  }
+
+  missing(domain: string): MissingTermsView | null {
+    const row = this.db
+      .query<{ domain: string; reports: number; first_at: number; last_at: number }, [string, number]>('SELECT domain, reports, first_at, last_at FROM missing_terms WHERE domain = ? AND expires_at > ?')
+      .get(domain.toLowerCase(), this.now());
+    return row ? { domain: row.domain, reports: row.reports, firstReportedAt: new Date(row.first_at).toISOString(), lastReportedAt: new Date(row.last_at).toISOString() } : null;
+  }
+
+  /** Sites reported most often, then most recently. */
+  missingList(limit: number): MissingTermsView[] {
+    return this.db
+      .query<{ domain: string; reports: number; first_at: number; last_at: number }, [number, number]>(
+        'SELECT domain, reports, first_at, last_at FROM missing_terms WHERE expires_at > ? ORDER BY reports DESC, last_at DESC LIMIT ?',
+      )
+      .all(this.now(), limit)
+      .map((row) => ({ domain: row.domain, reports: row.reports, firstReportedAt: new Date(row.first_at).toISOString(), lastReportedAt: new Date(row.last_at).toISOString() }));
+  }
+
+  /** Whether any unexpired result exists for the domain: such a site plainly has terms, so reports against it are refused. */
+  hasResults(domain: string): boolean {
+    return !!this.db.query<{ n: number }, [string, number]>('SELECT 1 AS n FROM results WHERE domain = ? AND expires_at > ? LIMIT 1').get(domain.toLowerCase(), this.now());
   }
 
   // --------------------------------------------------------------- summaries
@@ -233,6 +352,12 @@ export class ResultStore {
           .all(row.id)
           .map((p) => ({ index: p.idx, text: p.text, category: p.category as Passage['category'], probs: JSON.parse(p.probs_json) as number[] }))
       : [];
+    const money: MoneyClause[] = withPassages
+      ? this.db
+          .query<{ idx: number; kind: string; text: string }, [number]>('SELECT idx, kind, text FROM money_clauses WHERE result_id = ? ORDER BY idx, id')
+          .all(row.id)
+          .map((m) => ({ index: m.idx, kind: m.kind as MoneyClause['kind'], text: m.text }))
+      : [];
     const categories = JSON.parse(row.categories_json) as Record<string, number>;
     for (const key of Object.keys(categories)) if (!(UNFAIR_CATEGORIES as readonly string[]).includes(key)) delete categories[key];
     return {
@@ -249,6 +374,7 @@ export class ResultStore {
       fairCount: row.passage_count - row.unfair_count,
       categories: categories as ResultView['categories'],
       passages,
+      money,
       current,
     };
   }

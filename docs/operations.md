@@ -24,6 +24,8 @@ On start it prints where it is listening, how many results it holds, where the m
 | `PPG_BASE_URL`, `PPG_API_KEY`, `PPG_MODEL` | OpenAI, empty, `gpt-4o-mini` | an OpenAI-compatible endpoint for summaries. With no key, `/api/summary` answers 503 and everything else works. `PPG_BASE_URL` must end in the API path (for example `/v1`) |
 | `PPG_TEMPERATURE`, `PPG_MAX_TOKENS`, `PPG_TIMEOUT_MS` | 0, 1200, 30000 | model call settings |
 | `PPG_SUMMARY_PER_IP_HOUR`, `PPG_SUMMARY_GLOBAL_HOUR` | 20, 500 | summary requests per client address and across everyone |
+| `PPG_REPORT_PER_IP_HOUR`, `PPG_REPORT_GLOBAL_HOUR` | 30, 300 | "this site has no terms" reports per client address and across everyone (also at most one per client per site per day) |
+| `PPG_SIMILAR_PER_IP_HOUR` | 60 | "find similar cases" searches per client address |
 | `PPG_TRUST_PROXY` | off | set to `1` only behind a proxy that sets `X-Forwarded-For` |
 | `PPG_ALLOWED_ORIGINS` | none | extra browser origins allowed to call write routes (extension origins always are) |
 
@@ -79,7 +81,7 @@ Results are public and expire after 30 days, so they are cheap to lose. If you w
 | The extension cannot download a model | `manifest.json` missing or stale | run `bun run models:manifest`, and check `GET /models/manifest.json` |
 | Summary requests return a bare `error code: 502` | the proxy or the CDN is hiding our JSON error: the app's own failures are JSON with `error` and `message` | call `POST /api/summary` on the server itself and read the JSON; then read the `[summary]` log line. Usual causes: wrong `PPG_API_KEY`, unreachable or wrong `PPG_BASE_URL` (missing `/v1`), wrong `PPG_MODEL` |
 | Summary requests return 503 | no `PPG_API_KEY` | set it and restart |
-| 429 on summaries | the per-client or global hourly limit | raise `PPG_SUMMARY_*`, or check the proxy is passing real client addresses |
+| 429 on summaries, reports or searches | the per-client or global hourly limit | raise `PPG_SUMMARY_*`, `PPG_REPORT_*` or `PPG_SIMILAR_*`, or check the proxy is passing real client addresses |
 | Everyone shares one rate limit | `PPG_TRUST_PROXY` is off behind a proxy | turn it on if the proxy sets `X-Forwarded-For` |
 | Uploads answer 422 `pii_blocked` | a flagged sentence looks like personal data | working as intended; the response lists positions, never text |
 | Uploads answer 401 | the 12-hour token expired, or the server restarted | sign in again from the extension |

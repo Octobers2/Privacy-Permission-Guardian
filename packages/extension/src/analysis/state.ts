@@ -4,7 +4,7 @@
  * Types only. The analysis itself runs in the offscreen document (analyzer.ts) and reports into
  * `chrome.storage.session`, which the service worker writes and the popup reads; neither side needs the other to be awake.
  */
-import type { Passage, Summary, UnfairCategory } from '@ppg/shared';
+import type { MoneyClause, Passage, SimilarItem, Summary, UnfairCategory } from '@ppg/shared';
 
 export type Stage = 'reading' | 'privacy-check' | 'checking-cache' | 'loading-model' | 'classifying' | 'sharing' | 'summarising';
 
@@ -21,6 +21,11 @@ export const STAGE_LABELS: Record<Stage, string> = {
 /** What happened to the result after it was computed. */
 export type Sharing =
   | { status: 'shared'; id: number }
+  /** Everything passed and the user is a contributor: nothing is sent until they say so. */
+  | { status: 'offer' }
+  | { status: 'declined' }
+  /** The text read was the page itself, not a terms document, so it is never offered for the shared cache. */
+  | { status: 'page-only' }
   | { status: 'already-public' }
   | { status: 'not-signed-in' }
   | { status: 'blocked'; reasons: string[] }
@@ -37,6 +42,8 @@ export interface AnalysisResult {
   passageCount: number;
   /** The clauses the classifier flagged as potentially unfair, in reading order. */
   flagged: Passage[];
+  /** Sentences the fee rules matched (renewals, fees, refunds, price changes), whatever the classifier said about them. */
+  money: MoneyClause[];
   categories: Partial<Record<UnfairCategory, number>>;
   /** True when the document was cut short before it was read. */
   truncated: boolean;
@@ -45,8 +52,24 @@ export interface AnalysisResult {
   personal: { reasons: string[] } | null;
   summary: Summary | null;
   summaryError: string | null;
+  /** Clauses like the flagged ones on other sites. Absent until looked up: automatically for a stored result, on a click for one read here. */
+  similar?: SimilarItem[];
+  /** Set when the site has no terms we can find and this result is the model's reading of the page itself instead. */
+  noTerms?: NoTerms;
   /** Set for a result looked up from the public cache: how many documents the site has there, and where to see them. */
   site?: { documents: number; url: string };
+}
+
+/** Set when the site has no terms we can find at all (not when they exist but could not be read): the popup then offers to report it. */
+export interface NoTerms {
+  /** Whether this browser read the site itself and found nothing. In shared-results-only mode nobody read it, so there is nothing to report. */
+  canReport: boolean;
+  /** Addresses that were looked at, to send with the report. */
+  tried: string[];
+  /** How many other people have already reported that this site has none. */
+  others: number | null;
+  /** Set once the user has pressed Report. */
+  reported?: string;
 }
 
 export type AnalysisState =
@@ -55,7 +78,7 @@ export type AnalysisState =
   | { status: 'working'; domain: string; stage: Stage; done: number; total: number; detail?: string; flagged: Passage[] }
   | { status: 'ready'; domain: string; result: AnalysisResult }
   /** Not a failure: plenty of sites have no findable terms, and saying so beats inventing an answer. */
-  | { status: 'unavailable'; domain: string; reason: string; links?: string[] }
+  | { status: 'unavailable'; domain: string; reason: string; links?: string[]; noTerms?: NoTerms }
   | { status: 'error'; domain: string; message: string; /** The first lines of the stack, for a bug report. */ detail?: string };
 
 export function countCategories(passages: Pick<Passage, 'category'>[]): Partial<Record<UnfairCategory, number>> {

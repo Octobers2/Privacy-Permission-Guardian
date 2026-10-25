@@ -93,6 +93,10 @@ Which rule is measured where:
 
 A hand-written banking login (card PIN, security question) is a known gap: the rules do not yet treat those as sensitive.
 
+## Fee rules (the Money family)
+
+`shared/money.ts` finds renewals, cancellation fees, refunds and price changes with regular expressions, not with the classifier. `packages/shared/test/money.test.ts` lists 24 sentences (18 that should match, 6 that should not) and the kind each should get. That tests that the patterns do what they were written to do; it is **not a measured detection rate**, because the sentences were written by the people who wrote the patterns and there is no labelled collection of fee clauses. Wordings the patterns do not cover are missed.
+
 ## What these numbers do not show
 
 - **Real-world accuracy.** The benchmark is English terms of service from a limited set of services. Other documents, other languages and other styles will differ.

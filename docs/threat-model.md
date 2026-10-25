@@ -10,8 +10,11 @@ This is the most important table, because most of the design exists to keep it s
 |---|---|
 | The model reads a page on the device | **Nothing.** The text stays in the browser. |
 | Asking whether a document was already read (on-device mode) | The address of the terms document, with query and fragment removed, and a hash of its text, to the configured results server. Only after the personal-data rules pass. |
-| Shared-results-only mode | The registrable domain of a public site (for example `example.com`), to the results server. No path, no text. |
-| Sharing a result (contributor signed in, page passed both personal-data checks) | The address (no query or fragment), the text hash, the model id, and the **flagged sentences** with their probabilities. Fair sentences are sent only as a count. |
+| Shared-results-only mode | The registrable domain of a public site (for example `example.com`), to the results server, then the numeric id of the result it shows (to ask for similar clauses). If nothing is stored, the domain again, to ask whether others reported the site as having no terms. No path, no text. |
+| Sharing a result (contributor signed in, page passed both personal-data checks, **and the user pressed Share**) | The address (no query or fragment), the text hash, the model id, the **flagged sentences** with their probabilities, and the sentences the fee rules matched. Fair sentences are sent only as a count. The Share card lists this before anything is sent. |
+| Find similar cases (a result read on this device) | Only when the user presses the button: the flagged sentences (at most 50, personal-looking ones removed), the clause types and the registrable domain of the page. For a stored result, only its id. |
+| Report this site (no terms found) | Only when the user presses the button, from any user: the page address (no query or fragment) and the same-site addresses that were checked for terms. |
+| A read finds no terms | The registrable domain, to ask whether others have reported the site (`GET /api/v1/missing-terms/<domain>`). The page's own text is read on the device and is never sent. |
 | Plain-language summary (opted in at setup) | The flagged sentences of a page that passed both checks, to the results server, or to the user's own endpoint if they chose that. |
 | First setup and settings | The browser requests the model files and manifest from the configured server. A sign-in sends the contributor's username and password to that server once. |
 | Form warning | Nothing is sent anywhere. One optional request is made: when a page already looks suspicious, the site's own icon is fetched from the site the user is on, once a month per domain, and compared locally. It can be turned off in settings. |
@@ -78,6 +81,15 @@ Contributors are **trusted**. That is a design choice, not a control, and it is 
 
 Mitigation options not yet built: signed or re-checked results, a second contributor's agreement before a result becomes current, a takedown command, per-account limits.
 
+### Anonymous reports and searches
+
+The missing-terms report and the similar-case search are open to anyone, because the people who notice are not contributors.
+
+- **What a report can do is small**: add one to a count for a site (30 days from the last report). It stores no reporter identity, no page text, and only same-site addresses. A site that already has a shared result is refused.
+- **Limits**: one report per client per site per day (a repeat is acknowledged, not counted), 30 reports per client per hour and 300 overall; 60 searches per client per hour. Like the summary limits, these use the client address, so see `PPG_TRUST_PROXY` below.
+- **What it cannot stop**: one person with many addresses can inflate a count, and a wrong report ("this site has no terms") can put a warning in front of other users for up to 30 days. There is no takedown tool, as for results. The popup words it as "someone has reported", never as a fact.
+- **Web pages cannot file one for a user**: writes answer only extension origins, the on-page Report button takes only trusted clicks (`event.isTrusted`), and the address sent is the browser's own record of the tab, not something the page supplied.
+
 ### Contributor credentials
 
 - Passwords are stored as bcrypt hashes in `auth.txt` (gitignored). A user with an unknown name takes as long to answer as a real one, so names cannot be probed by timing. After repeated failures a name is locked out for 15 minutes. The login message is the same for a wrong name and a wrong password.
@@ -108,6 +120,8 @@ The extension asks for `<all_urls>` host access, `tabs`, `storage` and `offscree
 - A clean result being read as "safe". It means no clause of the eight kinds was found.
 - A server operator reading the server's own logs or database: the results are public anyway, and request logs hold network addresses.
 - Anything outside terms of service in English.
+- A page that fakes the interface: the in-page banner lives in an open shadow root, so page script can read it and can remove it. It cannot press Report or Share for the user, but it can hide the warning.
+- The fee rules are patterns: a clause worded in a way nobody wrote a pattern for is missed.
 
 ## Data kept
 

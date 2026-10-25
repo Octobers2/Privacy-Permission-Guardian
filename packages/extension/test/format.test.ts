@@ -24,6 +24,8 @@ describe('sharingLine', () => {
     expect(sharingLine({ status: 'not-signed-in' }).tone).toBe('neutral');
     expect(sharingLine({ status: 'failed', message: 'Could not reach the server.' }).text).toContain('Could not reach the server.');
     expect(sharingLine({ status: 'shared', id: 1 }).tone).toBe('good');
+    expect(sharingLine({ status: 'offer' }).text).toContain('Nothing leaves this computer');
+    expect(sharingLine({ status: 'declined' }).text).toContain('chose to keep');
   });
 });
 

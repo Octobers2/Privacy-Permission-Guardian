@@ -17,6 +17,9 @@ export const TERMS_PATTERN =
  */
 export const LEGAL_NOTICE_PATTERN = /disclaimer|legal.?notices?|important.?notices?|notice.?of.?use|免責|法律聲明|重要告示|重要事項/i;
 
+/** Privacy and cookie policies. Not read by the classifier, but a site that links one has plainly published something. */
+export const PRIVACY_PATTERN = /privacy|data.?protection|cookie.?(?:policy|notice|statement)|personal.?data|私隱|隱私|個人資料|私穩/i;
+
 const matchesAny = (text: string) => TERMS_PATTERN.test(text) || LEGAL_NOTICE_PATTERN.test(text);
 
 /**
@@ -32,6 +35,21 @@ function readablePath(url: URL | string): string {
   } catch {
     return path;
   }
+}
+
+/** Whether the page links to anything that reads like terms, a legal notice or a privacy policy. */
+export function hasPolicyLink(doc: Document = document, pageUrl: string = location.href): boolean {
+  for (const a of doc.querySelectorAll('a[href]')) {
+    let path = '';
+    try {
+      path = readablePath(new URL(a.getAttribute('href') ?? '', pageUrl));
+    } catch {
+      /* an unparseable href has no path to match */
+    }
+    const label = (a.textContent ?? '').slice(0, 120);
+    if (matchesAny(path) || matchesAny(label) || PRIVACY_PATTERN.test(path) || PRIVACY_PATTERN.test(label)) return true;
+  }
+  return false;
 }
 
 /** Whether the page the user is on is itself a terms-of-service document. */

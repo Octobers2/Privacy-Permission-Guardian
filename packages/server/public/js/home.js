@@ -85,5 +85,21 @@ async function loadRecent() {
   }
 }
 
+/* ---- sites reported as having no terms */
+
+async function loadMissing() {
+  const box = document.getElementById('missing');
+  try {
+    const { sites } = await api('/api/v1/missing-terms?limit=10');
+    if (sites.length === 0) return mount(box, h('p', { class: 'empty' }, 'Nobody has reported a site with no terms in the last 30 days.'));
+    mount(box, h('ul', { class: 'recent' }, sites.map((x) => h('li', {},
+      h('div', { class: 'who' }, h('a', { href: `/site/${encodeURIComponent(x.domain)}` }, x.domain), h('span', { class: 'sub' }, plural(x.reports, 'report'))),
+      h('time', { datetime: x.lastReportedAt, title: formatDate(x.lastReportedAt) }, timeAgo(x.lastReportedAt))))));
+  } catch (error) {
+    mount(box, errorNote(error, loadMissing));
+  }
+}
+
 void loadRankings('count');
+void loadMissing();
 void loadRecent();

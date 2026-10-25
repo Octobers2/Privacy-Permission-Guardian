@@ -6,6 +6,7 @@
  */
 import { z } from 'zod';
 import { OTHER_INDEX, TOS_CATEGORIES, UNFAIR_CATEGORIES } from './labels.ts';
+import { MAX_MONEY_CLAUSES, MoneyClauseSchema } from './money.ts';
 
 export const RESULT_TTL_MS = 30 * 24 * 60 * 60 * 1_000;
 export const MAX_PASSAGES = 500;
@@ -16,7 +17,7 @@ const UnfairCategorySchema = z.enum(UNFAIR_CATEGORIES);
 const Sha256 = z.string().regex(/^[0-9a-f]{64}$/, 'expected a lowercase sha256 hex digest');
 
 /** A policy URL carries no query string or fragment: those are where session tokens and tracking ids live. */
-const PolicyUrl = z
+export const PolicyUrl = z
   .string()
   .max(2_048)
   .url()
@@ -59,6 +60,8 @@ export const ResultUploadSchema = z
     /** Passages the document was split into, flagged or not. */
     passageCount: z.number().int().min(1).max(100_000),
     passages: z.array(PassageSchema).max(MAX_PASSAGES),
+    /** Sentences matched by the fee rules (`money.ts`). Optional so an upload from before they existed is still accepted. */
+    money: z.array(MoneyClauseSchema).max(MAX_MONEY_CLAUSES).default([]),
   })
   .strict()
   .refine((r) => r.passages.length <= r.passageCount, { message: 'more flagged passages than passages', path: ['passages'] });
@@ -81,6 +84,7 @@ export const ResultViewSchema = z
     fairCount: z.number().int(),
     categories: CategoryCountsSchema,
     passages: z.array(PassageSchema),
+    money: z.array(MoneyClauseSchema).default([]),
     /** False for older versions of the same policy URL (history). */
     current: z.boolean(),
   })
@@ -88,7 +92,7 @@ export const ResultViewSchema = z
 export type ResultView = z.infer<typeof ResultViewSchema>;
 
 /** The list shape: everything but the passage text. */
-export const ResultSummaryViewSchema = ResultViewSchema.omit({ passages: true });
+export const ResultSummaryViewSchema = ResultViewSchema.omit({ passages: true, money: true });
 export type ResultSummaryView = z.infer<typeof ResultSummaryViewSchema>;
 
 export interface RankingRow {

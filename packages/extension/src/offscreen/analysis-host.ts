@@ -91,7 +91,7 @@ export function startAnalysis(job: Job): void {
       if (final.status === 'error') await resetEngine();
       if (newest.get(job.tabId) !== job.id) return;
       report(job.tabId, job.id, final);
-      if (final.status === 'ready' && final.result.source === 'this-device') {
+      if (final.status === 'ready' && final.result.source === 'this-device' && !final.result.noTerms) {
         void chrome.runtime.sendMessage({ type: 'save-result', result: final.result } satisfies SaveResultMessage).catch(() => {});
       }
     })

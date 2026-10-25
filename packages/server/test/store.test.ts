@@ -21,6 +21,18 @@ describe('ResultStore', () => {
     expect(store.get(id)).toEqual(byUrl);
   });
 
+  test('keeps the money clauses with the result and drops them with it', () => {
+    const { c, store } = fresh();
+    const money = [{ index: 4, kind: 'cancellation_fee' as const, text: 'An early termination fee applies.' }, { index: 11, kind: 'no_refund' as const, text: 'All fees are non-refundable.' }];
+    const { id } = store.insert(upload({ money }), 'alice');
+    expect(store.get(id)!.money).toEqual(money);
+    expect(store.recent(5)[0]).not.toHaveProperty('money');
+    c.advance(RESULT_TTL_MS + DAY);
+    store.purge();
+    expect(store.get(id)).toBeNull();
+    expect(store['db'].query('SELECT COUNT(*) AS n FROM money_clauses').get()).toEqual({ n: 0 });
+  });
+
   test('the newest upload wins and older ones stay as history', () => {
     const { c, store } = fresh();
     const first = store.insert(upload({ textHash: '1'.repeat(64) }), 'alice');
@@ -65,10 +77,10 @@ describe('ResultStore', () => {
     c.advance(RESULT_TTL_MS + DAY);
     store.insert(upload({ url: 'https://new.example.com/terms', domain: 'example.com' }), 'alice');
     store.summarySet('k', '{}');
-    expect(store.purge()).toEqual({ results: 1, summaries: 0 });
+    expect(store.purge()).toEqual({ results: 1, summaries: 0, reports: 0 });
     expect(store.stats().results).toBe(1);
     c.advance(RESULT_TTL_MS + DAY);
-    expect(store.purge()).toEqual({ results: 1, summaries: 1 });
+    expect(store.purge()).toEqual({ results: 1, summaries: 1, reports: 0 });
   });
 
   test('site() returns the current result of each policy under the domain, and only that domain', () => {
@@ -115,5 +127,50 @@ describe('ResultStore', () => {
     expect(store.summaryGet(key)).toBe('{"ok":true}');
     c.advance(RESULT_TTL_MS);
     expect(store.summaryGet(key)).toBeNull();
+  });
+});
+
+describe('similar clauses', () => {
+  const ARB = 'Any dispute arising out of these terms will be resolved exclusively by binding arbitration and you waive any right to a class action.';
+  function seeded() {
+    const f = fresh();
+    f.store.insert(upload({ url: 'https://one.com/terms', domain: 'one.com', passages: [passage(1, 'arbitration', ARB)] }), 'a');
+    f.store.insert(upload({ url: 'https://two.com/terms', domain: 'two.com', passages: [passage(2, 'arbitration', 'Any dispute arising out of these terms shall be resolved by binding arbitration, and you waive any right to bring a class action.')] }), 'a');
+    f.store.insert(upload({ url: 'https://three.com/terms', domain: 'three.com', passages: [passage(3, 'jurisdiction', ARB)] }), 'a'); // same words, another clause type
+    f.store.insert(upload({ url: 'https://four.com/terms', domain: 'four.com', passages: [passage(4, 'arbitration', 'We will ship your order within five business days of payment.')] }), 'a'); // unrelated
+    return f;
+  }
+
+  test('finds the same clause type on other sites, counted per site', () => {
+    const { store } = seeded();
+    const found = store.similar(ARB, 'arbitration', 'elsewhere.com')!;
+    expect(found.sites).toBe(2);
+    expect(found.examples.map((e) => e.domain).sort()).toEqual(['one.com', 'two.com']);
+  });
+
+  test('leaves out the asking site, other clause types and unrelated sentences', () => {
+    const { store } = seeded();
+    expect(store.similar(ARB, 'arbitration', 'one.com')!.examples.map((e) => e.domain)).toEqual(['two.com']);
+    expect(store.similar(ARB, 'jurisdiction', 'x.com')!.examples.map((e) => e.domain)).toEqual(['three.com']);
+    expect(store.similar('Photographs may be removed from the gallery at our discretion at any time.', 'arbitration', 'x.com')).toBeNull();
+  });
+
+  test('a sentence with too few meaningful words matches nothing', () => {
+    expect(seeded().store.similar('You agree.', 'arbitration', 'x.com')).toBeNull();
+  });
+
+  test('expired and replaced results are not found', () => {
+    const { store, c } = seeded();
+    c.advance(RESULT_TTL_MS + DAY);
+    expect(store.similar(ARB, 'arbitration', 'x.com')).toBeNull();
+    store.purge();
+    expect(store['db'].query('SELECT COUNT(*) AS n FROM passages_fts').get()).toEqual({ n: 0 });
+  });
+
+  test('similarToResult asks for every flagged clause of a stored result', () => {
+    const { store } = seeded();
+    const { id } = store.insert(upload({ url: 'https://new.com/terms', domain: 'new.com', passages: [passage(7, 'arbitration', ARB), passage(9, 'jurisdiction', 'Nothing alike here whatsoever for matching purposes.')] }), 'a');
+    const items = store.similarToResult(id)!;
+    expect(items.map((i) => [i.index, i.sites])).toEqual([[7, 2]]);
   });
 });

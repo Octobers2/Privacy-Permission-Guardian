@@ -15,8 +15,8 @@ import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadFixtures, type Fixture } from './fixtures.ts';
 
-const HTTPS_PORT = 8443;
-const HTTP_PORT = 8080;
+const HTTPS_PORT = Number(process.env.FIXTURES_HTTPS_PORT ?? 8443);
+const HTTP_PORT = Number(process.env.FIXTURES_HTTP_PORT ?? 8080);
 const CERT_DIR = resolve(import.meta.dir, '.cert');
 
 /**
@@ -151,8 +151,16 @@ function fileFor(host: string, pathname: string): string | null {
   if (!fixture) return null;
 
   if (fixture.file.startsWith('sites/')) {
+    // The folder comes from the file column, not the host, so one site can be served under a second name (a public-looking one).
+    const folder = fixture.file.split('/')[1]!;
+    // An image or stylesheet next to the pages (a site's favicon) is served as the file it is.
+    if (/\.(png|ico|svg|jpe?g|css|js)$/i.test(pathname)) {
+      const siteDir = resolve(import.meta.dir, 'fixtures', 'sites', folder);
+      const asset = resolve(siteDir, pathname.replace(/^\/+/, ''));
+      return asset.startsWith(siteDir + '/') ? asset : null;
+    }
     const page = pathname === '/' || pathname === '' ? 'index' : pathname.replace(/^\/+|\/+$/g, '');
-    return resolve(import.meta.dir, 'fixtures', 'sites', host, `${page}.html`);
+    return resolve(import.meta.dir, 'fixtures', 'sites', folder, `${page}.html`);
   }
   return resolve(import.meta.dir, 'fixtures', fixture.file);
 }
@@ -208,7 +216,7 @@ async function respond(request: Request): Promise<Response> {
   if (!(await file.exists())) {
     return new Response(`no fixture page at ${url.pathname}`, { status: 404 });
   }
-  return new Response(file, { headers: HTML });
+  return new Response(file, { headers: path.endsWith('.html') ? HTML : { 'content-type': file.type } });
 }
 
 const httpsHosts = [

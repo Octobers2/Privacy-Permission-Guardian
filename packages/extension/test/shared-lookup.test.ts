@@ -7,7 +7,7 @@ function doc(path: string, createdAt: string, unfair = 1): ResultView {
   return {
     id: 1, url: `https://example.com${path}`, domain: 'example.com', textHash: 'a'.repeat(64), model: { id: 'm', version: '1' }, promptVersion: 'letters-v1',
     createdAt, expiresAt: '2026-12-01T00:00:00.000Z', passageCount: 50, unfairCount: unfair, fairCount: 50 - unfair, categories: { arbitration: unfair },
-    passages: Array.from({ length: unfair }, (_, i) => ({ index: i, text: 'Any dispute goes to arbitration.', category: 'arbitration' as const, probs })), current: true,
+    passages: Array.from({ length: unfair }, (_, i) => ({ index: i, text: 'Any dispute goes to arbitration.', category: 'arbitration' as const, probs })), money: [], current: true,
   };
 }
 const json = (body: unknown, status = 200) => (async () => new Response(JSON.stringify(body), { status })) as unknown as typeof fetch;

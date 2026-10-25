@@ -21,11 +21,14 @@ Shared code (labels, prompts, text splitting, personal-data rules, schemas) live
 2. A rule check and a model question decide whether the page shows **your own personal data**. If it does, nothing leaves the device.
 3. Otherwise the extension asks the server whether someone has already read this document. If so, you get that result in under a second.
 4. If not, the on-device model reads the document sentence by sentence and picks one of nine classes for each (eight kinds of unfair clause, or "other"). You see the flagged clauses, grouped into four families: your rights, liability, their control, consent.
-5. If you are signed in as a contributor, the flagged clauses of a public page are shared, so the next visitor gets step 3. You can also ask for an optional plain-language summary.
+5. Next to the clauses you get **In short**: three to five plain-English points with a low, medium or high risk level, each with the document's own sentence underneath. It is built on your computer from what the model found, and needs no extra model. Renewals, cancellation fees, refunds and price changes are found by fixed patterns and shown in their own family, **Money**.
+6. If you are signed in as a contributor, the popup then asks **Share this result?** and lists exactly what would be sent. Nothing is shared until you press Share, so the next visitor can get step 3 only if you choose. **Find similar cases** (on the clause list) shows which other sites have a clause like each flagged one, again only when you press it. You can also ask for an optional plain-language summary written by a server model.
 
 A computer without a usable graphics card can skip the model and use **shared results only**: the popup then looks up what others have already found and reads nothing itself.
 
-The form warning is separate and needs no model. It scores forms on the page for signs of phishing and shows a banner. It also reads the page itself for signs that need no form at all: data sent somewhere it has no business going (a Telegram bot, a form-forwarding service), a site icon that belongs to a well-known brand the domain does not own, and a page that actively fights the browser's developer tools. A phishing kit with no `<form>` is still caught. The brand icon table (`packages/shared/src/favicon-hashes.json`) ships empty; `bun run favicons` fills it and needs the network.
+The form warning is separate and needs no model. It scores forms on the page for signs of phishing and shows a banner, labelled **Caution** or **Critical risk**.
+
+**Sites with no terms.** A page that asks for a password or a card, and links no terms or privacy policy, gets a Caution banner. When you press the toolbar button on a site where no terms can be found, the on-device model reads the page itself, and the banner and popup say what it found. Anyone can then press **Report this site** (it sends the page address and the places that were checked, nothing else); reports are public, counted, and kept for 30 days, and other people see "someone else has reported this site". It also reads the page itself for signs that need no form at all: data sent somewhere it has no business going (a Telegram bot, a form-forwarding service), a site icon that belongs to a well-known brand the domain does not own, and a page that actively fights the browser's developer tools. A phishing kit with no `<form>` is still caught. The brand icon table (`packages/shared/src/favicon-hashes.json`) ships empty; `bun run favicons` fills it and needs the network.
 
 ## Run it
 
@@ -58,7 +61,7 @@ bun run e2e                   # builds, then runs every browser check below
 
 | Check | What it drives |
 |---|---|
-| `bun run e2e:analysis` | The full flow on fake sites: read on the device, public cache, a changed policy, a page showing personal data, no terms, signed out |
+| `bun run e2e:analysis` | The full flow on fake sites: read on the device, the share question, public cache, a changed policy, a page showing personal data, similar clauses, no terms (the page is read instead, and reported), signed out |
 | `bun run e2e:setup` | The setup wizard end to end, downloading and loading a real model (`--model accurate` for the 4B) |
 | `bun run e2e:shared` | Shared-results-only mode in a browser with no GPU |
 | `bun run e2e:site` | The query site: search, filters, history, a hostile passage shown as text |

@@ -178,17 +178,13 @@ describe('the personal-data gate', () => {
 describe('sharing', () => {
   const okLookup = { '/api/v1/lookup': () => json({}, 404) };
 
-  test('a signed-in contributor uploads only the flagged clauses, with their token', async () => {
+  test('a signed-in contributor is offered the upload, and nothing is sent until they accept', async () => {
     const net = fakeNetwork({ ...okLookup, '/api/results': () => json({ id: 42 }, 201) });
     const { d } = deps({ net });
     const result = ready(await analyse(job({}, { token: 'secret-token' }), d));
-    expect(result.sharing).toEqual({ status: 'shared', id: 42 });
-    const post = net.calls.find((c) => c.method === 'POST')!;
-    expect(post.headers.authorization).toBe('Bearer secret-token');
-    expect(post.body).toMatchObject({ url: 'https://example.com/terms', domain: 'example.com', passageCount: 5, promptVersion: 'letters-v1' });
-    expect(post.body.passages.map((p: { category: string }) => p.category)).toEqual(['unilateral_termination', 'arbitration']);
-    expect(JSON.stringify(post.body)).not.toContain('invoice'); // the fair sentences are not in the upload
-    expect(post.body.textHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(result.sharing).toEqual({ status: 'offer' });
+    expect(net.calls.some((c) => c.method === 'POST')).toBe(false);
+    expect(result.flagged).toHaveLength(2); // the offer carries everything `shareResult` needs
   });
 
   test('without an account nothing is uploaded', async () => {
@@ -207,13 +203,51 @@ describe('sharing', () => {
     expect(net.calls.some((c) => c.method === 'POST')).toBe(false);
     expect(JSON.stringify(net.calls)).not.toContain('jane.doe');
   });
+});
 
-  test('an expired sign-in is explained, and the on-device result still stands', async () => {
-    const net = fakeNetwork({ ...okLookup, '/api/results': () => json({ error: 'unauthorized' }, 401) });
+describe('fee clauses', () => {
+  const okLookup = { '/api/v1/lookup': () => json({}, 404) };
+  const FEES = '\nAll fees are non-refundable once the trial ends.\nYour subscription renews automatically every month unless you cancel it.';
+
+  test('finds renewals and refunds the classifier calls fair, at their positions in the document', async () => {
+    const { d } = deps({ net: fakeNetwork(okLookup) });
+    const result = ready(await analyse(job({ text: DOC + FEES }), d));
+    expect(result.money.map((m) => m.kind)).toEqual(['no_refund', 'auto_renewal']);
+    expect(result.money[0]!.index).toBe(5);
+    expect(result.flagged.every((p) => p.index < 5)).toBe(true);
+  });
+
+  test('a document with no fee wording has none', async () => {
+    const { d } = deps({ net: fakeNetwork(okLookup) });
+    expect(ready(await analyse(job(), d)).money).toEqual([]);
+  });
+
+  test('a result from the public cache carries the money clauses stored with it', async () => {
+    const money = [{ index: 2, kind: 'cancellation_fee' as const, text: 'An early termination fee applies.' }];
+    const cached = { id: 1, url: 'https://example.com/terms', domain: 'example.com', textHash: 'a'.repeat(64), model: { id: 'm', version: '1' }, passageCount: 5, passages: [], money, createdAt: '2026-10-14T00:00:00.000Z' };
+    const net = fakeNetwork({ '/api/v1/lookup': () => json({ result: cached, sameText: true }) });
     const { d } = deps({ net });
-    const result = ready(await analyse(job({}, { token: 'old' }), d));
-    expect(result.sharing).toMatchObject({ status: 'failed', message: expect.stringContaining('sign-in has expired') });
-    expect(result.flagged).toHaveLength(2);
+    expect(ready(await analyse(job(), d)).money).toEqual(money);
+  });
+});
+
+describe('a site with no terms: the model reads the page itself', () => {
+  const noTerms = { canReport: true, tried: ['https://example.com/terms'], others: 2 };
+
+  test('is never looked up in or offered to the shared cache, and says what it is', async () => {
+    const net = fakeNetwork({ '/api/v1/lookup': () => json({}, 404), '/api/results': () => json({ id: 1 }, 201) });
+    const { d } = deps({ net });
+    const result = ready(await analyse(job({ noTerms }, { token: 'signed-in' }), d));
+    expect(result.noTerms).toEqual(noTerms);
+    expect(result.sharing).toEqual({ status: 'page-only' });
+    expect(result.flagged).toHaveLength(2); // the classifier still found the suspicious clauses
+    expect(net.calls).toHaveLength(0); // no lookup, no upload
+  });
+
+  test('a page that shows personal data is still blocked, whatever it is', async () => {
+    const { d } = deps({ net: fakeNetwork({}) });
+    const result = ready(await analyse(job({ noTerms, text: DOC + '\nWrite to jane.doe@gmail.com if you object.' }), d));
+    expect(result.sharing.status).toBe('blocked');
   });
 });
 

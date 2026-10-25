@@ -22,7 +22,7 @@
 import { resolve } from 'node:path';
 import { BRANDS } from '@ppg/shared/lookalike';
 import type { FaviconHashEntry } from '@ppg/shared/favicon';
-import { Browser } from '../packages/server/src/chromium.ts';
+import { Browser } from '../eval/lib/chromium.ts';
 
 const only = flagValue('--only')?.split(',').map((d) => d.trim()).filter(Boolean);
 const dryRun = process.argv.includes('--dry-run');

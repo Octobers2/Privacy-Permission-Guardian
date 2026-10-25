@@ -33,19 +33,28 @@ export const CATEGORY_HINTS = {
   jurisdiction: 'Disputes must be brought in a court chosen by the provider.',
 };
 
-export const FAMILIES = ['rights', 'liability', 'control', 'consent'];
+export const MONEY_LABELS = { auto_renewal: 'Automatic renewal', cancellation_fee: 'Cancellation fee', no_refund: 'No refunds', price_change: 'Price changes' };
+export const MONEY_HINTS = {
+  auto_renewal: 'The plan renews and is charged again unless you cancel in time.',
+  cancellation_fee: 'Ending the plan early can cost you a fee or the rest of the contract.',
+  no_refund: 'Money you have paid is not given back.',
+  price_change: 'The price or fees can go up after you have signed up.',
+};
+
+export const FAMILIES = ['rights', 'liability', 'control', 'consent', 'money'];
 export const FAMILY_OF = {
   arbitration: 'rights', jurisdiction: 'rights', choice_of_law: 'rights',
   limitation_of_liability: 'liability',
   unilateral_change: 'control', unilateral_termination: 'control', content_removal: 'control',
   contract_by_using: 'consent',
 };
-export const FAMILY_LABELS = { rights: 'Your rights', liability: 'Liability', control: 'Their control', consent: 'Consent' };
+export const FAMILY_LABELS = { rights: 'Your rights', liability: 'Liability', control: 'Their control', consent: 'Consent', money: 'Money' };
 export const FAMILY_HINTS = {
   rights: 'Where and how you can take a dispute, and which law applies.',
   liability: 'What the provider will not answer for.',
   control: 'What the provider can change or end without your say.',
   consent: 'How you are taken to have agreed.',
+  money: 'Renewals, fees and refunds that can cost you money.',
 };
 
 /** { category: n } -> [{ family, n }] for the families that occur, in the fixed family order. */

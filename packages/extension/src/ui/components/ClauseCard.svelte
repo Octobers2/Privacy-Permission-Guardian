@@ -1,13 +1,15 @@
 <script lang="ts">
-  import { CATEGORY_LABELS, FAMILY_OF, type Passage } from '@ppg/shared';
+  import { CATEGORY_LABELS, FAMILY_OF, type Passage, type SimilarItem } from '@ppg/shared';
+  import Similar from './Similar.svelte';
 
   interface Props {
     clause: Passage;
     /** Position of the sentence in the document, for the margin note. */
     total: number;
     highlighted?: boolean;
+    similar?: SimilarItem | undefined;
   }
-  let { clause, total, highlighted = false }: Props = $props();
+  let { clause, total, highlighted = false, similar }: Props = $props();
 
   const family = $derived(FAMILY_OF[clause.category]);
   const confidence = $derived(Math.round(Math.max(...clause.probs) * 100));
@@ -29,6 +31,7 @@
   {#if long}
     <button type="button" class="more" aria-expanded={open} onclick={() => (open = !open)}>{open ? 'Show less' : 'Show all'}</button>
   {/if}
+  {#if similar}<Similar item={similar} />{/if}
 </article>
 
 <style>

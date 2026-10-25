@@ -18,7 +18,7 @@ export interface Acquired {
   truncated: boolean;
 }
 
-export type AcquireResult = { ok: true; document: Acquired } | { ok: false; reason: string; links: string[] };
+export type AcquireResult = { ok: true; document: Acquired } | { ok: false; reason: string; links: string[]; noTerms?: { tried: string[] } };
 
 const MIN_LIVE_CHARS = 400;
 
@@ -61,7 +61,12 @@ export async function acquire(tabId: number): Promise<AcquireResult> {
   // Nothing linked and none of the usual addresses exist: the site simply has no terms page we can find. Saying "found 8 links"
   // about addresses we only guessed would be wrong, so that case gets its own sentence.
   if (candidates.links.length === 0) {
-    return { ok: false, reason: 'No terms of service were found. This page does not link to any, and the usual addresses (such as /terms) do not exist.', links: [] };
+    return {
+      ok: false,
+      reason: 'No terms of service were found. This page does not link to any, and the usual addresses (such as /terms) do not exist.',
+      links: [],
+      noTerms: { tried: tryList },
+    };
   }
   const linked = read.failures.filter((f) => candidates.links.includes(f.url));
   return { ok: false, reason: explainFailures(linked), links: candidates.links.slice(0, 5) };

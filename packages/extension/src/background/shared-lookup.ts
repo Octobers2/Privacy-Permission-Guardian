@@ -4,6 +4,8 @@
  * The one thing that leaves the browser is the registrable domain of the site being looked up (`/api/v1/sites/<domain>`), and
  * only for public sites. No page text, no full address, no account.
  */
+import { similarForResult } from '../analysis/similar.ts';
+import { othersFoundNoTerms } from './missing-terms.ts';
 import { isPublicHostname, type ResultView } from '@ppg/shared';
 import type { AnalysisResult, AnalysisState } from '../analysis/state.ts';
 
@@ -55,9 +57,12 @@ export async function lookupShared({ serverUrl, domain, hints, fetch: fetchImpl 
     return { status: 'error', domain, message: `Could not reach the results server at ${serverUrl}. Check your connection, or the server address in the settings.` };
   }
   if (response.status === 404) {
+    // Nobody has shared a result; has anyone said the site has no terms at all? (A domain-only request, like the one above.)
+    const others = await othersFoundNoTerms({ serverUrl, domain, fetch: fetchImpl });
     return {
       status: 'unavailable',
       domain,
+      ...(others ? { noTerms: { canReport: false, tried: [], others } } : {}),
       reason:
         'Nobody has shared a result for this site in the last 30 days. This browser only looks up shared results, so it cannot read the terms itself. Results appear once someone with an on-device model reads them.',
     };
@@ -69,6 +74,7 @@ export async function lookupShared({ serverUrl, domain, hints, fetch: fetchImpl 
   const doc = pickDocument(documents, hints);
   if (!doc) return { status: 'unavailable', domain, reason: 'The results server has nothing for this site.' };
 
+  const similar = doc.passages.length ? await similarForResult(serverUrl, doc.id, fetchImpl) : null;
   const result: AnalysisResult = {
     policyUrl: doc.url,
     domain,
@@ -78,6 +84,8 @@ export async function lookupShared({ serverUrl, domain, hints, fetch: fetchImpl 
     source: 'community',
     passageCount: doc.passageCount,
     flagged: doc.passages,
+    money: doc.money ?? [],
+    ...(similar ? { similar } : {}),
     categories: doc.categories,
     truncated: false,
     sharing: { status: 'already-public' },

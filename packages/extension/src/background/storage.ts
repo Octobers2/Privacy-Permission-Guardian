@@ -44,5 +44,6 @@ export async function saveResult(result: AnalysisResult, now = Date.now()): Prom
 export async function savedResultFor(domain: string, now = Date.now()): Promise<AnalysisResult | null> {
   const saved = ((await chrome.storage.local.get(RESULTS_STORAGE_KEY))[RESULTS_STORAGE_KEY] ?? {}) as Saved;
   const entry = saved[domain];
-  return entry && now - entry.savedAt < RESULT_TTL_MS ? entry.result : null;
+  // a result saved by an earlier version has no `money`
+  return entry && now - entry.savedAt < RESULT_TTL_MS ? { ...entry.result, money: entry.result.money ?? [] } : null;
 }

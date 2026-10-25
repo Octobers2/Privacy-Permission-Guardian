@@ -129,7 +129,7 @@ async function askModel(scored: Scored, ruleScore: number, ruleHits: string[]): 
 
 const onlyCollected = process.argv.includes('--collected-only');
 
-const fixtures = loadFixtures().filter((f) => !onlyCollected || f.source === 'collected');
+const fixtures = loadFixtures().filter((f) => f.source !== 'demo' && (!onlyCollected || f.source === 'collected'));
 const scored = fixtures.map(scoreFixture);
 const collectedCount = fixtures.filter((f) => f.source === 'collected').length;
 

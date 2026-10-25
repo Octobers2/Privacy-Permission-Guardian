@@ -128,7 +128,8 @@ try {
   const href = await found.popup.getByRole('link', { name: 'See all of them' }).getAttribute('href');
   check(href === `${SERVER}/site/acme-demo.com`, 'with a link to the public page of the site', href ?? '');
   const sent = requests.slice(before);
-  check(sent.length === 1 && sent[0] === '/api/v1/sites/acme-demo.com', 'the only request was for the site’s domain', sent.join(' '));
+  // the site's domain, then the numeric id of the result it shows (for "seen on other sites"): nothing about this browser or page
+  check(sent.length === 2 && sent[0] === '/api/v1/sites/acme-demo.com' && /^\/api\/v1\/results\/\d+\/similar$/.test(sent[1]!), 'the only requests were for the site’s domain and then the id of the result it shows', sent.join(' '));
   check(!sent.some((u) => u.includes('terms') && u.includes('lookup')), 'no page address or text was sent');
   await found.site.close();
 

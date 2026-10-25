@@ -3,15 +3,18 @@
   import '@material/web/button/filled-tonal-button.js';
   import '@material/web/button/text-button.js';
   import { onMount, tick } from 'svelte';
-  import { FAMILIES, FAMILY_HINTS, FAMILY_LABELS, FAMILY_OF, type Family } from '@ppg/shared';
-  import { STAGE_LABELS, type AnalysisResult, type AnalysisState } from '../analysis/state.ts';
+  import { FAMILIES, FAMILY_HINTS, FAMILY_LABELS, FAMILY_OF, localSummary, type Family } from '@ppg/shared';
+  import { STAGE_LABELS, type AnalysisResult, type AnalysisState, type NoTerms } from '../analysis/state.ts';
   import { STATE_KEY_PREFIX } from '../messages.ts';
   import { loadPrefs } from '../prefs.ts';
   import ClauseCard from './components/ClauseCard.svelte';
   import DocumentStrip from './components/DocumentStrip.svelte';
   import Icon from './components/Icon.svelte';
+  import InShort from './components/InShort.svelte';
   import Mark from './components/Mark.svelte';
+  import MoneyCard from './components/MoneyCard.svelte';
   import Progress from './components/Progress.svelte';
+  import ShareOffer from './components/ShareOffer.svelte';
   import { sharingLine, timeAgo } from './format.ts';
 
   let tabId = $state<number | null>(null);
@@ -55,6 +58,36 @@
     view = answer ?? NO_ANSWER;
   }
 
+  let searching = $state(false);
+  /** "Find similar cases": sends the flagged sentences of this page to the results server, only on this click. */
+  async function findSimilar() {
+    if (tabId === null) return;
+    searching = true;
+    const answer = await ask<AnalysisState>({ type: 'find-similar', tabId });
+    searching = false;
+    if (answer) view = answer;
+  }
+
+  let reporting = $state(false);
+  /** "Report this site": nothing is sent until this click. The worker takes the address from the tab itself. */
+  async function reportSite() {
+    if (tabId === null) return;
+    reporting = true;
+    await ask<{ ok: boolean; message: string }>({ type: 'report-missing-terms', tabId });
+    reporting = false;
+    await refresh();
+  }
+
+  let sharing = $state(false);
+  /** The answer to "Share this result?": the worker uploads (or not) and returns the updated result. */
+  async function answerShare(decision: 'share' | 'decline') {
+    if (tabId === null) return;
+    sharing = decision === 'share';
+    const answer = await ask<AnalysisState>({ type: 'share-result', tabId, decision });
+    sharing = false;
+    if (answer) view = answer;
+  }
+
   onMount(() => {
     void loadPrefs().then((prefs) => (shared = prefs.mode === 'shared'));
     // `?tab=<id>` points the popup at a specific tab, which is how the end-to-end test drives it as an ordinary page.
@@ -79,15 +112,36 @@
     family = null;
     picked = index;
     await tick();
-    document.getElementById(`clause-${index}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    (document.getElementById(`clause-${index}`) ?? document.getElementById(`money-${index}`))?.scrollIntoView({ block: 'center', behavior: 'smooth' });
     setTimeout(() => (picked = null), 1_800);
   }
 
   const domain = $derived(view && 'domain' in view && view.domain ? view.domain : '');
   const percent = (s: Extract<AnalysisState, { status: 'working' }>) => (s.total > 0 ? s.done / s.total : null);
-  const familyCounts = (r: Pick<AnalysisResult, 'flagged'>) => FAMILIES.map((f) => ({ f, n: r.flagged.filter((p) => FAMILY_OF[p.category] === f).length })).filter((x) => x.n > 0);
-  const headline = (n: number) => (n === 0 ? 'No clauses that look unfair' : n === 1 ? '1 clause that may work against you' : `${n} clauses that may work against you`);
+  const familyCounts = (r: Pick<AnalysisResult, 'flagged' | 'money'>) =>
+    FAMILIES.map((f) => ({ f, n: f === 'money' ? (r.money ?? []).length : r.flagged.filter((p) => FAMILY_OF[p.category] === f).length })).filter((x) => x.n > 0);
+  const headline = (n: number, money: number) =>
+    n === 0 ? (money ? 'No unfair clauses, but some about money' : 'No clauses that look unfair') : n === 1 ? '1 clause that may work against you' : `${n} clauses that may work against you`;
+  /** Classifier clauses and fee clauses in reading order, as one list, narrowed by the chosen family. */
+  type Row = { kind: 'clause'; index: number; clause: AnalysisResult['flagged'][number] } | { kind: 'money'; index: number; clause: AnalysisResult['money'][number] };
+  const rows = (r: Pick<AnalysisResult, 'flagged' | 'money'>, f: Family | null): Row[] =>
+    [
+      ...(f === 'money' ? [] : r.flagged.filter((p) => !f || FAMILY_OF[p.category] === f).map((clause): Row => ({ kind: 'clause', index: clause.index, clause }))),
+      ...(f === null || f === 'money' ? (r.money ?? []).map((clause): Row => ({ kind: 'money', index: clause.index, clause })) : []),
+    ].sort((a, b) => a.index - b.index);
 </script>
+
+{#snippet noTermsBlock(n: NoTerms)}
+    {#if n.others}
+      <p class="note warn"><Icon name="alert" size={16} /> <span>{n.others === 1 ? 'Someone else has' : `${n.others} people have`} also reported that this site has no terms.</span></p>
+    {/if}
+    {#if n.canReport && n.reported}
+      <p class="note good"><Icon name="check" size={16} /> <span>{n.reported}</span></p>
+    {:else if n.canReport}
+      <p class="note info"><Icon name="info" size={16} /> <span>Report it and others will be told. This sends only the address of this page (nothing after a “?” or “#”) and the usual places terms are kept.</span></p>
+      <md-filled-tonal-button disabled={reporting} onclick={reportSite}>{reporting ? 'Reporting…' : 'Report this site'}</md-filled-tonal-button>
+    {/if}
+  {/snippet}
 
 <div class="app">
   <header class="bar">
@@ -141,18 +195,28 @@
     {:else if view.status === 'ready'}
       {@const r = view.result}
       {@const share = sharingLine(r.sharing)}
-      {@const shown = family ? r.flagged.filter((p) => FAMILY_OF[p.category] === family) : r.flagged}
+      {@const money = r.money ?? []}
+      {@const shown = rows(r, family)}
+      {@const brief = localSummary(r.flagged, money)}
       <section class="ready">
         <div class="hero">
-          <h2>{headline(r.flagged.length)}</h2>
+          <h2>{headline(r.flagged.length, money.length)}</h2>
           <p class="meta">
             among {r.passageCount} sentences · {r.source === 'community' ? 'from the public cache' : 'read on this device'} · {timeAgo(r.analyzedAt)}
           </p>
         </div>
 
-        <DocumentStrip total={r.passageCount} flagged={r.flagged} {family} height={44} onpick={jumpTo} />
+        {#if r.noTerms}
+          <p class="note warn">
+            <Icon name="alert" size={16} />
+            <span><strong>No terms of service were found for this site.</strong> The on-device model read the page itself instead, so what follows is about this page, not about terms.</span>
+          </p>
+          {@render noTermsBlock(r.noTerms)}
+        {/if}
 
-        {#if r.flagged.length}
+        <DocumentStrip total={r.passageCount} flagged={r.flagged} {money} {family} height={44} onpick={jumpTo} />
+
+        {#if r.flagged.length || money.length}
           <div class="chips" role="group" aria-label="Filter clauses by what they do">
             {#each familyCounts(r) as { f, n } (f)}
               <button type="button" class="chip fam-{f}" aria-pressed={family === f} title={FAMILY_HINTS[f]} onclick={() => (family = family === f ? null : f)}>
@@ -160,6 +224,24 @@
               </button>
             {/each}
           </div>
+        {/if}
+
+        {#if brief.points.length}
+          <InShort summary={brief} />
+        {/if}
+
+        {#if r.sharing.status === 'offer'}
+          <ShareOffer result={r} busy={sharing} onanswer={answerShare} />
+        {/if}
+
+        {#if r.flagged.length && !r.similar && !r.personal && r.source === 'this-device'}
+          <p class="note info">
+            <Icon name="info" size={16} />
+            <span>See whether other sites have clauses like these. This sends the {r.flagged.length === 1 ? 'flagged sentence' : 'flagged sentences'} to the results server, only if you press the button.</span>
+          </p>
+          <md-filled-tonal-button disabled={searching} onclick={findSimilar}>{searching ? 'Searching…' : 'Find similar cases'}</md-filled-tonal-button>
+        {:else if r.similar && r.similar.length === 0}
+          <p class="note info"><Icon name="info" size={16} /> <span>No other site has a clause like these stored yet.</span></p>
         {/if}
 
         {#if r.truncated}
@@ -183,13 +265,19 @@
           <p class="note"><Icon name="info" size={16} /> Summary unavailable: {r.summaryError}</p>
         {/if}
 
-        {#if r.flagged.length}
+        {#if r.flagged.length || money.length}
           <div class="list">
             <h3>{family ? FAMILY_LABELS[family] : 'The clauses'} <span class="count">{shown.length}</span></h3>
-            {#each shown as clause (clause.index)}<ClauseCard {clause} total={r.passageCount} highlighted={picked === clause.index} />{/each}
+            {#each shown as row (`${row.kind}:${row.index}:${row.clause.text.slice(0, 24)}`)}
+              {#if row.kind === 'clause'}
+                <ClauseCard clause={row.clause} total={r.passageCount} highlighted={picked === row.index} similar={r.similar?.find((i) => i.index === row.index)} />
+              {:else}
+                <MoneyCard clause={row.clause} total={r.passageCount} highlighted={picked === row.index} />
+              {/if}
+            {/each}
           </div>
         {:else}
-          <p class="note good"><Icon name="check" size={16} /> Nothing in these terms matched the clause types this model looks for. That is not a guarantee, so skim the document if it matters.</p>
+          <p class="note good"><Icon name="check" size={16} /> {r.noTerms ? 'Nothing on this page matched the clause types this model looks for.' : 'Nothing in these terms matched the clause types this model looks for.'} That is not a guarantee, so skim the document if it matters.</p>
         {/if}
 
         {#if r.site && r.site.documents > 1}
@@ -207,6 +295,7 @@
         <h2>{shared ? 'No shared result yet' : 'No terms to read here'}</h2>
         <p>{view.reason}</p>
         {#each view.links ?? [] as link}<a class="link" href={link} target="_blank" rel="noreferrer">{link}</a>{/each}
+        {#if view.noTerms}{@render noTermsBlock(view.noTerms)}{/if}
       </section>
     {:else}
       <section class="state">

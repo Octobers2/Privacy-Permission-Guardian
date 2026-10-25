@@ -16,6 +16,12 @@ export function sharingLine(sharing: Sharing): { text: string; tone: 'good' | 'n
   switch (sharing.status) {
     case 'shared':
       return { text: 'Shared publicly, so others can look this site up without running a model.', tone: 'good' };
+    case 'offer':
+      return { text: 'Not shared yet. Nothing leaves this computer unless you choose to share it.', tone: 'neutral' };
+    case 'declined':
+      return { text: 'Not shared. You chose to keep this result on this computer.', tone: 'neutral' };
+    case 'page-only':
+      return { text: 'Not shared: this is the page itself, not a terms document.', tone: 'neutral' };
     case 'already-public':
       return { text: 'This result comes from the public cache.', tone: 'neutral' };
     case 'not-signed-in':

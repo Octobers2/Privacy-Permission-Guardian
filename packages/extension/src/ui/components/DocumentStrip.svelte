@@ -7,6 +7,8 @@
     /** How many have been read so far; `total` once finished. Drives the read head while the model works. */
     read?: number;
     flagged: Pick<Passage, 'index' | 'category'>[];
+    /** Sentences the fee rules matched; drawn in the Money colour wherever the classifier flagged nothing. */
+    money?: { index: number }[];
     /** When set, ticks of other families fade back. */
     family?: Family | null;
     /** Play the flagged ticks in one after another, once. For the welcome screen. */
@@ -18,7 +20,7 @@
     height?: number;
     onpick?: (index: number) => void;
   }
-  let { total, read = total, flagged, family = null, reveal = false, working = false, ghost = false, height = 44, onpick }: Props = $props();
+  let { total, read = total, flagged, money = [], family = null, reveal = false, working = false, ghost = false, height = 44, onpick }: Props = $props();
 
   // A flagged tick should stay at least ~3 px wide however many sentences share the strip, so it is always seen.
   let pixels = $state(348);
@@ -34,16 +36,24 @@
     for (const f of flagged) if (!m.has(binOf(f.index))) m.set(binOf(f.index), f);
     return m;
   });
+  const moneyMarks = $derived.by(() => {
+    const m = new Map<number, { index: number }>();
+    for (const f of money) if (!m.has(binOf(f.index)) && !marks.has(binOf(f.index))) m.set(binOf(f.index), f);
+    return m;
+  });
   const readBins = $derived(Math.min(bins, Math.round((read / Math.max(total, 1)) * bins)));
+  const everything = $derived([...flagged, ...money]);
   const summary = $derived(
-    flagged.length === 0 ? `${total} sentences read, none flagged` : `${total} sentences, ${flagged.length} flagged at these positions in the document`,
+    everything.length === 0
+      ? `${total} sentences read, none flagged`
+      : `${total} sentences, ${flagged.length} flagged${money.length ? ` and ${money.length} about money` : ''} at these positions in the document`,
   );
 
   function pick(event: MouseEvent) {
-    if (!onpick || flagged.length === 0) return;
+    if (!onpick || everything.length === 0) return;
     const box = (event.currentTarget as SVGElement).getBoundingClientRect();
     const target = ((event.clientX - box.left) / box.width) * total;
-    onpick(flagged.reduce((best, f) => (Math.abs(f.index - target) < Math.abs(best.index - target) ? f : best)).index);
+    onpick(everything.reduce((best, f) => (Math.abs(f.index - target) < Math.abs(best.index - target) ? f : best)).index);
   }
 </script>
 
@@ -69,6 +79,19 @@
         rx={Math.min(0.4, markWidth / 2)}
       >
         <title>{CATEGORY_LABELS[mark.category]} · sentence {mark.index + 1}</title>
+      </rect>
+    {:else if moneyMarks.has(i)}
+      <rect
+        class="tick flagged fam-money"
+        class:dim={family !== null && family !== 'money'}
+        class:reveal
+        x={i + 0.5 - markWidth / 2}
+        y="3"
+        width={markWidth}
+        height="38"
+        rx={Math.min(0.4, markWidth / 2)}
+      >
+        <title>Money · sentence {moneyMarks.get(i)!.index + 1}</title>
       </rect>
     {:else}
       <rect class="tick plain" class:unread={!done} x={i + 0.25} y="17" width="0.5" height="10" rx="0.2" />

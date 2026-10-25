@@ -11,6 +11,8 @@
  *   D  a page that shows the user's account: analysed locally, never shared, never looked up
  *   E  a site with no terms: said plainly
  *   F  signed out: analysed, not shared
+ *   G  a contributor is asked before anything is shared; similar clauses on other sites; "Not now" keeps the result private
+ *   H  a site with no terms and a page full of fine print: the model reads the page, a warning appears, anyone can report it
  */
 import { chromium, type BrowserContext, type Page, type Worker } from 'playwright-core';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -23,7 +25,7 @@ const fixtures = join(root, 'eval/fixtures/terms');
 const SERVER_PORT = 8798;
 const SITE_PORT = 4310;
 const SERVER = `http://localhost:${SERVER_PORT}`;
-const HOSTS = ['acme-demo.com', 'shop-demo.com', 'plain-demo.com'];
+const HOSTS = ['acme-demo.com', 'shop-demo.com', 'plain-demo.com', 'scam-demo.com'];
 const site = (host: string, path = '/') => `http://${host}:${SITE_PORT}${path}`;
 const headed = process.argv.includes('--headed');
 
@@ -86,7 +88,17 @@ try {
   await setPrefs();
 
   /** Opens a site, then drives the extension's popup against that tab like a user, and returns what the popup says. */
-  async function analyse(host: string, path = '/'): Promise<{ text: string; ms: number; groups: string[]; popup: Page }> {
+  async function analyse(
+    host: string,
+    path = '/',
+    opts: {
+      /** What to do when the popup asks "Share this result?" (after `onOffer` has looked at it). */
+      answer?: 'share' | 'decline';
+      onOffer?: (popup: Page, text: string) => Promise<void>;
+      /** Leave the site's tab open and return it. */
+      keepSite?: boolean;
+    } = {},
+  ): Promise<{ text: string; ms: number; groups: string[]; popup: Page; sitePage: Page }> {
     const sitePage = await context!.newPage();
     await sitePage.goto(site(host, path));
     const tabId = await worker.evaluate(async (prefix) => (await chrome.tabs.query({})).find((t) => t.url?.startsWith(prefix))!.id!, site(host));
@@ -107,18 +119,37 @@ try {
     await popup.getByText('Read the terms', { exact: true }).click();
     await popup.locator('section.ready h2, section.state h2').first().waitFor({ timeout: 180_000 });
     if (sampler) { clearInterval(sampler); console.log('  [timeline] ' + timeline.join('  ->  ')); }
-    const text = (await popup.locator('main').innerText()).replace(/\s+/g, ' ');
+    let text = (await popup.locator('main').innerText()).replace(/\s+/g, ' ');
+    if (/Share this result\?/.test(text)) {
+      await opts.onOffer?.(popup, text);
+      if (opts.answer === 'share') {
+        await popup.locator('md-filled-button', { hasText: /^\s*Share\s*$/ }).click();
+        await popup.getByText(/Shared publicly/).waitFor({ timeout: 15_000 });
+      } else if (opts.answer === 'decline') {
+        await popup.locator('md-text-button', { hasText: 'Not now' }).click();
+        await popup.getByText(/chose to keep/).waitFor({ timeout: 15_000 });
+      }
+      text = (await popup.locator('main').innerText()).replace(/\s+/g, ' ');
+    }
     // read the findings before the site tab closes: the popup rightly stops showing them once its tab is gone
     const groups = (await popup.locator('article.clause .kind').allTextContents()).map((t) => t.trim());
     const tech = (await popup.locator('.tech pre').textContent({ timeout: 300 }).catch(() => '')) ?? '';
     if (tech) console.log('  [technical details]\n' + tech.split('\n').map((l) => '    ' + l).join('\n'));
-    await sitePage.close();
-    return { text, ms: Date.now() - started, groups, popup };
+    if (!opts.keepSite) await sitePage.close();
+    return { text, ms: Date.now() - started, groups, popup, sitePage };
   }
 
   // A ---------------------------------------------------------------------------------------------------------
   console.log('\n=== A. first analysis of acme-demo.com ===');
-  const a = await analyse('acme-demo.com');
+  const a = await analyse('acme-demo.com', '/', {
+    answer: 'share',
+    async onOffer(_popup, offer) {
+      check(/Not shared yet\. Nothing leaves this computer/.test(offer) && /Would be sent/.test(offer) && /Stays here/.test(offer), 'a contributor is asked before anything is shared, and told what would be sent');
+      check((await api('/api/v1/lookup?url=' + encodeURIComponent(site('acme-demo.com', '/terms')))).error === 'not_found', 'nothing has been uploaded while the question is open');
+      check(/Money/.test(offer) && /Automatic renewal|Cancellation fee|No refunds/.test(offer), 'the fee clauses are shown (as their own family and in "In short")');
+      check(/In short/.test(offer) && /(Low|Medium|High) risk/.test(offer), 'there is an in-short summary with a risk level');
+    },
+  });
   console.log(`  ${(a.ms / 1000).toFixed(1)} s | ${a.text}`);
   check(/\d+ clauses? that may work against you/.test(a.text), 'a headline with the number of flagged clauses');
   check(/read on this device/.test(a.text), 'it says the analysis happened on this device');
@@ -136,6 +167,7 @@ try {
   check(first.result?.unfairCount === flaggedCount, 'the backend holds the same result publicly', `${first.result?.unfairCount} stored`);
   check(!JSON.stringify(first).includes('support@acme-demo.com') && !JSON.stringify(first).includes('invoices'), 'the fair sentences were not uploaded');
   check(first.result?.model?.id === 'ppg-fast-0.8b-q4f32', 'the model that produced it is recorded');
+  check((first.result?.money ?? []).length >= 2, 'the fee clauses were shared with it', `${(first.result?.money ?? []).map((m: { kind: string }) => m.kind).join(', ')}`);
 
   if (process.argv.includes('--only-a')) throw new Error('stopped after A (--only-a)');
 
@@ -152,7 +184,7 @@ try {
   console.log('\n=== C. the policy changed ===');
   acmeTerms = 'terms.v2.html';
   await wipeLocal();
-  const c = await analyse('acme-demo.com');
+  const c = await analyse('acme-demo.com', '/', { answer: 'share' });
   check(/read on this device/.test(c.text), 'changed text is read again, not served from the cache');
   const hist = await api('/api/v1/history?url=' + encodeURIComponent(site('acme-demo.com', '/terms')));
   check(hist.versions?.length === 2 && hist.versions[0].current && !hist.versions[1].current, 'both versions are kept, the newest is current', `${hist.versions?.length} versions`);
@@ -181,6 +213,52 @@ try {
   const f = await analyse('acme-demo.com');
   check(/Not shared/.test(f.text) && /Sign in as a contributor/.test(f.text), 'analysed on the device but not shared, with the way to change that');
   check((await api('/api/v1/history?url=' + encodeURIComponent(site('acme-demo.com', '/terms')))).versions.length === 2, 'no third version was uploaded');
+
+  // G ---------------------------------------------------------------------------------------------------------
+  console.log('\n=== G. similar clauses on other sites, and "Not now" ===');
+  await setPrefs(); // signed in again
+  const arbitration = (first.result.passages as { category: string }[]).find((p) => p.category === 'arbitration');
+  const seeded = await fetch(`${SERVER}/api/results`, {
+    method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${login.token}` },
+    body: JSON.stringify({ url: 'https://other-demo.com/terms', domain: 'other-demo.com', textHash: 'c'.repeat(64), model: first.result.model, promptVersion: 'letters-v1', passageCount: 20, passages: [arbitration] }),
+  });
+  check(seeded.status === 201, 'another site with the same arbitration clause is stored', String(seeded.status));
+  const historyBefore = (await api('/api/v1/history?url=' + encodeURIComponent(site('acme-demo.com', '/terms')))).versions.length;
+  await wipeLocal();
+  const g = await analyse('acme-demo.com', '/', {
+    answer: 'decline',
+    async onOffer(popup) {
+      check(await popup.getByText('Find similar cases').count() > 0, 'a result read here offers to look for similar cases, and has not asked yet');
+      await popup.locator('md-filled-tonal-button', { hasText: 'Find similar cases' }).click();
+      await popup.getByText(/Seen on 1 other site/).waitFor({ timeout: 15_000 });
+      check(true, 'after the click, the arbitration clause shows "Seen on 1 other site" (the page\'s own site is not counted)');
+    },
+  });
+  check(/chose to keep this result/.test(g.text), '"Not now" is remembered and said');
+  check((await api('/api/v1/history?url=' + encodeURIComponent(site('acme-demo.com', '/terms')))).versions.length === historyBefore, 'and nothing was uploaded');
+
+  // H ---------------------------------------------------------------------------------------------------------
+  console.log('\n=== H. no terms anywhere: the model reads the page itself, and anyone can report the site ===');
+  const reportsBefore = await fetch(`${SERVER}/api/v1/missing-terms/scam-demo.com`);
+  check(reportsBefore.status === 404, 'nobody has reported the site yet');
+  const h = await analyse('scam-demo.com', '/', { keepSite: true });
+  console.log(`  ${h.text.slice(0, 300)}`);
+  check(/No terms of service were found for this site/.test(h.text) && /read the page itself/.test(h.text), 'the popup says there are no terms and that the model read the page instead');
+  check(/\d+ clauses? that may work against you/.test(h.text), 'and it still found clauses on the page', h.groups.join(', '));
+  check(/Not shared: this is the page itself/.test(h.text) && !/Share this result/.test(h.text), 'that reading is never offered for sharing');
+  const bannerText = async () => h.sitePage.evaluate(() => document.getElementById('ppg-banner-host')?.shadowRoot?.textContent ?? '');
+  let banner = '';
+  for (let i = 0; i < 30 && !/on-device model found/.test(banner); i++) { banner = await bannerText(); await Bun.sleep(300); }
+  check(/Caution|Critical risk/.test(banner) && /No terms of service were found/.test(banner) && /on-device model found on this page: .*(arbitration|termination|change)/i.test(banner), 'the page\'s warning says there are no terms and what the model found on the page', banner.slice(0, 220));
+  check((await fetch(`${SERVER}/api/v1/missing-terms/scam-demo.com`)).status === 404, 'showing the warning reported nothing');
+  await h.sitePage.locator('#ppg-banner-host').getByRole('button', { name: 'Report this site' }).click();
+  await h.sitePage.locator('#ppg-banner-host').getByText(/has been reported/).waitFor({ timeout: 15_000 });
+  const reported = await api('/api/v1/missing-terms/scam-demo.com');
+  check(reported.reports === 1 && reported.domain === 'scam-demo.com', 'pressing Report on the page counted one report');
+  await h.popup.locator('md-filled-tonal-button', { hasText: 'Report this site' }).click();
+  await h.popup.getByText(/already reported this site today/).waitFor({ timeout: 15_000 });
+  check((await api('/api/v1/missing-terms/scam-demo.com')).reports === 1, 'the same person reporting again the same day is not counted twice');
+  await h.sitePage.close();
 } catch (error) {
   failed = true;
   console.log('FAIL  ', error instanceof Error ? error.stack ?? error.message : error);

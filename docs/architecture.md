@@ -46,11 +46,15 @@ For one tab, in order. Each step can stop the flow, and the earlier ones are the
 
 1. **Acquire** the terms text and its address (service worker).
 2. **Rules check** (`shared/pii.ts`): does the text contain personal data about a person (a private email address, a card number that passes the Luhn check, a national ID, an IBAN, a date of birth, account markers)? Terms pages legitimately print company contact details, so phone numbers, role mailboxes and street addresses count only alongside other cues. If the page looks personal, the extension never contacts the server about it.
-3. **Cache lookup** (`/api/v1/lookup?url=…&hash=…`). A hit whose text hash matches is shown straight away. A changed text is read again.
-4. **Classify** on the device: split the text into sentences (`segmentDocument`), normalise each the way the training text was, ask the model for the nine-way answer, calibrate with the fitted temperature. Progress streams to the popup.
+3. **Cache lookup** (`/api/v1/lookup?url=…&hash=…`). A hit whose text hash matches is shown straight away, together with similar clauses from other sites (`/api/v1/results/:id/similar`). A changed text is read again.
+4. **Classify** on the device: split the text into sentences (`segmentDocument`), normalise each the way the training text was, ask the model for the nine-way answer, calibrate with the fitted temperature. Progress streams to the popup. In the same pass the fee rules (`shared/money.ts`) run on every sentence, fair ones included. They are patterns, not the model, and fill a fifth family, **Money** (automatic renewal, cancellation fee, no refund, price change).
 5. **Model personal-data question** on the page (`pii-v1`, two options, threshold 0.5). This is the second opinion after the rules.
-6. **Share**, only if the user is signed in as a contributor and everything above passed: upload the flagged passages with their probabilities, the address (without query or fragment), the text hash, and the model id. Fair sentences travel as a count. Every passage is checked again with the strict rules.
-7. **Summary**, only if the user opted in at setup and the page passed: the flagged passages go to the server's `/api/summary` (or to the user's own OpenAI-compatible endpoint, kept as an advanced option).
+6. **In short** (`shared/local-summary.ts`): three to five points from the findings, ranked by a fixed severity per clause type, with fixed plain-English wording and the document's own sentence as the quote. The risk level is `riskScore` over every type found (50 and above is high, 20 and above medium). No model writes it.
+7. **Offer to share**, only if the user is signed in as a contributor and everything above passed. The analysis stops at `sharing: offer`; the popup shows what would be sent and the upload (`analysis/share.ts`, run by the service worker) happens only on **Share**. Fair sentences travel as a count; every passage is checked again with the strict rules.
+8. **Similar cases** (`analysis/similar.ts`), only on the **Find similar cases** button for a result read here: the flagged sentences go to `POST /api/v1/similar`, which finds stored clauses of the same type on other sites (SQLite FTS5 candidates ranked by BM25, kept when the word overlap is at least 0.35) and returns counts and three examples.
+9. **Summary**, only if the user opted in at setup and the page passed: the flagged passages go to the server's `/api/summary` (or to the user's own OpenAI-compatible endpoint, kept as an advanced option).
+
+**No terms found.** If acquisition finds no terms at all (no link, no usual address), the flow does not stop. The background reads the page's own text and runs steps 2 to 6 on it as a `noTerms` job: no cache lookup, never offered for sharing (`sharing: page-only`), and not saved. The page then shows a Caution banner with what the model found, and the popup says the result is about the page and not about terms. A page with a password or card form and no terms, legal-notice or privacy link gets the cheap version of the same banner on load, with no model (`content/no-terms.ts`).
 
 Shared-results-only mode replaces steps 1 to 7 with one request, `GET /api/v1/sites/<domain>`, and shows the best document for the page (the one the page links to, then one that looks like terms, then the newest). Only the registrable domain of a public site is sent; localhost, private addresses and bare host names are refused before any request.
 
@@ -85,6 +89,8 @@ Hono on Bun, SQLite through `bun:sqlite`, one process. Source in `packages/serve
 | `GET /api/v1/sites/:domain` | anyone | the current result of every document of a site, with passages |
 | `GET /api/v1/lookup?url=&hash=` | anyone | the current result for one document, and whether the text changed |
 | `GET /api/v1/results/:id`, `/history?url=` | anyone | one result; every unexpired version of one document |
+| `GET /api/v1/results/:id/similar`, `POST /api/v1/similar` | anyone (the POST is metered) | clauses like the flagged ones on other sites. The GET uses stored text; the POST takes up to 50 sentences from the extension, checks them for personal data and keeps nothing |
+| `POST /api/v1/reports/missing-terms`, `GET /api/v1/missing-terms[/:domain]` | anyone (the POST is metered) | "this site has no terms": one row per site, a count, kept 30 days from the last report. A site that has shared results is refused. One report per client per site per day |
 | `GET /api/v1/recent`, `/rankings?by=count\|share`, `/stats` | anyone | lists for the site |
 | `POST /api/summary` | anyone (metered) | plain-language summary of flagged passages. Per-client and global hourly limits; answers cached by passages |
 | `GET /models/manifest.json`, `/models/<bundle>/…` | anyone | model bundles with HTTP Range, ETag and immutable cache headers |
@@ -95,7 +101,7 @@ Reads are public by design; the point is that results are shared. CORS is open f
 
 **Storage** (`store.ts`)
 
-- `results` (one row per upload: address, domain, text hash, model, counts, `created_at`, `expires_at`), `passages` (flagged sentences with their nine probabilities), `summaries` (cached by passages, prompt version and model).
+- `results` (one row per upload: address, domain, text hash, model, counts, `created_at`, `expires_at`), `passages` (flagged sentences with their nine probabilities), `passages_fts` (the same sentences, full-text indexed, for similar cases), `money_clauses` (the fee-rule sentences of a result), `missing_terms` (one row per reported site) and `summaries` (cached by passages, prompt version and model).
 - **Cache key:** the policy address with query string and fragment removed. **Latest wins:** the newest unexpired row for an address is "current"; older rows stay as history until they expire. A change in the text hash is what marks a real change in the terms.
 - **TTL:** 30 days from upload. Reads ignore expired rows at once; a daily job (and one at boot) deletes them. The clock is injectable, which is how the tests cover expiry.
 

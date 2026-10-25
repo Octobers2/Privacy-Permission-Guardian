@@ -2,7 +2,7 @@
  * One analysis, start to finish, in the offscreen document.
  *
  *   privacy check (rules, no network) -> saved result? -> classify clause by clause -> privacy check (model)
- *     -> share (signed-in contributors) -> summarise (if opted in)
+ *     -> offer to share (signed-in contributors; the upload itself waits for a click) -> summarise (if opted in)
  *
  * Everything outside this file is injected (the engine, the network, the clock, the progress sink), so the whole flow is
  * tested with fakes in `test/analyzer.test.ts`. The order is deliberate:
@@ -13,13 +13,12 @@
  */
 import {
   assessPage,
+  findMoneyClausesAmong,
   buildSummaryPrompt,
   chatJson,
   finaliseSummary,
   MAX_SUMMARY_PASSAGES,
   normalizeForModel,
-  passageHasPii,
-  ResultUploadSchema,
   segmentDocument,
   sha256Hex,
   SummaryModelResponseSchema,
@@ -34,7 +33,8 @@ import {
   type SummaryRequest,
   type UnfairCategory,
 } from '@ppg/shared';
-import { countCategories, type AnalysisResult, type AnalysisState, type Sharing, type Stage } from './state.ts';
+import { similarForResult } from './similar.ts';
+import { countCategories, type AnalysisResult, type AnalysisState, type NoTerms, type Sharing, type Stage } from './state.ts';
 
 /** Sentences beyond this are not read: a policy this long is mostly boilerplate and would take many minutes. */
 export const MAX_SENTENCES = 1_500;
@@ -48,6 +48,11 @@ export interface Job {
   domain: string;
   text: string;
   truncated: boolean;
+  /**
+   * Set when the site has no terms we can find and `text` is the page itself: the model reads it anyway, to say whether the page
+   * contains anything suspicious. Such a result is never looked up in, or offered to, the shared cache.
+   */
+  noTerms?: NoTerms;
   prefs: {
     serverUrl: string;
     /** Manifest id of the model to use. */
@@ -112,16 +117,18 @@ export async function analyse(job: Job, deps: Deps): Promise<AnalysisState> {
 
     // 2. A saved result for exactly this text, unless the page looks personal (then the server is not even asked).
     let cached: ResultView | null = null;
-    if (!rulesBlocked) {
+    if (!rulesBlocked && !job.noTerms) {
       working('checking-cache');
       cached = await lookup(server, job.policyUrl, textHash, deps.fetch);
     }
     if (cached) {
       const personal = null;
       const flagged = cached.passages;
+      const similar = flagged.length ? await similarForResult(server, cached.id, deps.fetch) : null;
       const result = await finish(job, deps, working, {
         policyUrl: job.policyUrl, domain, textHash, model: cached.model, analyzedAt: cached.createdAt, source: 'community',
-        passageCount: cached.passageCount, flagged, truncated: job.truncated, sharing: { status: 'already-public' }, personal,
+        passageCount: cached.passageCount, flagged, money: cached.money, truncated: job.truncated, sharing: { status: 'already-public' }, personal,
+        ...(similar ? { similar } : {}),
       });
       return { status: 'ready', domain, result };
     }
@@ -158,21 +165,21 @@ export async function analyse(job: Job, deps: Deps): Promise<AnalysisState> {
       if (answer.personal) personalReasons = ['the on-device check judged this page to show personal information'];
     }
 
+    // looser segmentation than the classifier's, so a four-word "All sales are final." is not lost
+    const money = findMoneyClausesAmong(segmentDocument(job.text, { minChars: 10, minWords: 2 }), sentences);
     const model = { id: held.engine.model.id, version: held.engine.model.version };
     const base = {
       policyUrl: job.policyUrl, domain, textHash, model, analyzedAt: new Date(deps.now()).toISOString(), source: 'this-device' as const,
-      passageCount: sentences.length, flagged, truncated: job.truncated || sentences.length >= MAX_SENTENCES,
+      passageCount: sentences.length, flagged, money, truncated: job.truncated || sentences.length >= MAX_SENTENCES,
       personal: personalReasons ? { reasons: personalReasons } : null,
     };
 
-    // 5. Share, if allowed.
+    // 5. Offer to share, if allowed. Nothing is sent from here: the popup asks, and the service worker uploads on a yes (share.ts).
     let sharing: Sharing;
     if (personalReasons) sharing = { status: 'blocked', reasons: personalReasons };
+    else if (job.noTerms) sharing = { status: 'page-only' };
     else if (!job.prefs.token) sharing = { status: 'not-signed-in' };
-    else {
-      working('sharing', sentences.length, sentences.length, flagged);
-      sharing = await share(server, job.prefs.token, { ...base, textHash }, deps.fetch);
-    }
+    else sharing = { status: 'offer' };
 
     const result = await finish(job, deps, working, { ...base, sharing });
     return { status: 'ready', domain, result };
@@ -203,7 +210,7 @@ async function finish(
       summaryError = error instanceof Error ? error.message : String(error);
     }
   }
-  return { ...partial, categories: countCategories(partial.flagged), summary, summaryError };
+  return { ...partial, ...(job.noTerms ? { noTerms: job.noTerms } : {}), categories: countCategories(partial.flagged), summary, summaryError };
 }
 
 // ---------------------------------------------------------------- network
@@ -216,32 +223,6 @@ async function lookup(server: string, policyUrl: string, hash: string, fetchImpl
     return body.sameText ? body.result : null;
   } catch {
     return null; // the server being down must never stop the on-device analysis
-  }
-}
-
-async function share(
-  server: string,
-  token: string,
-  r: { policyUrl: string; domain: string; textHash: string; model: { id: string; version: string }; passageCount: number; flagged: Passage[] },
-  fetchImpl: typeof fetch,
-): Promise<Sharing> {
-  // Passages that look like personal data never leave the device, even if the page as a whole was judged public.
-  const safe = r.flagged.filter((p) => !passageHasPii(p.text)).slice(0, 500);
-  const upload = ResultUploadSchema.safeParse({
-    url: r.policyUrl, domain: r.domain, textHash: r.textHash, model: r.model, promptVersion: 'letters-v1', passageCount: r.passageCount, passages: safe,
-  });
-  if (!upload.success) return { status: 'failed', message: 'The result was not in a shareable form.' };
-  try {
-    const response = await fetchImpl(`${server}/api/results`, {
-      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-      body: JSON.stringify(upload.data), signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-    if (response.status === 401) return { status: 'failed', message: 'Your sign-in has expired. Sign in again in the settings to share results.' };
-    if (response.status === 422) return { status: 'failed', message: 'The server declined to store this result.' };
-    if (!response.ok) return { status: 'failed', message: `The server answered ${response.status}.` };
-    return { status: 'shared', id: ((await response.json()) as { id: number }).id };
-  } catch {
-    return { status: 'failed', message: 'Could not reach the server to share the result.' };
   }
 }
 

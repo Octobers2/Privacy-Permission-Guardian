@@ -31,6 +31,7 @@ const CUSTOM_COLOURS = [
   { name: 'liability', hex: '#C98A0A' }, // ochre: limits on what they answer for
   { name: 'control', hex: '#7352C1' }, // violet: changing terms, ending accounts, removing content
   { name: 'consent', hex: '#0F8B8D' }, // teal: agreeing by using
+  { name: 'money', hex: '#B5337A' }, // magenta: renewals, fees, refunds (the fee rules, not a classifier class)
 ] as const;
 
 const OUT_ROOT = resolve(import.meta.dir, '../src/ui/theme/md3-tokens.css');

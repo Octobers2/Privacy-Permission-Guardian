@@ -6,7 +6,7 @@
  *
  * The domains are made up (…-demo.com) so nothing here can be mistaken for a real finding about a real company.
  */
-import { OTHER_INDEX, TOS_CATEGORIES, UNFAIR_CATEGORIES, type ResultUpload, type UnfairCategory } from '@ppg/shared';
+import { OTHER_INDEX, TOS_CATEGORIES, UNFAIR_CATEGORIES, type MoneyKind, type ResultUpload, type UnfairCategory } from '@ppg/shared';
 import { AuthStore } from '../src/auth.ts';
 import { createApp } from '../src/index.ts';
 import { ResultStore } from '../src/store.ts';
@@ -51,9 +51,16 @@ function demoResult(domain: string, path: string, passageCount: number, flaggedC
     const options = QUOTES[category];
     return { index, text: options[Math.floor(rand() * options.length)]!.replace('the Company', domain.split('.')[0]!), category, probs: probsFor(category, 0.6 + rand() * 0.39) };
   });
+  // the fee rules' sentences, for the sites that sell something
+  const moneyAt = (kind: MoneyKind, text: string, slot: number) => ({ index: Math.floor(((slot + 1) / 5) * passageCount), kind, text });
+  const money = seed % 2 === 1 ? [
+    moneyAt('auto_renewal', 'Your subscription renews automatically at the end of each billing period unless you cancel before then.', 0),
+    moneyAt('cancellation_fee', 'If you cancel during the first year, an early termination fee of half the remaining plan applies.', 1),
+    moneyAt('no_refund', 'All fees are non-refundable.', 2),
+  ] : [];
   return {
     url: `https://${domain}${path}`, domain, textHash: Array.from({ length: 64 }, () => '0123456789abcdef'[Math.floor(rand() * 16)]).join(''),
-    model: { id: 'ppg-fast-0.8b-q4f32', version: '2026-10-14' }, promptVersion: 'letters-v1', passageCount, passages,
+    model: { id: 'ppg-fast-0.8b-q4f32', version: '2026-10-14' }, promptVersion: 'letters-v1', passageCount, passages, money,
   };
 }
 

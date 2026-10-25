@@ -18,7 +18,9 @@ import { resolve } from 'node:path';
  * are snapshots of pages nobody on this project authored, and only those
  * belong in a headline number.
  */
-export type FixtureSource = 'synthetic' | 'collected';
+export type FixtureSource = 'synthetic' | 'collected' | 'demo';
+// `demo`: a page that only the extension's browser-side checks can judge (the favicon check needs a fetched icon), so the
+// rules-only evaluation leaves it out; the banner end-to-end test and the fixture server include it.
 
 export interface Fixture {
   file: string;

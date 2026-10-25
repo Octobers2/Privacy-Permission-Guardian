@@ -243,7 +243,7 @@
           account without notice. It also warns you about forms that look like phishing.
         </p>
         <ul class="promises">
-          <li><Icon name="laptop" size={22} /><div><strong>It runs on your computer.</strong> A small model is downloaded once and does the reading locally.</div></li>
+          <li><Icon name="laptop" size={22} /><div><strong>An offline model reads the terms, entirely inside your browser.</strong> It is downloaded once; after that it runs on your own computer, with no server involved. The text of the terms is never sent anywhere to be read.</div></li>
           <li><Icon name="lock" size={22} /><div><strong>Your pages stay with you.</strong> Nothing you read is sent anywhere unless you choose to share it.</div></li>
           <li><Icon name="upload" size={22} /><div><strong>Sharing is optional.</strong> If you opt in, only the flagged clauses of public terms pages are shared, never a page that shows personal data.</div></li>
         </ul>
@@ -301,7 +301,7 @@
         </div>
       {:else if step === 'model'}
         <h1 bind:this={heading} tabindex="-1">Choose a model</h1>
-        <p class="lead">You can change this later in the settings. The download happens once and is kept in your browser.</p>
+        <p class="lead">You can change this later in the settings. The download happens once and is kept in your browser. Either model is an offline model that runs completely inside your browser: it reads the terms on your computer, and nothing you read is sent to a server for that.</p>
         <div class="models" role="radiogroup" aria-label="Model">
           {#each models as m (m.id)}
             <label class="model" class:chosen={selectedId === m.id}>

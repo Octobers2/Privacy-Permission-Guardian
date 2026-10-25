@@ -24,6 +24,7 @@ export function upload(overrides: Partial<ResultUpload> = {}): ResultUpload {
     promptVersion: 'letters-v1',
     passageCount: 40,
     passages: [passage(3, 'unilateral_termination'), passage(9, 'arbitration')],
+    money: [],
     ...overrides,
   };
 }

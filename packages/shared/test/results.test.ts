@@ -101,9 +101,10 @@ describe('summary', () => {
 
 import { CATEGORY_LABELS, FAMILIES, FAMILY_OF, UNFAIR_CATEGORIES } from '../src/labels.ts';
 describe('families', () => {
-  test('every unfair category belongs to exactly one family, and every family is used', () => {
+  test('every unfair category belongs to exactly one family, and every family but money is used by one', () => {
     for (const c of UNFAIR_CATEGORIES) expect(FAMILIES).toContain(FAMILY_OF[c]);
-    expect(new Set(UNFAIR_CATEGORIES.map((c) => FAMILY_OF[c]))).toEqual(new Set(FAMILIES));
+    // `money` is filled by the fee rules, not by a classifier class
+    expect(new Set(UNFAIR_CATEGORIES.map((c) => FAMILY_OF[c]))).toEqual(new Set(FAMILIES.filter((f) => f !== 'money')));
     expect(Object.keys(CATEGORY_LABELS)).toContain('other'); // labels still cover the benign class
   });
 });

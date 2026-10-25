@@ -22,7 +22,15 @@ export interface BannerContent {
   title: string;
   reasons: string[];
   advice?: string;
+  /**
+   * A button that does one thing the user asked for by pressing it, with a plain statement of what it will send shown first.
+   * Resolves to the sentence that replaces the button.
+   */
+  action?: { label: string; note: string; run(): Promise<string> };
 }
+
+/** The name of the level, shown above the title: how worried to be, before the details of why. */
+export const LEVEL_LABELS: Record<BannerContent['verdict'], string> = { caution: 'Caution', danger: 'Critical risk' };
 
 export interface BannerHandlers {
   onDismiss(): void;
@@ -78,7 +86,9 @@ const STYLES = `
 }
 .icon { width: 20px; height: 20px; }
 .body { flex: 1 1 auto; min-width: 0; }
+.level { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.85; margin-bottom: 2px; }
 .title { font-size: 15px; font-weight: 600; line-height: 1.3; }
+.done { margin-top: 6px; font-weight: 600; }
 .why { margin-top: 3px; }
 .advice { margin-top: 6px; font-weight: 500; }
 
@@ -188,10 +198,31 @@ export function showBanner(content: BannerContent, handlers: BannerHandlers): HT
   });
   more.append(never);
 
+  // A page script can reach an open shadow root and call `.click()`; only a click the user made counts.
+  const done = el('div', { className: 'done' });
+  done.hidden = true;
+  const note = content.action ? el('div', { className: 'advice', textContent: content.action.note }) : null;
+  let reportButton: HTMLButtonElement | null = null;
+  if (content.action) {
+    const { label, run } = content.action;
+    reportButton = el('button', { type: 'button', className: 'primary', textContent: label });
+    reportButton.addEventListener('click', async (event) => {
+      if (!event.isTrusted || !reportButton) return;
+      reportButton.disabled = true;
+      done.textContent = await run().catch(() => 'The report could not be sent.');
+      done.hidden = false;
+      reportButton.hidden = true;
+      if (note) note.hidden = true;
+    });
+  }
+
   const body = el('div', { className: 'body' }, [
+    el('div', { className: 'level', textContent: LEVEL_LABELS[content.verdict] }),
     el('div', { className: 'title', textContent: content.title }),
     firstReason ? el('div', { className: 'why', textContent: firstReason }) : null,
     content.advice ? el('div', { className: 'advice', textContent: content.advice }) : null,
+    note,
+    done,
     more,
   ]);
 
@@ -209,7 +240,7 @@ export function showBanner(content: BannerContent, handlers: BannerHandlers): HT
     handlers.onDismiss();
   });
 
-  const actions = el('div', { className: 'actions' }, [details, dismiss]);
+  const actions = el('div', { className: 'actions' }, [...(reportButton ? [reportButton] : []), details, dismiss]);
 
   const bar = el('div', { className: 'bar' }, [icon(content.verdict), body, actions]);
   bar.setAttribute('data-verdict', content.verdict);

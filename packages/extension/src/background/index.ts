@@ -8,8 +8,10 @@
  * It can be stopped and restarted at any time, so nothing it needs later lives only in memory.
  */
 import {
+  CATEGORY_LABELS,
   classifyField,
   describePage,
+  MONEY_LABELS,
   registrableDomain,
   scoreForm,
   scorePageSignals,
@@ -19,11 +21,14 @@ import {
   type RuleResult,
 } from '@ppg/shared';
 import type { Job } from '../analysis/analyzer.ts';
-import type { AnalysisState } from '../analysis/state.ts';
+import { shareResult } from '../analysis/share.ts';
+import { similarForClauses } from '../analysis/similar.ts';
+import type { AnalysisState, NoTerms, Sharing } from '../analysis/state.ts';
 import type { AssessResponse, ExtensionMessage } from '../messages.ts';
 import { activeAccount, isReady, loadPrefs, onPrefsChanged, savePrefs } from '../prefs.ts';
 import { acquire } from './acquire.ts';
 import { faviconMatchFor } from './favicon.ts';
+import { othersFoundNoTerms, reportMissingTerms } from './missing-terms.ts';
 import { startAnalysisInOffscreen } from './offscreen.ts';
 import { lookupShared } from './shared-lookup.ts';
 import { clearState, readState, saveResult, savedResultFor, writeState } from './storage.ts';
@@ -85,7 +90,7 @@ async function assess(
   sender: chrome.runtime.MessageSender,
 ): Promise<AssessResponse> {
   const prefs = await loadPrefs();
-  if (prefs.paused) return { paused: true, worst: null };
+  if (prefs.paused) return { paused: true, allowed: false, worst: null };
 
   const { observations, signals } = message;
   const page = observations[0]?.page ?? null;
@@ -117,6 +122,7 @@ async function assess(
 
   return {
     paused: false,
+    allowed: context ? allowlist.includes(registrableDomain(context.hostname)) : false,
     worst: worst
       ? {
           score: worst.score,
@@ -218,8 +224,19 @@ async function analyseTab(tabId: number): Promise<AnalysisState> {
   if (prefs.modelId === null) return { status: 'needs-setup' }; // not in shared mode, so a model must be installed (isReady allows both)
   await set({ status: 'working', domain, stage: 'reading', done: 0, total: 0, flagged: [] });
 
-  const got = await acquire(tabId);
-  if (!got.ok) return set({ status: 'unavailable', domain, reason: got.reason, links: got.links });
+  let got = await acquire(tabId);
+  let noTerms: NoTerms | undefined;
+  if (!got.ok) {
+    if (!got.noTerms) return set({ status: 'unavailable', domain, reason: got.reason, links: got.links });
+    noTerms = { canReport: true, tried: got.noTerms.tried, others: await othersFoundNoTerms({ serverUrl: prefs.serverUrl, domain }) };
+    // No terms anywhere: let the model read the page itself and say whether it holds anything suspicious.
+    const own = await ownPage(tabId);
+    if (!own) {
+      warnNoTerms(tabId, domain, prefs, noTerms.tried, []);
+      return set({ status: 'unavailable', domain, reason: got.reason, links: got.links, noTerms });
+    }
+    got = { ok: true, document: own };
+  }
 
   const job: Job = {
     id: jobId,
@@ -228,6 +245,7 @@ async function analyseTab(tabId: number): Promise<AnalysisState> {
     domain,
     text: got.document.text,
     truncated: got.document.truncated,
+    ...(noTerms ? { noTerms } : {}),
     prefs: {
       serverUrl: prefs.serverUrl,
       modelId: prefs.modelId,
@@ -244,12 +262,85 @@ async function analyseTab(tabId: number): Promise<AnalysisState> {
   return { status: 'working', domain, stage: 'privacy-check', done: 0, total: 0, flagged: [] };
 }
 
+/** "Find similar cases": sends the flagged sentences of a page that passed the personal-data checks, and keeps the answer in the result. */
+async function findSimilar(tabId: number): Promise<AnalysisState> {
+  const state = await getState(tabId);
+  if (state.status !== 'ready' || state.result.personal || state.result.similar || state.result.flagged.length === 0) return state;
+  const prefs = await loadPrefs();
+  const items = await similarForClauses(prefs.serverUrl, state.result.flagged, state.domain);
+  if (!items) return state;
+  const next: AnalysisState = { status: 'ready', domain: state.domain, result: { ...state.result, similar: items } };
+  const stored = await readState(tabId);
+  await writeState(tabId, { jobId: stored?.jobId ?? Date.now(), state: next });
+  if (!state.result.noTerms) await saveResult(next.result);
+  return next;
+}
+
+/**
+ * "Report this site", from the banner or the popup. The address is the browser's own record of the tab, never something the
+ * page sent, and nothing is sent at all until this message arrives from a click.
+ */
+async function reportSite(message: Extract<ExtensionMessage, { type: 'report-missing-terms' }>, sender: chrome.runtime.MessageSender): Promise<{ ok: boolean; message: string }> {
+  const tab = message.tabId !== undefined ? await chrome.tabs.get(message.tabId).catch(() => null) : (sender.tab ?? null);
+  const prefs = await loadPrefs();
+  const stored = message.tabId !== undefined ? await readState(message.tabId) : null;
+  const current = stored?.state;
+  const noTerms = current?.status === 'unavailable' ? current.noTerms : current?.status === 'ready' ? current.result.noTerms : undefined;
+  const outcome = await reportMissingTerms({ serverUrl: prefs.serverUrl, url: tab?.url, tried: message.tried ?? noTerms?.tried });
+  if (outcome.ok && stored && current && noTerms && message.tabId !== undefined) {
+    const updated = { ...noTerms, reported: outcome.message, others: outcome.reports ?? noTerms.others };
+    const state: AnalysisState = current.status === 'ready' ? { ...current, result: { ...current.result, noTerms: updated } } : { ...(current as Extract<AnalysisState, { status: 'unavailable' }>), noTerms: updated };
+    await writeState(message.tabId, { jobId: stored.jobId, state });
+  }
+  return { ok: outcome.ok, message: outcome.message };
+}
+
+/** The user's answer to "Share this result?": upload what the card listed, or remember that they said no. */
+async function answerShareOffer(tabId: number, decision: 'share' | 'decline'): Promise<AnalysisState> {
+  const state = await getState(tabId);
+  if (state.status !== 'ready' || state.result.sharing.status !== 'offer') return state; // already answered, or navigated away
+  const prefs = await loadPrefs();
+  const token = activeAccount(prefs)?.token ?? null;
+  let sharing: Sharing;
+  if (decision === 'decline') sharing = { status: 'declined' };
+  else if (!token) sharing = { status: 'failed', message: 'You are not signed in. Sign in as a contributor in the settings to share results.' };
+  else sharing = await shareResult(prefs.serverUrl, token, state.result, fetch);
+
+  const next: AnalysisState = { status: 'ready', domain: state.domain, result: { ...state.result, sharing } };
+  const stored = await readState(tabId);
+  await writeState(tabId, { jobId: stored?.jobId ?? Date.now(), state: next });
+  await saveResult(next.result);
+  return next;
+}
+
+/** The visible text of the page the user is on, for when it has no terms to read instead. Null if it is too short to say anything. */
+async function ownPage(tabId: number): Promise<{ policyUrl: string; text: string; truncated: boolean } | null> {
+  try {
+    const page = (await chrome.tabs.sendMessage(tabId, { type: 'extract-current-page', force: true })) as { policyUrl?: string; text?: string; truncated?: boolean } | undefined;
+    if (!page?.policyUrl || (page.text?.length ?? 0) < 200) return null;
+    return { policyUrl: page.policyUrl, text: page.text!, truncated: !!page.truncated };
+  } catch {
+    return null;
+  }
+}
+
+/** The warning on the page itself: no terms, and what the model made of the page instead. Respects Pause and "do not warn on this site". */
+function warnNoTerms(tabId: number, domain: string, prefs: Awaited<ReturnType<typeof loadPrefs>>, tried: string[], suspicious: string[]): void {
+  if (prefs.paused || prefs.allowlist.includes(domain)) return;
+  void chrome.tabs.sendMessage(tabId, { type: 'show-no-terms', tried, suspicious }).catch(() => {});
+}
+
 /** Progress reports from the offscreen document: kept only if they belong to the tab's newest job. */
 async function onAnalysisState(tabId: number, jobId: number, state: AnalysisState): Promise<void> {
   const current = await readState(tabId);
   if (current && current.jobId !== jobId) return; // a newer analysis has started since
   await writeState(tabId, { jobId, state });
   await paintBadge(tabId, state);
+  if (state.status === 'ready' && state.result.noTerms) {
+    const { flagged, money, noTerms } = state.result;
+    const kinds = [...new Set([...flagged.map((p) => CATEGORY_LABELS[p.category]), ...money.map((m) => MONEY_LABELS[m.kind])])];
+    warnNoTerms(tabId, state.domain, await loadPrefs(), noTerms!.tried, kinds);
+  }
 }
 
 /* ---------------------------------------------------------------- plumbing */
@@ -267,6 +358,15 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendRes
       return true;
     case 'analyse':
       void analyseTab(message.tabId).then(sendResponse);
+      return true;
+    case 'report-missing-terms':
+      void reportSite(message, sender).then(sendResponse);
+      return true;
+    case 'find-similar':
+      void findSimilar(message.tabId).then(sendResponse);
+      return true;
+    case 'share-result':
+      void answerShareOffer(message.tabId, message.decision).then(sendResponse);
       return true;
     case 'analysis-state':
       void onAnalysisState(message.tabId, message.jobId, message.state);

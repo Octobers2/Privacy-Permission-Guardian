@@ -4,6 +4,7 @@
  *   public     GET  /api/v1/*            cached classification results (read-only)
  *              GET  /models/*            model bundles for the extension's setup screen
  *              POST /api/summary         optional plain-language summary (rate limited, opt-in on the client)
+ *              POST /api/v1/reports/missing-terms   "this site has no terms" (anyone, on a click in the extension; rate limited)
  *   trusted    POST /api/login           username + password -> bearer token
  *              POST /api/results         upload a classification result (public once stored)
  *              GET  /api/status, POST /api/form/assess
@@ -25,12 +26,15 @@ import {
   isPublicHostname,
   LlmError,
   LoginRequestSchema,
+  MAX_TRIED,
+  MissingTermsReportSchema,
   passageHasPii,
   registrableDomain,
   ResultUploadSchema,
   SUMMARY_PROMPT_VERSION,
   SummaryModelResponseSchema,
   SummaryRequestSchema,
+  SimilarRequestSchema,
   type EndpointConfig,
   type Summary,
 } from '@ppg/shared';
@@ -49,6 +53,11 @@ export interface ServerOptions {
   /** Summary requests allowed per client per hour, and across all clients. */
   summaryPerIpPerHour?: number;
   summaryGlobalPerHour?: number;
+  /** Similar-case searches allowed per client per hour. */
+  similarPerIpPerHour?: number;
+  /** Missing-terms reports allowed per client per hour, and across all clients. */
+  reportPerIpPerHour?: number;
+  reportGlobalPerHour?: number;
   /** Read the client address from X-Forwarded-For. Only behind a proxy that sets it. */
   trustProxy?: boolean;
   /** Extra browser origins allowed to call the write routes (extension origins always are). */
@@ -111,6 +120,11 @@ export function createApp(options: ServerOptions): Hono<{ Variables: Variables }
   const clock = options.now ?? Date.now;
   const perIp = new RateLimiter({ capacity: options.summaryPerIpPerHour ?? 20, perMs: HOUR, now: clock });
   const overall = new RateLimiter({ capacity: options.summaryGlobalPerHour ?? 500, perMs: HOUR, now: clock });
+  const similarPerIp = new RateLimiter({ capacity: options.similarPerIpPerHour ?? 60, perMs: HOUR, now: clock });
+  const reportPerIp = new RateLimiter({ capacity: options.reportPerIpPerHour ?? 30, perMs: HOUR, now: clock });
+  const reportOverall = new RateLimiter({ capacity: options.reportGlobalPerHour ?? 300, perMs: HOUR, now: clock });
+  /** `client|domain` -> when it last reported. One report per client per site per day; a second one is acknowledged, not counted. */
+  const reported = new Map<string, number>();
 
   const app = new Hono<{ Variables: Variables }>();
 
@@ -198,7 +212,7 @@ export function createApp(options: ServerOptions): Hono<{ Variables: Variables }
         return c.json({ error: 'domain_mismatch', message: 'The domain does not match the URL.' }, 422);
       }
       // Second line of defence: the extension already ran this. Reports positions only, never the text.
-      const blocked = upload.passages.filter((p) => passageHasPii(p.text)).map((p) => p.index);
+      const blocked = [...upload.passages, ...upload.money].filter((p) => passageHasPii(p.text)).map((p) => p.index);
       if (blocked.length) {
         return c.json({ error: 'pii_blocked', message: 'Some passages look like personal data and were not stored.', indexes: blocked }, 422);
       }
@@ -239,6 +253,35 @@ export function createApp(options: ServerOptions): Hono<{ Variables: Variables }
     return result ? c.json(result) : c.json({ error: 'not_found', message: 'No such result, or it has expired.' }, 404);
   });
 
+  /** Clauses like this one on other sites, for every flagged clause of a stored result. Stored text only: it asks nothing of the caller. */
+  app.get('/api/v1/results/:id/similar', (c) => {
+    const id = Number(c.req.param('id'));
+    const items = Number.isInteger(id) ? store.similarToResult(id) : null;
+    return items ? c.json({ items }) : c.json({ error: 'not_found', message: 'No such result, or it has expired.' }, 404);
+  });
+
+  /**
+   * The same, for clauses the caller read itself and has not shared. The extension sends this only when the user presses the
+   * button, and only for a page that passed the personal-data checks; the server checks again and keeps nothing.
+   */
+  app.post(
+    '/api/v1/similar',
+    bodyLimit({ maxSize: 256 * 1024, onError: (c) => c.json({ error: 'too_large', message: 'The request is too large.' }, 413) }),
+    async (c) => {
+      const parsed = SimilarRequestSchema.safeParse(await c.req.json().catch(() => null));
+      if (!parsed.success) return c.json({ error: 'bad_request', issues: parsed.error.issues }, 400);
+      const { passages, domain } = parsed.data;
+      const blocked = passages.filter((p) => passageHasPii(p.text)).map((p) => p.index);
+      if (blocked.length) return c.json({ error: 'pii_blocked', message: 'Some passages look like personal data.', indexes: blocked }, 422);
+      const taken = similarPerIp.take(clientIp(c));
+      if (!taken.ok) {
+        c.header('retry-after', String(Math.ceil(taken.retryAfterMs / 1_000)));
+        return c.json({ error: 'rate_limited', message: 'Too many searches. Try again later.' }, 429);
+      }
+      return c.json({ items: store.similarToPassages(passages, domain ?? '') });
+    },
+  );
+
   app.get('/api/v1/history', (c) => {
     const url = policyKey(c.req.query('url'));
     if (!url) return c.json({ error: 'bad_request', message: 'Give a public http(s) URL in ?url=.' }, 400);
@@ -252,6 +295,57 @@ export function createApp(options: ServerOptions): Hono<{ Variables: Variables }
   );
 
   app.get('/api/v1/stats', (c) => c.json(store.stats()));
+
+  // ------------------------------------------------- sites without terms
+
+  /**
+   * "I looked and this site has no terms." Open to anyone because the people who notice are not contributors, so what it can
+   * do is deliberately small: it adds one to a count (a row per site, 30 days from the last report) and stores nothing about
+   * the reporter. A site that already has a shared result is refused: it plainly has terms.
+   */
+  app.post(
+    '/api/v1/reports/missing-terms',
+    bodyLimit({ maxSize: 16 * 1024, onError: (c) => c.json({ error: 'too_large', message: 'The report is too large.' }, 413) }),
+    async (c) => {
+      const parsed = MissingTermsReportSchema.safeParse(await c.req.json().catch(() => null));
+      if (!parsed.success) return c.json({ error: 'bad_request', issues: parsed.error.issues }, 400);
+      const { url, tried } = parsed.data;
+
+      const host = new URL(url).hostname;
+      if (!isPublicHostname(host)) return c.json({ error: 'not_public', message: 'Only pages on the public internet can be reported.' }, 422);
+      const domain = registrableDomain(host);
+      if (store.hasResults(domain)) return c.json({ error: 'has_terms', message: 'This site already has shared results, so it has terms.' }, 409);
+
+      const ip = clientIp(c);
+      const key = `${ip}|${domain}`;
+      const now = clock();
+      if (now - (reported.get(key) ?? -Infinity) < 24 * HOUR) return c.json({ ...store.missing(domain), counted: false }, 200);
+      for (const limiter of [reportPerIp, reportOverall]) {
+        const taken = limiter.take(limiter === reportPerIp ? ip : 'all');
+        if (!taken.ok) {
+          c.header('retry-after', String(Math.ceil(taken.retryAfterMs / 1_000)));
+          return c.json({ error: 'rate_limited', message: 'Too many reports. Try again later.' }, 429);
+        }
+      }
+
+      // Only addresses on the reported site are kept: a page can link anywhere, and this is not a way to store other people's links.
+      const sameSite = tried.filter((t) => registrableDomain(new URL(t).hostname) === domain).slice(0, MAX_TRIED);
+      const view = store.reportMissing(domain, url, sameSite);
+      reported.delete(key);
+      reported.set(key, now);
+      while (reported.size > 10_000) reported.delete(reported.keys().next().value!);
+      return c.json({ ...view, counted: true }, 201);
+    },
+  );
+
+  app.get('/api/v1/missing-terms', (c) => c.json({ sites: store.missingList(intParam(c.req.query('limit'), 20, 1, 100)) }));
+
+  app.get('/api/v1/missing-terms/:domain', (c) => {
+    const domain = c.req.param('domain').toLowerCase();
+    if (!/^[a-z0-9.-]{1,253}$/.test(domain)) return c.json({ error: 'bad_request', message: 'Not a domain name.' }, 400);
+    const view = store.missing(domain);
+    return view ? c.json(view) : c.json({ error: 'not_found', message: 'Nobody has reported that this site lacks terms.' }, 404);
+  });
 
   // --------------------------------------------------------------- models
 
@@ -337,8 +431,8 @@ export function createApp(options: ServerOptions): Hono<{ Variables: Variables }
 /** Removes expired rows now and then daily. Reads already ignore them; this only reclaims the space. */
 export function startPurgeJob(store: ResultStore, everyMs = 24 * HOUR): () => void {
   const run = () => {
-    const { results, summaries } = store.purge();
-    if (results || summaries) console.log(`purged ${results} expired results and ${summaries} summaries`);
+    const { results, summaries, reports } = store.purge();
+    if (results || summaries || reports) console.log(`purged ${results} expired results, ${summaries} summaries and ${reports} reports`);
   };
   run();
   const timer = setInterval(run, everyMs);
@@ -359,6 +453,9 @@ const app = createApp({
   allowedOrigins: (Bun.env.PPG_ALLOWED_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
   summaryPerIpPerHour: Number(Bun.env.PPG_SUMMARY_PER_IP_HOUR ?? 20),
   summaryGlobalPerHour: Number(Bun.env.PPG_SUMMARY_GLOBAL_HOUR ?? 500),
+  reportPerIpPerHour: Number(Bun.env.PPG_REPORT_PER_IP_HOUR ?? 30),
+  reportGlobalPerHour: Number(Bun.env.PPG_REPORT_GLOBAL_HOUR ?? 300),
+  similarPerIpPerHour: Number(Bun.env.PPG_SIMILAR_PER_IP_HOUR ?? 60),
 });
 const port = Number(Bun.env.PPG_PORT ?? 8787);
 

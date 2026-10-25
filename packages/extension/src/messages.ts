@@ -41,6 +41,8 @@ export interface AllowlistSiteRequest {
 
 export interface AssessResponse {
   paused: boolean;
+  /** The user asked not to be warned on this site. */
+  allowed: boolean;
   /**
    * The most alarming finding on the page, or null when nothing is worth saying.
    *
@@ -63,7 +65,43 @@ export interface AnalyseRequest {
   tabId: number;
 }
 
+/** "Find similar cases": the user asked to compare this page's flagged clauses with other sites'. Nothing is sent before this. */
+export interface FindSimilarRequest {
+  type: 'find-similar';
+  tabId: number;
+}
+
+/** The user's answer to "Share this result?". The upload happens in the worker, from the result it already holds. */
+export interface ShareResultRequest {
+  type: 'share-result';
+  tabId: number;
+  decision: 'share' | 'decline';
+}
+
+/**
+ * "This site has no terms", sent only when the user presses Report. From the page the worker takes the address from the browser's
+ * own record of the tab, never from the message; from the popup, `tabId` says which tab.
+ */
+export interface ReportMissingTermsRequest {
+  type: 'report-missing-terms';
+  tabId?: number;
+  /** Addresses the sender looked at for terms. The server keeps only those on the same site. */
+  tried?: string[];
+}
+export interface ReportMissingTermsResponse {
+  ok: boolean;
+  message: string;
+}
+
 /* ---------------------------------------------------- worker -> content script */
+
+/** The terms were looked for and not found: warn on the page itself. `tried` is what the report would carry. */
+export interface ShowNoTermsRequest {
+  type: 'show-no-terms';
+  tried: string[];
+  /** What the model found on the page itself (names of clause types), if anything. */
+  suspicious: string[];
+}
 
 /** Asks the content script where the terms might be. Only URLs: reading them needs the offscreen document. */
 export interface PolicyCandidatesRequest {
@@ -127,6 +165,10 @@ export type ExtensionMessage =
   | AllowlistSiteRequest
   | GetStateRequest
   | AnalyseRequest
+  | ShareResultRequest
+  | FindSimilarRequest
+  | ReportMissingTermsRequest
+  | ShowNoTermsRequest
   | PolicyCandidatesRequest
   | ExtractCurrentPageRequest
   | ReadPolicyRequest

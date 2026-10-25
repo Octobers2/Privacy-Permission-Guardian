@@ -67,16 +67,19 @@ export async function api(path) {
  * A picture of one document: a tick per sentence (binned when there are many), the flagged ones tall and coloured by family.
  * The same figure as in the extension's popup, so a result looks the same wherever it is read.
  */
-export function documentStrip({ total, flagged, height = 44, onpick, reveal = false }) {
+export function documentStrip({ total, flagged, money = [], height = 44, onpick, reveal = false }) {
   const MAX_TICKS = 240;
   const bins = Math.min(Math.max(total, 1), MAX_TICKS);
   const binOf = (index) => Math.min(bins - 1, Math.floor((index / Math.max(total, 1)) * bins));
   const marks = new Map();
   for (const f of flagged) if (!marks.has(binOf(f.index))) marks.set(binOf(f.index), f);
+  // fee-rule sentences take a tick only where the classifier flagged nothing
+  const moneyMarks = new Map();
+  for (const m of money) if (!marks.has(binOf(m.index)) && !moneyMarks.has(binOf(m.index))) moneyMarks.set(binOf(m.index), m);
 
   const svg = s('svg', {
     class: 'strip', viewBox: `0 0 ${bins} 44`, preserveAspectRatio: 'none', role: 'img', height,
-    'aria-label': flagged.length === 0 ? `${plural(total, 'sentence')} read, none flagged` : `${plural(total, 'sentence')}, ${flagged.length} flagged at these positions in the document`,
+    'aria-label': flagged.length + money.length === 0 ? `${plural(total, 'sentence')} read, none flagged` : `${plural(total, 'sentence')}, ${flagged.length} flagged${money.length ? ` and ${money.length} about money` : ''} at these positions in the document`,
   });
   // A flagged tick stays about 3 px wide however many sentences share the strip.
   const widthPx = () => svg.getBoundingClientRect().width || 600;
@@ -94,6 +97,10 @@ export function documentStrip({ total, flagged, height = 44, onpick, reveal = fa
         }, s('title', {}, `${CATEGORY_LABELS[mark.category]} · sentence ${mark.index + 1}`));
         if (reveal) tick.style.setProperty('--delay', `${300 + order++ * 110}ms`);
         kids.push(tick);
+      } else if (moneyMarks.has(i)) {
+        kids.push(s('rect', {
+          class: 'tick flagged fam-money', x: i + 0.5 - markWidth / 2, y: 3, width: markWidth, height: 38, rx: Math.min(0.4, markWidth / 2), 'data-family': 'money',
+        }, s('title', {}, `Money · sentence ${moneyMarks.get(i).index + 1}`)));
       } else kids.push(s('rect', { class: 'tick plain', x: i + 0.25, y: 17, width: 0.5, height: 10, rx: 0.2 }));
     }
     svg.replaceChildren(...kids);
@@ -104,12 +111,12 @@ export function documentStrip({ total, flagged, height = 44, onpick, reveal = fa
   }
   draw();
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(draw).observe(svg);
-  if (onpick && flagged.length) {
+  if (onpick && flagged.length + money.length) {
     svg.classList.add('clickable');
     svg.addEventListener('click', (event) => {
       const box = svg.getBoundingClientRect();
       const target = ((event.clientX - box.left) / box.width) * total;
-      onpick(flagged.reduce((best, f) => (Math.abs(f.index - target) < Math.abs(best.index - target) ? f : best)).index);
+      onpick([...flagged, ...money].reduce((best, f) => (Math.abs(f.index - target) < Math.abs(best.index - target) ? f : best)).index);
     });
   }
   return svg;

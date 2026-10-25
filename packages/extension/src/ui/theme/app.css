@@ -68,6 +68,7 @@ body {
 .fam-liability { --fam: var(--md-sys-color-liability); --on-fam: var(--md-sys-color-on-liability); --fam-container: var(--md-sys-color-liability-container); --on-fam-container: var(--md-sys-color-on-liability-container); }
 .fam-control { --fam: var(--md-sys-color-control); --on-fam: var(--md-sys-color-on-control); --fam-container: var(--md-sys-color-control-container); --on-fam-container: var(--md-sys-color-on-control-container); }
 .fam-consent { --fam: var(--md-sys-color-consent); --on-fam: var(--md-sys-color-on-consent); --fam-container: var(--md-sys-color-consent-container); --on-fam-container: var(--md-sys-color-on-consent-container); }
+.fam-money { --fam: var(--md-sys-color-money); --on-fam: var(--md-sys-color-on-money); --fam-container: var(--md-sys-color-money-container); --on-fam-container: var(--md-sys-color-on-money-container); }
 
 /* ------------------------------------------------------------------------- *
  * Quality floor: visible keyboard focus, and no motion for people who ask for none.

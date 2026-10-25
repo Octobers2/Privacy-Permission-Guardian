@@ -3,7 +3,7 @@
  * Regenerate with: bun run scripts/gen-theme.ts --seed '#2A4A5F' --scheme neutral
  *
  * Seed colour: #2A4A5F
- * Custom semantic colours: success #2E7D32, warning #F9A825, rights #D8432B, liability #C98A0A, control #7352C1, consent #0F8B8D
+ * Custom semantic colours: success #2E7D32, warning #F9A825, rights #D8432B, liability #C98A0A, control #7352C1, consent #0F8B8D, money #B5337A
  */
 
 :host {
@@ -80,6 +80,10 @@
   --md-sys-color-on-consent: #ffffff;
   --md-sys-color-consent-container: #a3eeff;
   --md-sys-color-on-consent-container: #001f25;
+  --md-sys-color-money: #a02b91;
+  --md-sys-color-on-money: #ffffff;
+  --md-sys-color-money-container: #ffd7f1;
+  --md-sys-color-on-money-container: #390034;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -157,5 +161,9 @@
     --md-sys-color-on-consent: #00363e;
     --md-sys-color-consent-container: #004e5a;
     --md-sys-color-on-consent-container: #a3eeff;
+    --md-sys-color-money: #ffacea;
+    --md-sys-color-on-money: #5d0055;
+    --md-sys-color-money-container: #820677;
+    --md-sys-color-on-money-container: #ffd7f1;
   }
 }

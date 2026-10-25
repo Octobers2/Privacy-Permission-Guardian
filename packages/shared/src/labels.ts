@@ -64,7 +64,8 @@ export function isUnfair(category: string): category is UnfairCategory {
  * The eight clause types grouped by what they do to the reader. Four families are easier to take in at a glance than eight
  * categories, and they carry the colours of the interface and the public site.
  */
-export const FAMILIES = ['rights', 'liability', 'control', 'consent'] as const;
+/** `money` holds the fee rules (`money.ts`), which are not classifier classes: it has no entry in `FAMILY_OF`. */
+export const FAMILIES = ['rights', 'liability', 'control', 'consent', 'money'] as const;
 export type Family = (typeof FAMILIES)[number];
 
 export const FAMILY_OF: Record<UnfairCategory, Family> = {
@@ -83,6 +84,7 @@ export const FAMILY_LABELS: Record<Family, string> = {
   liability: 'Liability',
   control: 'Their control',
   consent: 'Consent',
+  money: 'Money',
 };
 
 export const FAMILY_HINTS: Record<Family, string> = {
@@ -90,4 +92,5 @@ export const FAMILY_HINTS: Record<Family, string> = {
   liability: 'What the provider will not answer for.',
   control: 'What the provider can change or end without your say.',
   consent: 'How you are taken to have agreed.',
+  money: 'Renewals, fees and refunds that can cost you money.',
 };

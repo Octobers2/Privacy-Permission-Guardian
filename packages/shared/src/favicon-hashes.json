@@ -1,1 +1,828 @@
-[]
+[
+  {
+    "domain": "wise.com",
+    "hashes": [
+      "8060646cc8181080",
+      "0000242848080000"
+    ]
+  },
+  {
+    "domain": "payoneer.com",
+    "hashes": [
+      "6082010101018268"
+    ]
+  },
+  {
+    "domain": "visa.com",
+    "hashes": [
+      "00c0c00000c0c000"
+    ]
+  },
+  {
+    "domain": "americanexpress.com",
+    "hashes": [
+      "0006152a15121200"
+    ]
+  },
+  {
+    "domain": "alipay.com",
+    "hashes": [
+      "0000001010000000",
+      "80080a0246893080"
+    ]
+  },
+  {
+    "domain": "alipayhk.com",
+    "hashes": [
+      "000000e8aa000000"
+    ]
+  },
+  {
+    "domain": "octopus.com.hk",
+    "hashes": [
+      "00060d981830c000",
+      "00020dd81830c000"
+    ]
+  },
+  {
+    "domain": "payme.hsbc.com.hk",
+    "hashes": [
+      "0010284440404000"
+    ]
+  },
+  {
+    "domain": "fps.hkicl.com.hk",
+    "hashes": [
+      "0060902142646000"
+    ]
+  },
+  {
+    "domain": "klarna.com",
+    "hashes": [
+      "004c485850484c00"
+    ]
+  },
+  {
+    "domain": "venmo.com",
+    "hashes": [
+      "006c484848606000",
+      "0024484848602000"
+    ]
+  },
+  {
+    "domain": "hsbc.com.hk",
+    "hashes": [
+      "0000609696600000",
+      "0000a29696a20000"
+    ]
+  },
+  {
+    "domain": "hangseng.com",
+    "hashes": [
+      "68c8948494d4a268"
+    ]
+  },
+  {
+    "domain": "bochk.com",
+    "hashes": [
+      "70d4b26d4db2d670",
+      "70d4b24d4db2d470"
+    ]
+  },
+  {
+    "domain": "sc.com",
+    "hashes": [
+      "1040482050443048",
+      "30644c60d86450cc"
+    ]
+  },
+  {
+    "domain": "dbs.com.hk",
+    "hashes": [
+      "44c0d28cacd4c044"
+    ]
+  },
+  {
+    "domain": "citibank.com.hk",
+    "hashes": [
+      "001c279971719500"
+    ]
+  },
+  {
+    "domain": "publicbank.com.hk",
+    "hashes": [
+      "4088a28888a28c40"
+    ]
+  },
+  {
+    "domain": "za.group",
+    "hashes": [
+      "0080122458a04000"
+    ]
+  },
+  {
+    "domain": "mox.com",
+    "hashes": [
+      "04070107060c1000",
+      "0003010706081000"
+    ]
+  },
+  {
+    "domain": "welab.bank",
+    "hashes": [
+      "0000b6e490909000"
+    ]
+  },
+  {
+    "domain": "chase.com",
+    "hashes": [
+      "70f081060606c260",
+      "3040c0848486c464"
+    ]
+  },
+  {
+    "domain": "bankofamerica.com",
+    "hashes": [
+      "0000205b2c100000",
+      "0000705bec100000"
+    ]
+  },
+  {
+    "domain": "citibank.com",
+    "hashes": [
+      "00082a8028480000",
+      "003878d898c80000"
+    ]
+  },
+  {
+    "domain": "barclays.co.uk",
+    "hashes": [
+      "3096808080f0e030",
+      "0054808080c06010"
+    ]
+  },
+  {
+    "domain": "lloydsbank.com",
+    "hashes": [
+      "18181818c283c0a0"
+    ]
+  },
+  {
+    "domain": "santander.com",
+    "hashes": [
+      "001028389488c800"
+    ]
+  },
+  {
+    "domain": "db.com",
+    "hashes": [
+      "00808a92a2a28000",
+      "0003191323630300"
+    ]
+  },
+  {
+    "domain": "ubs.com",
+    "hashes": [
+      "00305434a0d43000",
+      "0030541060d41000"
+    ]
+  },
+  {
+    "domain": "commbank.com.au",
+    "hashes": [
+      "3078fcfafcfc7830"
+    ]
+  },
+  {
+    "domain": "dbs.com",
+    "hashes": [
+      "44c0d28cacd4c044"
+    ]
+  },
+  {
+    "domain": "ocbc.com",
+    "hashes": [
+      "4080042222048040"
+    ]
+  },
+  {
+    "domain": "uob.com.sg",
+    "hashes": [
+      "aaaaaaaaaaaaaaaa"
+    ]
+  },
+  {
+    "domain": "google.com",
+    "hashes": [
+      "44e0c9989ecce044"
+    ]
+  },
+  {
+    "domain": "youtube.com",
+    "hashes": [
+      "0080000808008000",
+      "00f0000c0c00f000"
+    ]
+  },
+  {
+    "domain": "microsoft.com",
+    "hashes": [
+      "0808080808080808"
+    ]
+  },
+  {
+    "domain": "outlook.com",
+    "hashes": [
+      "0808080808080808"
+    ]
+  },
+  {
+    "domain": "office.com",
+    "hashes": [
+      "60c8e6cfcede3e3c"
+    ]
+  },
+  {
+    "domain": "apple.com",
+    "hashes": [
+      "4408296060210044"
+    ]
+  },
+  {
+    "domain": "amazon.com",
+    "hashes": [
+      "8000004107000080"
+    ]
+  },
+  {
+    "domain": "meta.com",
+    "hashes": [
+      "00ccb23369458200"
+    ]
+  },
+  {
+    "domain": "facebook.com",
+    "hashes": [
+      "6086860806888848"
+    ]
+  },
+  {
+    "domain": "instagram.com",
+    "hashes": [
+      "82334955554d3b9e",
+      "80336955556d339e"
+    ]
+  },
+  {
+    "domain": "whatsapp.com",
+    "hashes": [
+      "6082414129110200"
+    ]
+  },
+  {
+    "domain": "linkedin.com",
+    "hashes": [
+      "80a0a0929a9a9a80"
+    ]
+  },
+  {
+    "domain": "tiktok.com",
+    "hashes": [
+      "40800416240c8040",
+      "00040616242c1800"
+    ]
+  },
+  {
+    "domain": "snapchat.com",
+    "hashes": [
+      "8028040244822880"
+    ]
+  },
+  {
+    "domain": "telegram.org",
+    "hashes": [
+      "0040808484844000"
+    ]
+  },
+  {
+    "domain": "discord.com",
+    "hashes": [
+      "60c0962a2aaac060",
+      "408004022a228040"
+    ]
+  },
+  {
+    "domain": "reddit.com",
+    "hashes": [
+      "f0c28a0faaaae8f0"
+    ]
+  },
+  {
+    "domain": "pinterest.com",
+    "hashes": [
+      "002044aa825c1000"
+    ]
+  },
+  {
+    "domain": "yahoo.com",
+    "hashes": [
+      "0006040c08101800"
+    ]
+  },
+  {
+    "domain": "naver.com",
+    "hashes": [
+      "0000161616160000",
+      "0000120202120000"
+    ]
+  },
+  {
+    "domain": "line.me",
+    "hashes": [
+      "800c021302060880",
+      "800c021702060880"
+    ]
+  },
+  {
+    "domain": "wechat.com",
+    "hashes": [
+      "70e0b2b28080f0b0"
+    ]
+  },
+  {
+    "domain": "qq.com",
+    "hashes": [
+      "4886232121318460"
+    ]
+  },
+  {
+    "domain": "baidu.com",
+    "hashes": [
+      "0068aa9470b89400",
+      "0000285420402800"
+    ]
+  },
+  {
+    "domain": "amazonaws.com",
+    "hashes": [
+      "00002202020c0000"
+    ]
+  },
+  {
+    "domain": "azure.com",
+    "hashes": [
+      "0808080808080808"
+    ]
+  },
+  {
+    "domain": "github.com",
+    "hashes": [
+      "20c082828288c820"
+    ]
+  },
+  {
+    "domain": "gitlab.com",
+    "hashes": [
+      "828684c060904c30",
+      "828686c060906c30"
+    ]
+  },
+  {
+    "domain": "cloudflare.com",
+    "hashes": [
+      "000004063d820000"
+    ]
+  },
+  {
+    "domain": "digitalocean.com",
+    "hashes": [
+      "608c86020226dcd8"
+    ]
+  },
+  {
+    "domain": "heroku.com",
+    "hashes": [
+      "ffb3b78fb3b3b3ff",
+      "ffbbb787bbbbbbff"
+    ]
+  },
+  {
+    "domain": "vercel.com",
+    "hashes": [
+      "6080880c04868060",
+      "0000080c04020000"
+    ]
+  },
+  {
+    "domain": "netlify.com",
+    "hashes": [
+      "1010501414501010"
+    ]
+  },
+  {
+    "domain": "docker.com",
+    "hashes": [
+      "10b0b43a0080c000",
+      "0010b03200008000"
+    ]
+  },
+  {
+    "domain": "atlassian.com",
+    "hashes": [
+      "001030306068e800"
+    ]
+  },
+  {
+    "domain": "slack.com",
+    "hashes": [
+      "6868898aaca86868",
+      "6828080a28084868"
+    ]
+  },
+  {
+    "domain": "zoom.us",
+    "hashes": [
+      "c080002d690080e0"
+    ]
+  },
+  {
+    "domain": "notion.so",
+    "hashes": [
+      "188280b4a8ac8040",
+      "008082928a8a4600"
+    ]
+  },
+  {
+    "domain": "figma.com",
+    "hashes": [
+      "0004061616181000",
+      "0004061414181000"
+    ]
+  },
+  {
+    "domain": "dropbox.com",
+    "hashes": [
+      "0028172a174c2800"
+    ]
+  },
+  {
+    "domain": "onedrive.com",
+    "hashes": [
+      "0808080808080808"
+    ]
+  },
+  {
+    "domain": "ebay.com",
+    "hashes": [
+      "684c004242426200"
+    ]
+  },
+  {
+    "domain": "alibaba.com",
+    "hashes": [
+      "0f3e68a2c88f1f3f"
+    ]
+  },
+  {
+    "domain": "aliexpress.com",
+    "hashes": [
+      "80800022320c0080",
+      "a061232337333382"
+    ]
+  },
+  {
+    "domain": "taobao.com",
+    "hashes": [
+      "0020995929410000"
+    ]
+  },
+  {
+    "domain": "jd.com",
+    "hashes": [
+      "800c011124020c84",
+      "00262b2929296700"
+    ]
+  },
+  {
+    "domain": "shopee.com",
+    "hashes": [
+      "3044809498849480"
+    ]
+  },
+  {
+    "domain": "hktvmall.com",
+    "hashes": [
+      "05c080d45480e020"
+    ]
+  },
+  {
+    "domain": "shopify.com",
+    "hashes": [
+      "307cccbc9c9c9cfc",
+      "30748cac948c9424"
+    ]
+  },
+  {
+    "domain": "etsy.com",
+    "hashes": [
+      "0016121414121200"
+    ]
+  },
+  {
+    "domain": "walmart.com",
+    "hashes": [
+      "1010966868961010"
+    ]
+  },
+  {
+    "domain": "target.com",
+    "hashes": [
+      "30cc96b3bb92cc70",
+      "0006234d4d230600"
+    ]
+  },
+  {
+    "domain": "ikea.com",
+    "hashes": [
+      "00000e8a880e0000",
+      "00008f2a2e0f0000"
+    ]
+  },
+  {
+    "domain": "zalora.com.hk",
+    "hashes": [
+      "0002060c18300200"
+    ]
+  },
+  {
+    "domain": "hongkongpost.hk",
+    "hashes": [
+      "0101a64869310981"
+    ]
+  },
+  {
+    "domain": "usps.com",
+    "hashes": [
+      "001004066318c000"
+    ]
+  },
+  {
+    "domain": "auspost.com.au",
+    "hashes": [
+      "dcc682838e9cd8d8",
+      "5cc68202069cd050"
+    ]
+  },
+  {
+    "domain": "hkexpress.com",
+    "hashes": [
+      "00386c98d3643800"
+    ]
+  },
+  {
+    "domain": "emirates.com",
+    "hashes": [
+      "0082536642558a00"
+    ]
+  },
+  {
+    "domain": "booking.com",
+    "hashes": [
+      "80002808240a0080"
+    ]
+  },
+  {
+    "domain": "airbnb.com",
+    "hashes": [
+      "0014002a14495500",
+      "0014002a14415500"
+    ]
+  },
+  {
+    "domain": "agoda.com",
+    "hashes": [
+      "006044444814f800"
+    ]
+  },
+  {
+    "domain": "trip.com",
+    "hashes": [
+      "00061e18181b1b00",
+      "00061e18181a1a00"
+    ]
+  },
+  {
+    "domain": "expedia.com",
+    "hashes": [
+      "8060cc1c24c4c480"
+    ]
+  },
+  {
+    "domain": "klook.com",
+    "hashes": [
+      "7026a40c035988e8"
+    ]
+  },
+  {
+    "domain": "immd.gov.hk",
+    "hashes": [
+      "103054d4cccce870"
+    ]
+  },
+  {
+    "domain": "police.gov.hk",
+    "hashes": [
+      "70b0c8dcd8aac470"
+    ]
+  },
+  {
+    "domain": "housingauthority.gov.hk",
+    "hashes": [
+      "a880aa8e8eaa80a8"
+    ]
+  },
+  {
+    "domain": "iamsmart.gov.hk",
+    "hashes": [
+      "ccb8e0707060b068",
+      "c8b8e0507060b040"
+    ]
+  },
+  {
+    "domain": "consumer.org.hk",
+    "hashes": [
+      "0000861092200000",
+      "0000cc1233680000"
+    ]
+  },
+  {
+    "domain": "hkcsl.com",
+    "hashes": [
+      "8aabb22bcb5bd4ea"
+    ]
+  },
+  {
+    "domain": "hk.chinamobile.com",
+    "hashes": [
+      "e0d0a65b259af4e8"
+    ]
+  },
+  {
+    "domain": "three.com.hk",
+    "hashes": [
+      "00104810404c3000",
+      "005444246a767430"
+    ]
+  },
+  {
+    "domain": "netvigator.com",
+    "hashes": [
+      "00c088888c88c000",
+      "880c0e29290e0c88"
+    ]
+  },
+  {
+    "domain": "pccw.com",
+    "hashes": [
+      "041cacb8f0c0c040"
+    ]
+  },
+  {
+    "domain": "spotify.com",
+    "hashes": [
+      "70c00e1d32a6c070",
+      "f0d09e9da2a6c0f0"
+    ]
+  },
+  {
+    "domain": "disneyplus.com",
+    "hashes": [
+      "0001436e4afcfcfc"
+    ]
+  },
+  {
+    "domain": "steampowered.com",
+    "hashes": [
+      "4084010144109040"
+    ]
+  },
+  {
+    "domain": "playstation.com",
+    "hashes": [
+      "14333135d2b49265",
+      "00303838d4d41618"
+    ]
+  },
+  {
+    "domain": "xbox.com",
+    "hashes": [
+      "2892c4172b4c4c28",
+      "68d4cc96b2e8cc28"
+    ]
+  },
+  {
+    "domain": "nintendo.com",
+    "hashes": [
+      "0000000202000000",
+      "60684860e8f0c8c4"
+    ]
+  },
+  {
+    "domain": "twitch.tv",
+    "hashes": [
+      "c09595818288a020",
+      "c09595958688a020"
+    ]
+  },
+  {
+    "domain": "viu.com",
+    "hashes": [
+      "0022590202492200"
+    ]
+  },
+  {
+    "domain": "coinbase.com",
+    "hashes": [
+      "0060cc8686cc6000"
+    ]
+  },
+  {
+    "domain": "kraken.com",
+    "hashes": [
+      "fecf87b3b3a39bfe",
+      "fcfe8f073333fefc"
+    ]
+  },
+  {
+    "domain": "okx.com",
+    "hashes": [
+      "0032320c0c323200",
+      "0021210404212100"
+    ]
+  },
+  {
+    "domain": "crypto.com",
+    "hashes": [
+      "30c4848eaa96d430"
+    ]
+  },
+  {
+    "domain": "metamask.io",
+    "hashes": [
+      "00868c8ce8849600"
+    ]
+  },
+  {
+    "domain": "trezor.io",
+    "hashes": [
+      "1028684444446810",
+      "0028284444446000"
+    ]
+  },
+  {
+    "domain": "tether.to",
+    "hashes": [
+      "0040c48a48201000",
+      "40c48eaacc683000"
+    ]
+  },
+  {
+    "domain": "hku.hk",
+    "hashes": [
+      "9296908a9670b020",
+      "b296909a9650b220"
+    ]
+  },
+  {
+    "domain": "cuhk.edu.hk",
+    "hashes": [
+      "00786c2078548200",
+      "0064686478d4ae00"
+    ]
+  },
+  {
+    "domain": "polyu.edu.hk",
+    "hashes": [
+      "3048b24d49b26c30"
+    ]
+  },
+  {
+    "domain": "hkbu.edu.hk",
+    "hashes": [
+      "10821a1a1610810c"
+    ]
+  },
+  {
+    "domain": "eduhk.hk",
+    "hashes": [
+      "4040088008800808",
+      "60689880d8849818"
+    ]
+  },
+  {
+    "domain": "hkmu.edu.hk",
+    "hashes": [
+      "0000daaaaa2d0000"
+    ]
+  }
+]

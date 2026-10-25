@@ -80,6 +80,22 @@ describe('POST /api/results', () => {
     expect(store.stats().results).toBe(0);
   });
 
+  test('refuses a money clause that looks like personal data', async () => {
+    const { post, store } = build();
+    const response = await post('/api/results', upload({ money: [{ index: 7, kind: 'no_refund', text: 'Refunds go to jane.doe@gmail.com only.' }] }));
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({ error: 'pii_blocked', indexes: [7] });
+    expect(store.stats().results).toBe(0);
+  });
+
+  test('stores money clauses and serves them back', async () => {
+    const { app, post } = build();
+    const money = [{ index: 2, kind: 'auto_renewal' as const, text: 'The plan renews automatically.' }];
+    expect((await post('/api/results', upload({ money }))).status).toBe(201);
+    const body = (await (await app.request('/api/v1/lookup?url=https://example.com/terms')).json()) as { result: { money: unknown[] } };
+    expect(body.result.money).toEqual(money);
+  });
+
   test('accepts company contact details inside a clause', async () => {
     const { post } = build();
     const response = await post('/api/results', upload({ passages: [passage(1, 'arbitration', 'To opt out, write to legal@example.com or call +1 415 555 0132.')] }));
@@ -299,5 +315,55 @@ describe('/health', () => {
     const { app } = build();
     const body = await (await app.request('/health')).json();
     expect(body).toEqual({ ok: true, ttlDays: 30, authRequired: true });
+  });
+});
+
+describe('similar clauses API', () => {
+  const ARB = 'Any dispute arising out of these terms will be resolved exclusively by binding arbitration and you waive any right to a class action.';
+  function seeded(extra: Parameters<typeof build>[0] = {}) {
+    const b = build(extra);
+    b.store.insert(upload({ url: 'https://one.com/terms', domain: 'one.com', passages: [passage(1, 'arbitration', ARB)] }), 'a');
+    const mine = b.store.insert(upload({ url: 'https://mine.com/terms', domain: 'mine.com', passages: [passage(5, 'arbitration', ARB)] }), 'a');
+    return { ...b, mine };
+  }
+  const ask = (app: ReturnType<typeof build>['app'], body: unknown) => app.request('/api/v1/similar', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+
+  test('for a stored result: public, no token, and it leaves out its own site', async () => {
+    const { app, mine } = seeded();
+    const body = (await (await app.request(`/api/v1/results/${mine.id}/similar`)).json()) as { items: { index: number; sites: number; examples: { domain: string }[] }[] };
+    expect(body.items).toEqual([expect.objectContaining({ index: 5, sites: 1, examples: [expect.objectContaining({ domain: 'one.com' })] })]);
+    expect((await app.request('/api/v1/results/9999/similar')).status).toBe(404);
+  });
+
+  test('for clauses the caller sends: found, and nothing is stored', async () => {
+    const { app, store } = seeded();
+    const before = store.stats();
+    const response = await ask(app, { passages: [{ index: 3, category: 'arbitration', text: ARB }] });
+    expect(response.status).toBe(200);
+    expect(((await response.json()) as { items: { index: number; sites: number }[] }).items.map((i) => [i.index, i.sites])).toEqual([[3, 2]]);
+    expect(store.stats()).toEqual(before);
+  });
+
+  test('leaves out the site the clauses came from', async () => {
+    const { app } = seeded();
+    const body = (await (await ask(app, { domain: 'one.com', passages: [{ index: 3, category: 'arbitration', text: ARB }] })).json()) as { items: { sites: number; examples: { domain: string }[] }[] };
+    expect(body.items[0]!.examples.map((e) => e.domain)).toEqual(['mine.com']);
+  });
+
+  test('refuses personal-looking sentences without echoing them, and bad shapes', async () => {
+    const { app } = seeded();
+    const personal = await ask(app, { passages: [{ index: 4, category: 'arbitration', text: 'Write to jane.doe@gmail.com about arbitration.' }] });
+    expect(personal.status).toBe(422);
+    expect(JSON.stringify(await personal.json())).not.toContain('jane');
+    expect((await ask(app, { passages: [] })).status).toBe(400);
+    expect((await ask(app, { passages: [{ index: 1, category: 'other', text: 'x' }] })).status).toBe(400);
+    expect((await ask(app, { passages: Array.from({ length: 51 }, (_, i) => ({ index: i, category: 'arbitration', text: ARB })) })).status).toBe(400);
+  });
+
+  test('is limited per client', async () => {
+    const { app } = seeded({ similarPerIpPerHour: 1 });
+    const body = { passages: [{ index: 1, category: 'arbitration', text: ARB }] };
+    expect((await ask(app, body)).status).toBe(200);
+    expect((await ask(app, body)).status).toBe(429);
   });
 });
