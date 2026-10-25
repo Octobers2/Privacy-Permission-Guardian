@@ -144,7 +144,10 @@ $PY train_joint.py --name j08-kd --base Qwen/Qwen3.5-0.8B-Base --lora_r 64 --pro
 $PY eval_letter.py --adapter $RUNS/j08-kd/best --base Qwen/Qwen3.5-0.8B-Base --prompt <same> --name j08-kd
 python3 compare.py reports/stu08mt-rtn4-deq-letter.json reports/j08-kd.json    # against the shipped 0.8B
 
-# shipping: merge, pack and evaluate the packed weights as before, then
+# shipping, all in one (merge, pack, unpack + re-test what ships, compare, ppg-model.json, kernel, manifest):
+#   python3 ship_model.py                      (fast tier, run j08-kd; Windows: double-click ml\windows\ship-model.bat)
+#   python3 ship_model.py --run j4b-v1 --size 4B --tier accurate --replaces run4bmt-rtn4-deq-letter
+# or by hand: merge, pack and evaluate the packed weights as before, then
 python3 compress/write_meta.py <bundle> ... --tos-report reports/<packed run>.json [--with-threshold]
 ```
 
