@@ -31,6 +31,60 @@ export function letterPrompt(passage: string): string {
   return `Classify this terms-of-service passage.\n${OPTIONS}\n\nPassage: ${pyStrip(passage)}\nAnswer:`;
 }
 
+// ---------------------------------------------------------------- letters-v2: definitions + previous sentence
+
+export const LETTERS_V2_PROMPT_VERSION = 'letters-v2';
+/** The ToS prompt versions this extension can build. */
+export const TOS_PROMPT_VERSIONS: readonly string[] = [LETTERS_PROMPT_VERSION, LETTERS_V2_PROMPT_VERSION];
+export const PREV_MAX_CHARS = 400;
+
+/** Mirrors `DEFINITIONS` in `ml/prompt.py`. */
+const DEFINITIONS: Record<(typeof TOS_CATEGORIES)[number], string> = {
+  limitation_of_liability: 'The provider excludes or limits its liability for damages, losses or failures.',
+  contract_by_using: 'The user is bound by the terms merely by using, accessing or continuing to use the service.',
+  unilateral_change: 'The provider may change the terms or the service at any time at its own discretion.',
+  arbitration: 'Disputes must be settled by arbitration instead of in court, including class-action waivers.',
+  content_removal: 'The provider may remove or modify user content at its discretion.',
+  choice_of_law: "The clause states which country's or state's law governs the terms.",
+  other: 'None of the above: an ordinary clause that is not one of these unfair-clause types.',
+  unilateral_termination: "The provider may suspend or terminate the user's account or access at its discretion.",
+  jurisdiction: 'The clause names the court or place where disputes must be litigated.',
+};
+
+const OPTIONS_V2 = TOS_CATEGORIES.map((name, i) => `${LETTERS[i]}) ${name.replaceAll('_', ' ')}: ${DEFINITIONS[name]}`).join('\n');
+
+/** Question 1, version 2: each option with its definition, and the sentence before the passage as context. */
+export function letterPromptV2(passage: string, previous?: string | null): string {
+  const prev = firstChars(pyCollapse(previous ?? ''), PREV_MAX_CHARS) || '(none)';
+  return (
+    'Classify this terms-of-service passage. The previous sentence is only context: classify the passage.\n' +
+    `${OPTIONS_V2}\n\nPrevious sentence: ${prev}\nPassage: ${pyStrip(passage)}\nAnswer:`
+  );
+}
+
+/** The ToS prompt for a model trained on `version` (v1 ignores `previous`). */
+export function tosPrompt(version: string, passage: string, previous?: string | null): string {
+  if (version === LETTERS_PROMPT_VERSION) return letterPrompt(passage);
+  if (version === LETTERS_V2_PROMPT_VERSION) return letterPromptV2(passage, previous);
+  throw new Error(`Unknown terms-of-service prompt version: ${version}`);
+}
+
+/**
+ * The flag decision. Without a threshold: the most likely class (what the v1 models shipped with). With one: flag when
+ * P(other) is below it, as the most likely of the eight unfair classes. The threshold is tuned on held-out data
+ * (`ml/tune_threshold.py`) and ships in the model's metadata. Mirrors `decide()` in `ml/calibrate.py`.
+ */
+export function decideCategory(probs: readonly number[], otherThreshold?: number): (typeof TOS_CATEGORIES)[number] {
+  const otherIndex = TOS_CATEGORIES.indexOf('other');
+  if (otherThreshold === undefined) return TOS_CATEGORIES[probs.indexOf(Math.max(...probs))]!;
+  if (probs[otherIndex]! >= otherThreshold) return 'other';
+  let best = -1;
+  probs.forEach((p, i) => {
+    if (i !== otherIndex && (best < 0 || p > probs[best]!)) best = i;
+  });
+  return TOS_CATEGORIES[best]!;
+}
+
 /**
  * Question 2: does this page show private information about the person using it? A = personal, B = public.
  * Only host and path go in, decoded the way a person reads them; the query string and fragment never do.

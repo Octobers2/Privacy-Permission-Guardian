@@ -89,6 +89,31 @@ describe('analysing a policy on this device', () => {
     expect((engine as ReturnType<typeof fakeEngine>).classified[1]).toBe('we may terminate your account at any time without any prior notice to you .');
   });
 
+  test('each sentence is classified with the one before it as context (normalised, none for the first)', async () => {
+    const seen: (string | null | undefined)[] = [];
+    const base = fakeEngine();
+    const { d } = deps({ engine: { ...base, classify: async (text, previous) => (seen.push(previous), base.classify(text)) } });
+    await analyse(job(), d);
+    expect(seen[0]).toBeNull();
+    expect(seen[2]).toBe('we may terminate your account at any time without any prior notice to you .');
+  });
+
+  test("the engine's flag decision is final, even when 'other' is not the most likely class", async () => {
+    // a thresholded model can call a sentence 'other' while an unfair class is more likely than P(other) alone
+    const base = fakeEngine();
+    const { d } = deps({ engine: { ...base, classify: async () => ({ probs: probs('arbitration'), category: 'other' }) } });
+    expect(ready(await analyse(job(), d)).flagged).toEqual([]);
+  });
+
+  test('a shared result records the prompt version of the model that made it', async () => {
+    const net = fakeNetwork({ '/api/results': () => json({ id: 3 }) });
+    const base = fakeEngine();
+    const engine = { ...base, model: { ...base.model, tasks: { ...base.model.tasks, tos: { promptVersion: 'letters-v2', temperature: 1 } } } };
+    const { d } = deps({ engine, net });
+    await analyse(job({}, { token: 'tok' }), d);
+    expect(net.calls.find((c) => c.method === 'POST')!.body.promptVersion).toBe('letters-v2');
+  });
+
   test('reports progress while it works, and the flagged clauses so far', async () => {
     const { d, states } = deps();
     await analyse(job(), d);

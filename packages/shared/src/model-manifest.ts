@@ -3,7 +3,7 @@
  * Written by `scripts/model-manifest.ts` from each bundle's `ppg-model.json`.
  */
 import { z } from 'zod';
-import { LETTERS_PROMPT_VERSION, PII_PROMPT_VERSION } from './classifier-prompt.ts';
+import { PII_PROMPT_VERSION, TOS_PROMPT_VERSIONS } from './classifier-prompt.ts';
 
 const FileSchema = z.object({ path: z.string().min(1), size: z.number().int().min(0), sha256: z.string().regex(/^[0-9a-f]{64}$/) }).strict();
 
@@ -23,7 +23,15 @@ export const ModelEntrySchema = z
     letterTokenIds: z.array(z.number().int().min(0)).length(9),
     tasks: z
       .object({
-        tos: z.object({ promptVersion: z.string(), temperature: z.number().positive(), testMacroF1: z.number().optional() }).strict(),
+        tos: z
+          .object({
+            promptVersion: z.string(),
+            temperature: z.number().positive(),
+            /** Flag a sentence when P(other) is below this (tuned on held-out data). Absent: flag when `other` is not the most likely class. */
+            otherThreshold: z.number().gt(0).max(1).optional(),
+            testMacroF1: z.number().optional(),
+          })
+          .strict(),
         pii: z
           .object({ promptVersion: z.string(), threshold: z.number().min(0).max(1), testPrecision: z.number().optional(), testRecall: z.number().optional() })
           .strict()
@@ -46,5 +54,5 @@ export type ModelManifest = z.infer<typeof ModelManifestSchema>;
 
 /** The extension can only use a model whose prompts it knows how to build. */
 export function isUsable(model: ModelEntry): boolean {
-  return model.tasks.tos.promptVersion === LETTERS_PROMPT_VERSION && (!model.tasks.pii || model.tasks.pii.promptVersion === PII_PROMPT_VERSION);
+  return TOS_PROMPT_VERSIONS.includes(model.tasks.tos.promptVersion) && (!model.tasks.pii || model.tasks.pii.promptVersion === PII_PROMPT_VERSION);
 }
