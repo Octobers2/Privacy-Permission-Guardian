@@ -20,6 +20,9 @@ from paths import RUNS, MERGED
 
 ap = argparse.ArgumentParser(); ap.add_argument("--only", default="1,56,4"); ap.add_argument("--skip-fetch", action="store_true")
 ap.add_argument("--dry", action="store_true"); ap.add_argument("--base4b", default="Qwen/Qwen3.5-4B-Base"); ap.add_argument("--base08", default="Qwen/Qwen3.5-0.8B-Base")
+ap.add_argument("--student-prompt", default="letters-v1", choices=["letters-v1", "letters-v2", "teacher"],
+                help="prompt for the 0.8B in step 4. Default v1: on the 4B, v2 gained nothing on test (-0.007, CI -0.037..+0.023) and its\n"
+                     "prompt is ~3x longer, so it would make the extension ~3x slower. 'teacher' = same as the teacher")
 ap.add_argument("--extra", default="", help="extra arguments for every train_joint.py call, e.g. \"--max_steps 20\" for a smoke test")
 a = ap.parse_args(); only = set(a.only.split(","))
 PY = sys.executable
@@ -101,8 +104,10 @@ if "4" in only:
     if not done(merged / "config.json"): run("merge-teacher", [PY, "merge.py", RUNS / teacher / "best", merged, a.base4b])
     tname = f"T-{teacher}"
     if not done(DATA / f"{tname}.unlabeled.logits.npy"): run("distill-targets", [PY, "distill_targets.py", merged, tname, "--prompt", tprompt])
-    train("j08-kd", "--base", a.base08, "--lora_r", "64", "--prompt", tprompt, "--unlabeled", "unlabeled", "--teacher", tname)
-    evaluate("j08-kd", a.base08, tprompt); eval_pii("j08-kd", a.base08)
+    sprompt = tprompt if a.student_prompt == "teacher" else a.student_prompt   # the teacher's logits work with any student prompt
+    print(f"--- student prompt: {sprompt}")
+    train("j08-kd", "--base", a.base08, "--lora_r", "64", "--prompt", sprompt, "--unlabeled", "unlabeled", "--teacher", tname)
+    evaluate("j08-kd", a.base08, sprompt); eval_pii("j08-kd", a.base08)
     compare("Step 4: distilled 0.8B vs the shipped 0.8B", "stu08mt-rtn4-deq-letter", "j08-kd")
 
 if not a.dry:
